@@ -573,7 +573,7 @@
         console.log('Booting app...');
         boot().then(() => { // Assuming boot can potentially have async ops before UI interaction
              console.log("Boot finished successfully, setting up listeners.");
-              Attach listeners AFTER successful boot
+            
              console.log("App ready."); // Log app readiness
         }).catch(bootError => {
              console.error("Critical error during boot:", bootError);
