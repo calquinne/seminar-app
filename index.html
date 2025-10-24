@@ -569,10 +569,11 @@
     document.addEventListener('DOMContentLoaded', () => {
         console.log("DOM fully loaded and parsed");
         initializeDomRefs(); // Initialize DOM refs *after* DOM is ready
+        setupEventListeners(); //
         console.log('Booting app...');
         boot().then(() => { // Assuming boot can potentially have async ops before UI interaction
              console.log("Boot finished successfully, setting up listeners.");
-             setupEventListeners(); // Attach listeners AFTER successful boot
+              Attach listeners AFTER successful boot
              console.log("App ready."); // Log app readiness
         }).catch(bootError => {
              console.error("Critical error during boot:", bootError);
