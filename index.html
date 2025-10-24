@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seminar Cloud App – v5.6 (Camera Toggle)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .hidden { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader { border: 4px solid rgba(255,255,255,.2); border-top-color:#3b82f6; border-radius:50%; width:3rem; height:3rem; animation: spin 1s linear infinite; }
+    video { background: #0f172a; }
+    /* Network banner state colors */
+    #network-status.online   { background-color:#166534; color:#bbf7d0; }
+    #network-status.limited  { background-color:#92400e; color:#fde68a; }
+    #network-status.offline  { background-color:#7f1d1d; color:#fecaca; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8"><body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
+
+  <!-- ADD THIS DIV FOR ERRORS -->
+  <div id="error-display" class="fixed top-0 left-0 right-0 bg-red-800 text-white p-4 z-[100] border-b-2 border-red-600 hidden font-mono text-sm whitespace-pre-wrap">
+    <strong>JavaScript Error:</strong><br>
+    <span id="error-message"></span>
+  </div>
+  <!-- END ERROR DIV -->
+
+  <div class="max-w-3xl mx-auto">
+    <!-- Loading Screen -->
+    <div id="loading-screen" ...>
+
+  <div class="max-w-3xl mx-auto">
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-50">
+      <div class="loader"></div>
+      <p class="text-gray-400 mt-4">Initializing App...</p>
+    </div>
+
+    <!-- Setup Screen (shown first if no Firebase config) -->
+    <div id="setup-screen" class="hidden bg-gray-800 p-6 rounded-2xl shadow-2xl space-y-4">
+      <h1 class="text-2xl font-bold">Project Setup</h1>
+      <p class="text-gray-300 text-sm">Paste your <span class="font-semibold">Firebase Web App config JSON</span> and choose an App ID namespace. You can also continue in offline mode for testing.</p>
+      <div>
+        <label class="text-sm text-gray-300">App ID (namespace)</label>
+        <input id="setup-appid" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-3" placeholder="seminar-cloud-dev" />
+      </div>
+      <div>
+        <label class="text-sm text-gray-300">Firebase Config JSON</label>
+        <textarea id="setup-config" rows="8" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg p-3 font-mono text-sm" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","appId":"..."}'></textarea>
+      </div>
+      <div class="flex gap-3">
+        <button id="setup-save" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg">Save & Continue</button>
+        <button id="setup-offline" class="bg-yellow-600 hover:bg-yellow-500 text-black font-semibold px-4 py-2 rounded-lg">Continue in Offline Mode</button>
+      </div>
+      <p class="text-yellow-300 text-xs">⚠️ Offline mode stores data locally and will try to sync later when you add Firebase config.</p>
+      <div id="setup-tests" class="mt-4 text-sm"></div>
+    </div>
+
+    <!-- Auth Screen (shown when Firebase configured but user not linked) -->
+    <div id="auth-screen" class="hidden text-center bg-gray-800 p-8 rounded-2xl shadow-2xl">
+      <h1 class="text-3xl font-bold mb-2">Seminar Cloud Record</h1>
+      <p class="text-gray-400 mb-4">You are signed in anonymously. Link to Google to sync recordings.</p>
+      <button id="sign-in-link-btn" class="w-full max-w-xs mx-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center">
+        <svg class="w-5 h-5 mr-3" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>s<path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 36.49 44 30.803 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+        Link to Google Account
+      </button>
+      <p class="text-xs text-gray-500 mt-3">Or continue anonymously — data will sync when you link later.</p>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app" class="hidden">
+      <header class="flex justify-between items-center mb-3">
+        <h1 class="text-3xl font-bold">My Recordings</h1>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-300">UID: <span id="user-id-display">—</span></span>
+          <button id="sign-out-btn" class="text-sm text-blue-400 hover:text-blue-300">Sign Out</button>
+        </div>
+      </header>
+
+      <!-- Smart Network Status Bar -->
+      <div id="network-status" class="w-full text-center text-sm py-2 rounded-md mb-4 transition-all duration-300 hidden">
+        <div><span id="network-status-text">Checking connection...</span></div>
+        <div id="last-sync-time" class="text-xs text-gray-300 mt-1 cursor-pointer hover:underline hidden">🕒 Last synced: —</div>
+      </div>
+
+      <!-- Sync Top Bar: progress + log toggle + summary -->
+      <div id="sync-progress" class="hidden bg-blue-900 text-white text-sm p-2 rounded-md shadow-md flex flex-col space-y-1 mb-2">
+        <div class="flex justify-between items-center">
+          <div>🔄 Uploading <span id="sync-count">0</span> / <span id="sync-total">0</span> (<span id="sync-percent">0%</span>)</div>
+          <div class="flex items-center space-x-2">
+            <button id="sync-cancel" class="bg-blue-700 hover:bg-blue-800 px-2 py-1 rounded text-xs">Cancel</button>
+            <button id="sync-toggle-log" class="text-xs text-blue-300 hover:text-blue-200">View Log ▼</button>
+          </div>
+        </div>
+        <div id="sync-log" class="hidden bg-gray-800 rounded p-2 text-xs max-h-32 overflow-y-auto border border-gray-700"></div>
+        <div class="flex justify-end mt-1 space-x-3">
+          <button id="copy-log-btn" class="text-blue-300 hover:text-blue-200 text-xs">📋 Copy Log</button>
+          <button id="export-log-btn" class="text-blue-300 hover:text-blue-200 text-xs">📄 Export Log</button>
+        </div>
+      </div>
+      <div id="sync-summary" class="hidden bg-green-800 text-green-100 text-sm p-2 rounded-md shadow-md mt-2 mb-2 flex justify-between items-center">
+        <span id="sync-summary-text">✅ Sync Complete</span>
+        <button id="view-log-btn" class="bg-green-700 hover:bg-green-600 text-white text-xs px-2 py-1 rounded">📄 View Log ▼</button>
+      </div>
+
+      <!-- Manage Class Period Titles -->
+      <div id="class-management" class="bg-gray-800 p-6 rounded-2xl shadow-lg mb-6">
+        <h2 class="text-2xl font-bold mb-6">Manage Class Periods</h2>
+        <form id="class-management-form" class="space-y-4"></form>
+        <button id="save-classes-btn" class="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg">Save Class Titles</button>
+      </div>
+
+      <!-- Recording Panel -->
+      <div class="bg-gray-800 p-6 rounded-2xl shadow-lg mb-6">
+        <h2 class="text-2xl font-bold mb-4">Record (Video + Audio)</h2>
+        <div class="grid md:grid-cols-3 gap-4 items-start">
+          <div class="md:col-span-2">
+            <video id="preview" class="w-full rounded-lg shadow aspect-video" playsinline muted autoplay></video>
+          </div>
+          <div class="space-y-3">
+            <div class="text-sm text-gray-400">Status: <span id="rec-status" class="text-gray-300">Idle</span></div>
+            <div class="text-sm text-gray-400">Timer: <span id="rec-timer" class="text-gray-300">00:00</span></div>
+            
+            <!-- *** THIS IS THE NEW BUTTON *** -->
+            <button id="toggle-camera-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-3 rounded-lg disabled:opacity-50">🔄 Switch Camera</button>
+            
+            <button id="start-rec-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 rounded-lg">Start Recording</button>
+            <button id="pause-rec-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-3 rounded-lg" disabled>Pause</button>
+            <button id="stop-rec-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-3 rounded-lg" disabled>Stop & Tag</button>
+            <p id="rec-hint" class="text-xs text-gray-500"></p>
+            <div class="text-xs text-gray-400">If <code>video/webm</code> isn’t supported, try Chrome/Edge desktop.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tag + Save Metadata -->
+      <div class="bg-gray-800 p-6 rounded-2xl shadow-lg mb-6">
+        <h2 class="text-2xl font-bold mb-6">Add Recording Metadata</h2>
+        <form id="tag-form" class="space-y-4">
+          <div>
+            <label for="school" class="block text-sm font-medium text-gray-300">School Name</label>
+            <input type="text" id="school" required class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-3" />
+          </div>
+          <div>
+            <label for="teacher" class="block text-sm font-medium text-gray-300">Teacher</label>
+            <input type="text" id="teacher" required class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-3" />
+          </div>
+          <div>
+            <label for="class-period" class="block text-sm font-medium text-gray-300">Class Period</label>
+            <select id="class-period" required class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-3">
+            <option value="">Select a period...</option>
+            </select>
+          </div>
+          <div>
+            <label for="student" class="block text-sm font-medium text-gray-300">Student</label>
+            <select id="student" required class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-3" disabled>
+              <option value="">Select a class period first...</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-sm text-gray-400">
+            <div>Duration: <span id="final-duration">00:00</span></div>
+            <div>Size: <span id="final-size">0 B</span></div>
+          </div>
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg">Save & Upload</button>
+        </form>
+      </div>
+
+      <!-- Saved Recordings -->
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Saved Recordings</h2>
+        <div id="recording-list" class="space-y-3">
+          <p id="no-recordings" class="text-gray-400 text-center py-4">No recordings found.</p>
+        </div>
+      </div>
+
+      <!-- Pending Uploads (auto-expands when there are cached items) -->
+      <div id="pending-uploads" class="hidden mt-8 bg-yellow-900/30 p-6 rounded-2xl shadow-inner border border-yellow-700">
+        <h2 class="text-xl font-bold mb-4 text-yellow-400">📦 Pending Uploads (Offline)</h2>
+        <div id="pending-progress" class="hidden mb-4">
+          <div class="flex justify-between text-xs text-yellow-300 mb-1">
+            <span id="pending-progress-text">Uploading 0 of 0...</span>
+            <span id="pending-progress-percent">0%</span>
+          </div>
+          <div class="w-full bg-yellow-950 rounded-full h-2 overflow-hidden">
+            <div id="pending-progress-bar" class="bg-yellow-400 h-2 w-0 transition-all duration-300"></div>
+          </div>
+        </div>
+        <p id="no-pending" class="text-gray-400 text-center py-4">No pending uploads. All synced ✅</p>
+        <div id="pending-list" class="space-y-3"></div>
+        <button id="retry-all-btn" class="mt-4 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded-lg text-sm hidden">🔁 Retry All Now</button>
+      </div>
+    </div>
+  </div>
+  <!-- Sync History Modal -->
+  <div id="sync-history-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div class="bg-gray-800 w-80 rounded-xl shadow-2xl p-4">
+      <h3 class="text-lg font-bold text-white mb-3">Recent Sync History</h3>
+      <div id="sync-history-list" class="max-h-60 overflow-y-auto text-sm text-gray-300 space-y-2"></div>
+      <button id="close-history" class="w-full mt-4 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm">Close</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (v11 modular) -->
+<script type="module">
+    // ---------- Global Error Catcher ----------
+    const errorDisplay = document.getElementById('error-display');
+    const errorMessageEl = document.getElementById('error-message');
+    window.onerror = function(message, source, lineno, colno, error) {
+      console.error("Global Error:", message, source, lineno, colno, error);
+      if (errorMessageEl) {
+        errorMessageEl.textContent = `Message: ${message}\nSource: ${source}\nLine: ${lineno}, Col: ${colno}\nError: ${error?.stack || error}`;
+      }
+      if (errorDisplay) {
+        errorDisplay.style.display = 'block';
+      }
+      const loading = document.getElementById('loading-screen');
+      if(loading) loading.style.display = 'flex';
+      return true;
+    };
+    window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled Promise Rejection:', event.reason);
+         if (errorMessageEl) {
+             errorMessageEl.textContent = `Unhandled Promise Rejection:\n${event.reason?.stack || event.reason}`;
+         }
+         if (errorDisplay) {
+            errorDisplay.style.display = 'block';
+         }
+         const loading = document.getElementById('loading-screen');
+         if(loading) loading.style.display = 'flex';
+    });
+    console.log('Error handlers attached.');
+    // ----------------------------------------
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import {
+      getAuth, onAuthStateChanged, GoogleAuthProvider,
+      signInWithPopup, signOut, signInAnonymously, linkWithPopup,
+      signInWithCustomToken
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import {
+      getFirestore, collection, addDoc, query, onSnapshot,
+      serverTimestamp, setLogLevel, doc, getDoc, setDoc
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import {
+      getStorage, ref as sRef, uploadBytesResumable, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+    // ---------- State Variables ----------
+    let app, auth, db, storage;
+    let currentUserId = null; window.currentUserId = null;
+    let recordingsListener = null; let classData = {};
+    let mediaStream = null, mediaRecorder = null, chunks = [];
+    let secondsElapsed = 0, timerInterval = null, currentBlob = null;
+    let currentFacingMode = 'environment';
+    let activeUploadTask = null;
+    let session = { total:0, uploaded:0, retried:0, failed:0, start:0 };
+
+    // ---------- DOM Refs (Declare Globally, Assign in initializeDomRefs) ----------
+    let loadingScreen, setupScreen, setupAppId, setupConfig, setupSave, setupOffline, setupTests, authScreen, signInLinkBtn, mainApp, signOutBtn, userIdDisplay, networkStatus, networkText, lastSyncEl, classManagementForm, saveClassesBtn, recordingList, noRecordingsMsg, classPeriodSelect, studentSelect, preview, startBtn, stopBtn, pauseBtn, toggleCameraBtn, recStatus, recTimer, finalDuration, finalSize, recHint, syncProgress, syncCount, syncTotal, syncPercent, syncCancel, syncToggleLog, syncLog, copyLogBtn, exportLogBtn, syncSummary, syncSummaryText, viewLogBtn, pendingSection, pendingProgress, pendingProgressText, pendingProgressPercent, pendingProgressBar, pendingList, pendingEmpty, retryAllBtn, historyModal, historyList, closeHistoryBtn;
+
+    // ---------- ALL FUNCTION DEFINITIONS START HERE ----------
+
+    function initializeDomRefs() {
+        loadingScreen = document.getElementById('loading-screen');
+        setupScreen = document.getElementById('setup-screen');
+        setupAppId = document.getElementById('setup-appid');
+        setupConfig = document.getElementById('setup-config');
+        setupSave = document.getElementById('setup-save');
+        setupOffline = document.getElementById('setup-offline');
+        setupTests = document.getElementById('setup-tests');
+        authScreen = document.getElementById('auth-screen');
+        signInLinkBtn = document.getElementById('sign-in-link-btn');
+        mainApp = document.getElementById('main-app');
+        signOutBtn = document.getElementById('sign-out-btn');
+        userIdDisplay = document.getElementById('user-id-display');
+        networkStatus = document.getElementById('network-status');
+        networkText = document.getElementById('network-status-text');
+        lastSyncEl = document.getElementById('last-sync-time');
+        classManagementForm = document.getElementById('class-management-form');
+        saveClassesBtn = document.getElementById('save-classes-btn');
+        recordingList = document.getElementById('recording-list');
+        noRecordingsMsg = document.getElementById('no-recordings');
+        classPeriodSelect = document.getElementById('class-period');
+        studentSelect = document.getElementById('student');
+        preview = document.getElementById('preview');
+        startBtn = document.getElementById('start-rec-btn');
+        stopBtn = document.getElementById('stop-rec-btn');
+        pauseBtn = document.getElementById('pause-rec-btn');
+        toggleCameraBtn = document.getElementById('toggle-camera-btn');
+        recStatus = document.getElementById('rec-status');
+        recTimer = document.getElementById('rec-timer');
+        finalDuration = document.getElementById('final-duration');
+        finalSize = document.getElementById('final-size');
+        recHint = document.getElementById('rec-hint');
+        syncProgress = document.getElementById('sync-progress');
+        syncCount = document.getElementById('sync-count');
+        syncTotal = document.getElementById('sync-total');
+        syncPercent = document.getElementById('sync-percent');
+        syncCancel = document.getElementById('sync-cancel');
+        syncToggleLog = document.getElementById('sync-toggle-log');
+        syncLog = document.getElementById('sync-log');
+        copyLogBtn = document.getElementById('copy-log-btn');
+        exportLogBtn = document.getElementById('export-log-btn');
+        syncSummary = document.getElementById('sync-summary');
+        syncSummaryText = document.getElementById('sync-summary-text');
+        viewLogBtn = document.getElementById('view-log-btn');
+        pendingSection = document.getElementById('pending-uploads');
+        pendingProgress = document.getElementById('pending-progress');
+        pendingProgressText = document.getElementById('pending-progress-text');
+        pendingProgressPercent = document.getElementById('pending-progress-percent');
+        pendingProgressBar = document.getElementById('pending-progress-bar');
+        pendingList = document.getElementById('pending-list');
+        pendingEmpty = document.getElementById('no-pending');
+        retryAllBtn = document.getElementById('retry-all-btn');
+        historyModal = document.getElementById('sync-history-modal');
+        historyList = document.getElementById('sync-history-list');
+        closeHistoryBtn = document.getElementById('close-history');
+        console.log("DOM refs initialized.");
+    }
+
+    function openIndexedDB(name, version=1){ /* ... code ... */ }
+    async function idbAdd(store, value){ /* ... code ... */ }
+    async function idbPut(store, value){ /* ... code ... */ }
+    async function idbGetAll(store){ /* ... code ... */ }
+    async function idbDelete(store, key){ /* ... code ... */ }
+
+    function show(el){ /* ... code using style.display ... */ }
+    function hide(el){ /* ... code using style.display ... */ }
+    function showScreen(id){ /* ... code using style.display and logging ... */ }
+
+    function offlineSet(key, value){ /* ... code ... */ }
+    function offlineGet(key, fallback){ /* ... code ... */ }
+
+    function addTest(msg, pass, note=''){ /* ... code ... */ }
+    function validateConfig(cfg){ /* ... code ... */ }
+
+    function setNetworkStatus(mode, message){ /* ... code ... */ }
+    function updateLastSyncTime(){ /* ... code ... */ }
+    function restoreLastSync(){ /* ... code ... */ }
+
+    function logLine(msg,type='info'){ /* ... code ... */ }
+    function logHeader(){ /* ... code ... */ }
+    function logSummary(){ /* ... code ... */ }
+
+    function toast(msg,type='info'){ /* ... code ... */ }
+
+    function readBootConfig(){ /* ... code ... */ }
+    function renderSetupTests(source, cfg){ /* ... code ... */ }
+
+    async function postAuthLoad(){ /* ... code ... */ }
+    function renderRecordings(docs){ /* ... code ... */ }
+
+    async function loadClassData(){ /* ... code ... */ }
+    function populateClassManagementUI(){ /* ... code ... */ }
+    function populateClassPeriodsDropdown(){ /* ... code ... */ }
+
+    const fmt=(s)=>String(s).padStart(2,'0');
+    function fmtTime(sec){ return `${fmt(Math.floor(sec/60))}:${fmt(sec%60)}`; }
+    function bytesToSize(bytes){ if(bytes===0) return '0 B'; const k=1024, sizes=['B','KB','MB','GB']; const i=Math.floor(Math.log(bytes)/Math.log(k)); return parseFloat((bytes/Math.pow(k,i)).toFixed(2))+" "+sizes[i]; }
+    function showModal(title, message) { /* ... code ... */ }
+    async function startRecording(){ /* ... code with camera toggle logic ... */ }
+    function pauseOrResume(){ /* ... code ... */ }
+    async function stopRecording(){ /* ... code with camera toggle logic ... */ }
+
+    async function cacheOffline(blob, meta, id, timestamp){ /* ... code ... */ }
+    async function updatePendingUI(){ /* ... code ... */ }
+    function attachRetryButtonListeners() { /* ... code ... */ }
+    async function retrySingleUpload(id){ /* ... code ... */ }
+    async function retryAllPendingUploads(){ /* ... code ... */ }
+
+    function showSummary(hadFailures=false){ /* ... code ... */ }
+    function logSyncSession({uploaded=0,retried=0,failed=0,mode='Online'}){ /* ... code ... */ }
+    function showSyncHistory(){ /* ... code ... */ }
+
+    // ---------- Event Handler Functions ----------
+    // (Ensure ALL handle... functions are defined HERE, before setupEventListeners)
+    async function handleTagFormSubmit(e) { /* ... code for saving/uploading ... */ }
+    async function handleSignInLink() { /* ... code for Google sign in/link ... */ }
+    function handleSignOut() { /* ... code for sign out ... */ }
+    function handleOnline() { /* ... code for online event ... */ }
+    function handleOffline() { /* ... code for offline event ... */ }
+    function handleSetupSave() { /* ... code for setup save button ... */ }
+    async function handleSetupOffline() { /* ... code for setup offline button ... */ }
+    async function handleSaveClasses(e) { /* ... code for save classes button ... */ }
+    function handleClassPeriodChange(e) { /* ... code for class dropdown change ... */ }
+    async function handleRetryAll() { /* ... code for retry all button ... */ }
+    function handleCopyLog() { /* ... code for copy log button ... */ }
+    function handleExportLog() { /* ... code for export log button ... */ }
+    function handleToggleSyncLog() { /* ... code for toggle log button (top bar) ... */ }
+    function handleViewLogFromSummary() { /* ... code for view log button (summary bar) ... */ }
+    function handleSyncCancel() { /* ... code for cancel upload button ... */ }
+
+    // ---------- Firebase boot Function ----------
+    async function boot(){
+      console.log("boot() started");
+      try{
+        // Initialize DOM refs *after* DOM is ready, called from DOMContentLoaded listener now
+        // initializeDomRefs(); // MOVED
+
+        const bootCfg = readBootConfig();
+        // Safely assign appId, defaulting if bootCfg is somehow malformed
+        window.APP_ID = bootCfg?.appId || 'default-app-id';
+        console.log(`Using App ID: ${window.APP_ID}`);
+
+        // *** THIS IS THE CORRECTED CHECK ***
+        // Check if config exists AND is valid *before* trying to use its properties
+        if(!bootCfg.config || !validateConfig(bootCfg.config).ok){
+          console.log('Invalid or missing config, showing setup screen.');
+          // Ensure DOM refs are ready before rendering UI updates
+          // Use typeof check for safety as initializeDomRefs might not be defined yet
+          if (!setupTests && typeof initializeDomRefs === 'function') initializeDomRefs();
+          renderSetupTests(bootCfg.from, bootCfg.config); // Pass potentially null config safely
+          showScreen('setup-screen'); // Show setup screen
+          hide(loadingScreen); // Explicitly hide loading if showing setup
+          console.log("boot() finished - showing setup."); // Log exit path
+          return; // Stop execution, wait for user input
+        }
+
+        // --- Config is valid, proceed with Firebase init ---
+        // Ensure projectId exists before logging it
+        const projectId = bootCfg.config.projectId || 'N/A';
+        console.log('Valid config found. Initializing Firebase with project:', projectId);
+        app = initializeApp(bootCfg.config);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        storage = getStorage(app);
+        setLogLevel('Debug');
+        console.log("Firebase initialized");
+
+        onAuthStateChanged(auth, async (user)=>{
+          console.log('onAuthStateChanged fired. User:', user ? user.uid : 'null');
+          // Ensure DOM refs are ready before UI updates in async callback
+          if (!userIdDisplay && typeof initializeDomRefs === 'function') initializeDomRefs(); // Init if needed
+
+          if(user){
+            currentUserId = user.uid; window.currentUserId = user.uid;
+            if(userIdDisplay) userIdDisplay.textContent = user.uid.substring(0, 10) + '...' + (user.isAnonymous? ' (anon)':'' );
+            showScreen('main-app'); // Show main app
+            if(navigator.onLine){ setNetworkStatus('online','🟢 Online — Cloud sync active'); } else { setNetworkStatus('offline','🔴 Offline — Uploads will be saved locally'); }
+            restoreLastSync();
+            try {
+              await postAuthLoad();
+              console.log("Post-auth load complete.");
+            } catch (err) {
+              console.error("Error during post-auth load:", err);
+              toast(`Failed to load app data: ${err.message}`, 'error');
+            }
+          } else {
+            currentUserId = null; window.currentUserId = null;
+            showScreen('auth-screen'); // Show auth screen if no user
+          }
+        });
+        console.log("onAuthStateChanged listener attached");
+
+        // Try to sign in
+        try{
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+             console.log('Attempting sign-in with custom token...');
+             await signInWithCustomToken(auth, __initial_auth_token);
+             console.log('Custom token sign-in successful.');
+          } else {
+             console.log('No custom token found or empty, attempting anonymous sign-in...');
+             await signInAnonymously(auth);
+             console.log('Anonymous sign-in successful.');
+          }
+        } catch(e){
+          console.error('Initial sign-in failed:', e);
+          // onAuthStateChanged will handle showing auth screen
+        }
+
+      }catch(e){
+        console.error('Failed to initialize Firebase or critical boot error:', e);
+         // Ensure DOM refs are ready before showing error UI
+         if (!errorDisplay && typeof initializeDomRefs === 'function') initializeDomRefs(); // Init if needed
+        if(errorMessageEl) errorMessageEl.textContent = `Critical boot error: ${e.message}\n${e.stack}`; // Display error + stack
+        if(errorDisplay) show(errorDisplay); // Show error bar
+        hide(loadingScreen); // Ensure loading is hidden
+        renderSetupTests('init-error', null);
+        showScreen('setup-screen'); // Fallback to setup screen
+      }
+      console.log("boot() finished - main path."); // Log normal exit
+    }
+
+
+    // ---------- Event Listeners Setup (Defined near end) ----------
+    function setupEventListeners() {
+        console.log("Setting up event listeners...");
+        // Ensure DOM refs are initialized before attaching listeners
+        // initializeDomRefs(); // Already called in DOMContentLoaded
+
+        // Attach listeners with null checks
+        if (startBtn) startBtn.addEventListener('click', startRecording); else console.error("Start button not found");
+        if (pauseBtn) pauseBtn.addEventListener('click', pauseOrResume); else console.error("Pause button not found");
+        if (stopBtn) stopBtn.addEventListener('click', stopRecording); else console.error("Stop button not found");
+        if (toggleCameraBtn) {
+            toggleCameraBtn.addEventListener('click', () => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    toast('Cannot switch camera while recording.', 'warn');
+                    return;
+                }
+                currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+                const newLabel = (currentFacingMode === 'user') ? 'Front' : 'Back';
+                toast(`Switched to ${newLabel} Camera`);
+                console.log('Camera set to:', currentFacingMode);
+            });
+        } else console.error("Toggle camera button not found");
+
+        const tagForm = document.getElementById('tag-form');
+        if (tagForm) tagForm.addEventListener('submit', handleTagFormSubmit); else console.error("Tag form not found");
+        if (signInLinkBtn) signInLinkBtn.addEventListener('click', handleSignInLink); else console.error("Sign-in link button not found");
+        if (signOutBtn) signOutBtn.addEventListener('click', handleSignOut); else console.error("Sign out button not found");
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        if (setupSave) setupSave.addEventListener('click', handleSetupSave); else console.error("Setup save button not found");
+        if (setupOffline) setupOffline.addEventListener('click', handleSetupOffline); else console.error("Setup offline button not found");
+        if (saveClassesBtn) saveClassesBtn.addEventListener('click', handleSaveClasses); else console.error("Save classes button not found");
+        if (classPeriodSelect) classPeriodSelect.addEventListener('change', handleClassPeriodChange); else console.error("Class period select not found");
+        if (retryAllBtn) retryAllBtn.addEventListener('click', handleRetryAll); else console.error("Retry all button not found");
+        if (lastSyncEl) lastSyncEl.addEventListener('click', showSyncHistory); else console.error("Last sync element not found");
+        if (closeHistoryBtn) closeHistoryBtn.addEventListener('click', () => { if(historyModal) hide(historyModal); }); else console.error("Close history button not found");
+        if (copyLogBtn) copyLogBtn.addEventListener('click', handleCopyLog); else console.error("Copy log button not found");
+        if (exportLogBtn) exportLogBtn.addEventListener('click', handleExportLog); else console.error("Export log button not found");
+        if (syncToggleLog) syncToggleLog.addEventListener('click', handleToggleSyncLog); else console.error("Sync toggle log button not found");
+        if (viewLogBtn) viewLogBtn.addEventListener('click', handleViewLogFromSummary); else console.error("View log button (summary) not found");
+        if (syncCancel) syncCancel.addEventListener('click', handleSyncCancel); else console.error("Sync cancel button not found");
+
+        // Attach retry button listeners initially (will be re-attached in updatePendingUI)
+        attachRetryButtonListeners();
+
+        console.log("Event listeners setup complete.");
+    }
+
+    // ---------- Init (Last thing in the script) ----------
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log("DOM fully loaded and parsed");
+        initializeDomRefs(); // Initialize DOM refs *after* DOM is ready
+        console.log('Booting app...');
+        boot().then(() => { // Wait for boot (especially Firebase init) to complete
+             console.log("Boot finished successfully.");
+             setupEventListeners(); // Attach listeners AFTER successful boot
+             console.log("App ready.");
+        }).catch(bootError => {
+             // Handle critical boot errors (like Firebase init failure)
+             console.error("Critical error during boot, listeners not attached:", bootError);
+             if (errorMessageEl) errorMessageEl.textContent = `Critical boot error: ${bootError.message}\nPlease check Firebase config and network connection.`;
+             if (errorDisplay) show(errorDisplay);
+             hide(loadingScreen); // Ensure loading is hidden
+             // Show setup screen as fallback
+             if (setupScreen) showScreen('setup-screen');
+             else console.error("Setup screen element not found for fallback.");
+        });
+    });
+
+</script>
+</body>
+</html>
+
+
+
+
