@@ -497,7 +497,37 @@
     function handleOnline() { /* ... defined above ... */ }
     function handleOffline() { /* ... defined above ... */ }
     function handleSetupSave() { /* ... defined above ... */ }
-    async function handleSetupOffline() { /* ... defined above ... */ }
+    async function handleSetupOffline() {
+  console.log("Setting up offline mode...");
+
+  // 1. Set the global app mode variable
+  appMode = 'offline'; 
+
+  // 2. Save this choice to local storage so the app remembers
+  try {
+    // Using 'default-app-id' from your app's logs
+    localStorage.setItem('seminar-app-id', 'default-app-id');
+    localStorage.setItem('seminar-app-config', JSON.stringify({ mode: 'offline' }));
+  } catch (e) {
+    console.error("Failed to save offline settings to localStorage", e);
+  }
+
+  // 3. Hide the setup screen
+  if (setupScreen) {
+    hide(setupScreen);
+  } else {
+    console.error("Could not find setupScreen to hide!");
+  }
+
+  // 4. Show the main app screen
+  // (This assumes the variable for your main app is 'mainAppScreen')
+  if (mainAppScreen) { 
+    show(mainAppScreen);
+  } else {
+    console.error("Could not find mainAppScreen to show!");
+  }
+}
+
     async function handleSaveClasses(e) { /* ... defined above ... */ }
     function handleClassPeriodChange(e) { /* ... defined above ... */ }
     async function handleRetryAll() { /* ... defined above ... */ }
