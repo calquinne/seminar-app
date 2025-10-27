@@ -462,10 +462,36 @@ const mainAppScreen = document.getElementById('main-app'); //
     function renderRecordings(docs){ /* ... same as before ... */ if(!recordingList) return; recordingList.innerHTML = ''; if (!docs || docs.length === 0) { if (noRecordingsMsg) { show(noRecordingsMsg); } return; } if (noRecordingsMsg) hide(noRecordingsMsg); const sorted = docs.sort((a,b)=>{ const ta = a.data().createdAt?.toMillis?.() || 0; const tb = b.data().createdAt?.toMillis?.() || 0; return tb - ta; }); sorted.forEach(docSnap=>{ const data = docSnap.data(); const el = document.createElement('div'); el.className = 'bg-gray-700 p-4 rounded-lg shadow-md transition-all hover:bg-gray-600'; const date = data.createdAt?.toDate?.()?.toLocaleString?.() || (data.createdAt || 'No date'); const studentName = data.student || 'Unknown Student'; const isSynced = !!data.videoUrl; el.innerHTML = ` <div class="flex justify-between items-start mb-2"> <span class="font-semibold text-lg text-white">${studentName}</span> <span class="text-xs font-medium px-2 py-0.5 rounded-full ${isSynced ? 'bg-green-700 text-green-100' : 'bg-blue-700 text-blue-100'}"> ${isSynced ? 'Synced' : 'Processing'} </span> </div> <p class="text-sm text-gray-300">${data.classPeriod || 'N/A'} - ${data.classTitle || 'N/A'}</p> <p class="text-sm text-gray-400">${data.teacher || 'N/A'} • ${data.school || 'N/A'}</p> <div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-600"> <span class="text-xs text-gray-400">Duration: ${data.duration || '00:00'}</span> <span class="text-xs text-gray-400">${date}</span> </div> `; recordingList.appendChild(el); }); }
 
     // ---------- Class data ----------
-    async function loadClassData(){ /* ... same as before ... */ const appId = window.APP_ID || 'default-app-id'; const defaultData = { 'Period 1': { title:'English', students:['Alice Smith','Bob Johnson','Charlie Brown'] }, 'Period 2': { title:'History', students:['David Lee','Eve White','Frank Green'] }, 'Period 3': { title:'Math', students:['Grace Hall','Henry King','Ivy Scott'] }, 'Period 4': { title:'Science', students:['Jack Turner','Kate Baker','Leo Price'] }, 'Period 5': { title:'Elective 1', students:[] }, 'Period 6': { title:'Elective 2', students:[] }, 'Period 7': { title:'Elective 3', students:[] } }; const cacheKey = `classData_${currentUserId || 'offline'}`; try{ if(!db || !currentUserId) throw new Error('No DB or user, using local/default.'); const ref = doc(db, `artifacts/${appId}/users/${currentUserId}/appData`, 'classSettings'); console.log('Loading class data from:', ref.path); const snap = await getDoc(ref); if(snap.exists()){ classData = snap.data(); console.log('Loaded class data from Firestore.'); offlineSet(cacheKey, classData); } else { console.log('No class data in Firestore, checking local cache...'); classData = offlineGet(cacheKey, null); if (classData) { console.log('Using locally cached class data.'); } else { console.log('No local cache, creating default doc in Firestore.'); classData = defaultData; await setDoc(ref, classData).catch(e => console.error("Failed to set default doc:", e)); offlineSet(cacheKey, classData); } } }catch(err){ console.warn(`Failed to load/set Firestore class data (${err.message}). Using local cache or default.`); classData = offlineGet(cacheKey, defaultData); } populateClassManagementUI(); populateClassPeriodsDropdown(); }
-    function populateClassManagementUI(){ /* ... same as before ... */ if (!classManagementForm) return; classManagementForm.innerHTML=''; if (!classData || Object.keys(classData).length === 0) { console.warn('No class data to populate UI.'); return; } const periods = Object.keys(classData).sort((a,b)=> (parseInt(a.split(' ')[1]) || 0) - (parseInt(b.split(' ')[1]) || 0)); periods.forEach(period=>{ const title = classData[period]?.title || ''; const div = document.createElement('div'); div.innerHTML = ` <label class="block text-sm font-medium text-gray-300" for="title-${period.replace(/\s+/g,'-')}">${period}</label> <input id="title-${period.replace(/\s+/g,'-')}" data-period="${period}" value="${title}" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-3 focus:ring-blue-500 focus:border-blue-500" /> `; classManagementForm.appendChild(div); }); }
-    function populateClassPeriodsDropdown(){ /* ... same as before ... */ if (!classPeriodSelect) return; classPeriodSelect.innerHTML = '<option value="">Select a period...</option>'; if (!classData || Object.keys(classData).length === 0) { return; } const periods = Object.keys(classData).sort((a,b)=> (parseInt(a.split(' ')[1]) || 0) - (parseInt(b.split(' ')[1]) || 0)); periods.forEach(period=>{ const option = document.createElement('option'); option.value = period; option.textContent = `${period} - ${classData[period]?.title || 'Untitled'}`; classPeriodSelect.appendChild(option); }); }
+   async function loadClassData(){ 
+      const defaultData = { 
+        'Period 1': { title:'English', students:['Alice Smith','Bob Johnson','Charlie Brown'] },
+        'Period 2': { title:'History', students:['David Lee','Eve White','Frank Green'] },
+        'Period 3': { title:'Math', students:['Grace Hall','Henry King','Ivy Scott'] },
+        'Period 4': { title:'Science', students:['Jack Turner','Kate Baker','Leo Price'] },
+        'Period 5': { title:'Elective 1', students:[] },
+        'Period 6': { title:'Elective 2', students:[] },
+        'Period 7': { title:'Elective 3', students:[] } 
+      };
+      
+      const cacheKey = `classData_${currentUserId || 'offline'}`;
+      
+      // Try loading from localStorage first
+      classData = offlineGet(cacheKey, null); 
+      
+      if (classData) {
+          console.log('Loaded class data from localStorage cache.');
+      } else {
+          // If not in localStorage, use defaults (we won't check Firestore yet)
+          console.log('No local cache found, using default class data.');
+          classData = defaultData;
+          // Optionally, save the defaults to localStorage now
+          offlineSet(cacheKey, classData);
+      }
 
+      // Update the UI
+      populateClassManagementUI();
+      populateClassPeriodsDropdown(); 
+    }
     // ---------- Recording Functions ----------
     const fmt=(s)=>String(s).padStart(2,'0');
     function fmtTime(sec){ return `${fmt(Math.floor(sec/60))}:${fmt(sec%60)}`; }
@@ -530,14 +556,52 @@ const mainAppScreen = document.getElementById('main-app'); //
   }
 }
 
-    async function handleSaveClasses(e) { /* ... defined above ... */ }
-    function handleClassPeriodChange(e) { /* ... defined above ... */ }
-    async function handleRetryAll() { /* ... defined above ... */ }
-    function handleCopyLog() { /* ... defined above ... */ }
-    function handleExportLog() { /* ... defined above ... */ }
-    function handleToggleSyncLog() { /* ... defined above ... */ }
-    function handleViewLogFromSummary() { /* ... defined above ... */ }
-    function handleSyncCancel() { /* ... defined above ... */ }
+   async function handleSaveClasses(e) { 
+      e.preventDefault(); // Prevent potential form submission
+      console.log('Saving class titles...');
+      if (!classManagementForm) {
+        console.error("Class management form not found!");
+        toast('Error: Could not find class form elements.', 'error');
+        return;
+      }
+      
+      const updatedClassData = {};
+      const inputs = classManagementForm.querySelectorAll('input[data-period]');
+      
+      inputs.forEach(input => {
+        const period = input.dataset.period;
+        if (period) {
+          // Ensure the object exists before assigning the title
+          if (!updatedClassData[period]) {
+            // If it doesn't exist, try to copy existing students or default to empty
+            updatedClassData[period] = { 
+              title: input.value.trim(), 
+              students: classData[period]?.students || [] // Keep existing students
+            };
+          } else {
+             updatedClassData[period].title = input.value.trim();
+          }
+        }
+      });
+
+      // Update the global state
+      classData = updatedClassData;
+      
+      // Save to localStorage (for offline mode)
+      const cacheKey = `classData_${currentUserId || 'offline'}`;
+      try {
+        offlineSet(cacheKey, classData); 
+        console.log('Class data saved to localStorage:', classData);
+        toast('Class titles saved locally.', 'success');
+        
+        // Refresh the dropdowns immediately
+        populateClassPeriodsDropdown(); 
+        
+      } catch (err) {
+        console.error("Failed to save class data to localStorage:", err);
+        toast('Error saving class titles locally.', 'error');
+      }
+    }
 
     // ---------- Event Listeners Setup (MOVED TO END) ----------
     function setupEventListeners() {
