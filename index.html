@@ -564,7 +564,41 @@ const mainAppScreen = document.getElementById('main-app'); //
         toast('Error: Could not find class form elements.', 'error');
         return;
       }
+      function handleClassPeriodChange(e) {
+      const selectedPeriod = e.target.value;
+      console.log('Class period changed to:', selectedPeriod);
       
+      if (!studentSelect) {
+        console.error("Student select dropdown not found");
+        return;
+      }
+
+      // Clear the student dropdown first
+      studentSelect.innerHTML = '<option value="">Select a student...</option>';
+      studentSelect.disabled = true;
+
+      if (!selectedPeriod) {
+        studentSelect.innerHTML = '<option value="">Select a class period first...</option>';
+        return; // No period selected
+      }
+
+      // Find the student list for the selected period
+      const students = classData[selectedPeriod]?.students || [];
+
+      if (students.length === 0) {
+        studentSelect.innerHTML = '<option value="">No students in this class</option>';
+        // Keep it disabled
+      } else {
+        // Populate the student dropdown
+        students.forEach(studentName => {
+          const option = document.createElement('option');
+          option.value = studentName;
+          option.textContent = studentName;
+          studentSelect.appendChild(option);
+        });
+        studentSelect.disabled = false; // Enable the dropdown
+      }
+    }
       const updatedClassData = {};
       const inputs = classManagementForm.querySelectorAll('input[data-period]');
       
