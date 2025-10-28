@@ -610,6 +610,34 @@ function handleViewLogFromSummary() {
   // Auto-scroll to latest log entry
   logElement.scrollTop = logElement.scrollHeight;
 }
+function handleSyncCancel() {
+  console.log("User clicked Cancel Sync.");
+
+  if (activeUploadTask) {
+    try {
+      activeUploadTask.cancel();
+      toast("Sync canceled by user.", "warn");
+      logLine("⚠️ Upload canceled by user.", "warn");
+    } catch (err) {
+      console.error("Failed to cancel active upload:", err);
+      toast("Could not cancel upload.", "error");
+    } finally {
+      activeUploadTask = null;
+    }
+  } else {
+    toast("No active sync in progress.", "info");
+    console.log("No active upload to cancel.");
+  }
+
+  // Hide progress + show summary banner
+  if (syncProgress) hide(syncProgress);
+  if (syncSummary) {
+    syncSummaryText.textContent = "⚠️ Sync canceled by user.";
+    syncSummary.classList.remove('bg-green-800', 'text-green-100');
+    syncSummary.classList.add('bg-yellow-700', 'text-yellow-100');
+    show(syncSummary);
+  }
+}
 
     // ---------- Sync summary banners ----------
     function showSummary(hadFailures=false){ /* ... same as before ... */ hide(syncProgress); if (!syncSummary || !syncSummaryText) return; const total=session.total || 0; let text; if (total === 0 && !hadFailures) { text = '✅ All items are synced.'; syncSummary.classList.remove('bg-yellow-700', 'text-yellow-100'); syncSummary.classList.add('bg-green-800', 'text-green-100'); } else if (session.failed > 0 || hadFailures) { syncSummary.classList.remove('bg-green-800', 'text-green-100'); syncSummary.classList.add('bg-yellow-700', 'text-yellow-100'); text = `⚠️ Sync Complete with errors — ${session.failed} item(s) failed and are cached offline.`; } else { syncSummary.classList.remove('bg-yellow-700', 'text-yellow-100'); syncSummary.classList.add('bg-green-800', 'text-green-100'); text = `✅ Sync Complete — ${session.uploaded + session.retried} item(s) uploaded successfully.`; } syncSummaryText.textContent = text; show(syncSummary); setTimeout(()=> hide(syncSummary), 10000); }
