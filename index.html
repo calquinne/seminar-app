@@ -532,6 +532,33 @@ function handleCopyLog() {
       toast("Failed to copy log.", "error");
     });
 }
+function handleExportLog() {
+  if (!syncLog) {
+    console.error("Sync log element not found.");
+    toast("No log data to export.", "error");
+    return;
+  }
+
+  const text = syncLog.innerText.trim();
+  if (!text) {
+    toast("Log is empty.", "warn");
+    return;
+  }
+
+  // Create a downloadable text file of the log
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `SyncLog_${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+  toast("Sync log exported as text file.", "success");
+}
 
     // ---------- Sync summary banners ----------
     function showSummary(hadFailures=false){ /* ... same as before ... */ hide(syncProgress); if (!syncSummary || !syncSummaryText) return; const total=session.total || 0; let text; if (total === 0 && !hadFailures) { text = '✅ All items are synced.'; syncSummary.classList.remove('bg-yellow-700', 'text-yellow-100'); syncSummary.classList.add('bg-green-800', 'text-green-100'); } else if (session.failed > 0 || hadFailures) { syncSummary.classList.remove('bg-green-800', 'text-green-100'); syncSummary.classList.add('bg-yellow-700', 'text-yellow-100'); text = `⚠️ Sync Complete with errors — ${session.failed} item(s) failed and are cached offline.`; } else { syncSummary.classList.remove('bg-yellow-700', 'text-yellow-100'); syncSummary.classList.add('bg-green-800', 'text-green-100'); text = `✅ Sync Complete — ${session.uploaded + session.retried} item(s) uploaded successfully.`; } syncSummaryText.textContent = text; show(syncSummary); setTimeout(()=> hide(syncSummary), 10000); }
