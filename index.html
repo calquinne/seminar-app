@@ -556,86 +556,91 @@ const mainAppScreen = document.getElementById('main-app'); //
   }
 }
 
-   async function handleSaveClasses(e) { 
-      e.preventDefault(); // Prevent potential form submission
-      console.log('Saving class titles...');
-      if (!classManagementForm) {
-        console.error("Class management form not found!");
-        toast('Error: Could not find class form elements.', 'error');
-        return;
-      }
-      function handleClassPeriodChange(e) {
-      const selectedPeriod = e.target.value;
-      console.log('Class period changed to:', selectedPeriod);
-      
-      if (!studentSelect) {
-        console.error("Student select dropdown not found");
-        return;
-      }
+  // ---------- Class Period Change ----------
+function handleClassPeriodChange(e) {
+  const selectedPeriod = e.target.value;
+  console.log('Class period changed to:', selectedPeriod);
 
-      // Clear the student dropdown first
-      studentSelect.innerHTML = '<option value="">Select a student...</option>';
-      studentSelect.disabled = true;
+  if (!studentSelect) {
+    console.error("Student select dropdown not found");
+    return;
+  }
 
-      if (!selectedPeriod) {
-        studentSelect.innerHTML = '<option value="">Select a class period first...</option>';
-        return; // No period selected
-      }
+  // Clear the student dropdown first
+  studentSelect.innerHTML = '<option value="">Select a student...</option>';
+  studentSelect.disabled = true;
 
-      // Find the student list for the selected period
-      const students = classData[selectedPeriod]?.students || [];
+  if (!selectedPeriod) {
+    studentSelect.innerHTML = '<option value="">Select a class period first...</option>';
+    return; // No period selected
+  }
 
-      if (students.length === 0) {
-        studentSelect.innerHTML = '<option value="">No students in this class</option>';
-        // Keep it disabled
+  // Find the student list for the selected period
+  const students = classData[selectedPeriod]?.students || [];
+
+  if (students.length === 0) {
+    studentSelect.innerHTML = '<option value="">No students in this class</option>';
+    // Keep it disabled
+  } else {
+    // Populate the student dropdown
+    students.forEach(studentName => {
+      const option = document.createElement('option');
+      option.value = studentName;
+      option.textContent = studentName;
+      studentSelect.appendChild(option);
+    });
+    studentSelect.disabled = false; // Enable the dropdown
+  }
+}
+
+// ---------- Save Class Titles ----------
+async function handleSaveClasses(e) {
+  e.preventDefault();
+  console.log('Saving class titles...');
+
+  if (!classManagementForm) {
+    console.error("Class management form not found!");
+    toast('Error: Could not find class form elements.', 'error');
+    return;
+  }
+
+  const updatedClassData = {};
+  const inputs = classManagementForm.querySelectorAll('input[data-period]');
+  
+  inputs.forEach(input => {
+    const period = input.dataset.period;
+    if (period) {
+      // Ensure the object exists before assigning the title
+      if (!updatedClassData[period]) {
+        // If it doesn't exist, try to copy existing students or default to empty
+        updatedClassData[period] = { 
+          title: input.value.trim(), 
+          students: classData[period]?.students || [] // Keep existing students
+        };
       } else {
-        // Populate the student dropdown
-        students.forEach(studentName => {
-          const option = document.createElement('option');
-          option.value = studentName;
-          option.textContent = studentName;
-          studentSelect.appendChild(option);
-        });
-        studentSelect.disabled = false; // Enable the dropdown
+         updatedClassData[period].title = input.value.trim();
       }
     }
-      const updatedClassData = {};
-      const inputs = classManagementForm.querySelectorAll('input[data-period]');
-      
-      inputs.forEach(input => {
-        const period = input.dataset.period;
-        if (period) {
-          // Ensure the object exists before assigning the title
-          if (!updatedClassData[period]) {
-            // If it doesn't exist, try to copy existing students or default to empty
-            updatedClassData[period] = { 
-              title: input.value.trim(), 
-              students: classData[period]?.students || [] // Keep existing students
-            };
-          } else {
-             updatedClassData[period].title = input.value.trim();
-          }
-        }
-      });
+  });
 
-      // Update the global state
-      classData = updatedClassData;
-      
-      // Save to localStorage (for offline mode)
-      const cacheKey = `classData_${currentUserId || 'offline'}`;
-      try {
-        offlineSet(cacheKey, classData); 
-        console.log('Class data saved to localStorage:', classData);
-        toast('Class titles saved locally.', 'success');
-        
-        // Refresh the dropdowns immediately
-        populateClassPeriodsDropdown(); 
-        
-      } catch (err) {
-        console.error("Failed to save class data to localStorage:", err);
-        toast('Error saving class titles locally.', 'error');
-      }
-    }
+  // Update the global state
+  classData = updatedClassData;
+  
+  // Save to localStorage (for offline mode)
+  const cacheKey = `classData_${currentUserId || 'offline'}`;
+  try {
+    offlineSet(cacheKey, classData); 
+    console.log('Class data saved to localStorage:', classData);
+    toast('Class titles saved locally.', 'success');
+    
+    // Refresh the dropdowns immediately
+    populateClassPeriodsDropdown(); 
+    
+  } catch (err) {
+    console.error("Failed to save class data to localStorage:", err);
+    toast('Error saving class titles locally.', 'error');
+  }
+}
 
     // ---------- Event Listeners Setup (MOVED TO END) ----------
     function setupEventListeners() {
