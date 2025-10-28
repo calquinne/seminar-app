@@ -511,6 +511,27 @@ const mainAppScreen = document.getElementById('main-app'); //
     async function retryAllPendingUploads(){ /* ... same as before with Promise.allSettled ... */ let pending = []; try { pending = await idbGetAll('pendingUploads'); } catch (err) { console.error("Failed to get pending items for retry all:", err); return; } if(pending.length===0) { console.log("No pending uploads to retry."); return; } if (!navigator.onLine || !auth?.currentUser) { console.log('Cannot retry all, offline or not authenticated.'); return; } console.log(`Retrying ${pending.length} pending uploads...`); if(pendingProgress) show(pendingProgress); if(pendingProgressBar) { pendingProgressBar.classList.remove('bg-green-400', 'bg-red-500'); pendingProgressBar.classList.add('bg-yellow-400'); pendingProgressBar.style.width = '0%'; } if(pendingProgressText) pendingProgressText.textContent = `Processing 0 of ${pending.length}...`; if(pendingProgressPercent) pendingProgressPercent.textContent = `0%`; session = { total: pending.length, uploaded:0, retried:0, failed:0, start: Date.now() }; let completedCount = 0; show(syncProgress); hide(syncSummary); if(syncLog) syncLog.innerHTML = ''; show(syncLog); if(syncToggleLog) syncToggleLog.textContent='Hide Log ▲'; if(syncTotal) syncTotal.textContent = pending.length; if(syncCount) syncCount.textContent = 0; if(syncPercent) syncPercent.textContent = '0%'; logLine(`Starting batch retry for ${pending.length} items...`); const results = await Promise.allSettled(pending.map(rec => retrySingleUpload(rec.id))); results.forEach(result => { completedCount++; const percent=Math.round(completedCount / pending.length * 100); if(pendingProgressText) pendingProgressText.textContent=`Processed ${completedCount} of ${pending.length}...`; if(pendingProgressPercent) pendingProgressPercent.textContent=`${percent}%`; if(pendingProgressBar) pendingProgressBar.style.width=`${percent}%`; if(syncCount) syncCount.textContent = session.uploaded; if(syncPercent) syncPercent.textContent = `${percent}%`; }); if(pendingProgressBar) { pendingProgressBar.classList.remove('bg-yellow-400'); if(session.failed === 0){ pendingProgressBar.classList.add('bg-green-400'); if(pendingProgressText) pendingProgressText.textContent='✅ All pending items synced.'; } else if(session.uploaded > 0 || session.retried > 0){ pendingProgressBar.classList.add('bg-yellow-400'); if(pendingProgressText) pendingProgressText.textContent=`⚠️ ${session.uploaded + session.retried} synced, ${session.failed} failed.`; } else { pendingProgressBar.classList.add('bg-red-500'); if(pendingProgressText) pendingProgressText.textContent='❌ All retries failed (still offline?).'; } if(pendingProgressPercent) pendingProgressPercent.textContent='100%'; pendingProgressBar.style.width='100%'; } setTimeout(()=> { if(pendingProgress) hide(pendingProgress); if(pendingProgressBar) pendingProgressBar.style.width = '0%'; }, 4000); logSyncSession({uploaded: session.uploaded, retried: session.retried, failed: session.failed, mode: 'Online Recovery'}); showSummary(session.failed > 0); updatePendingUI(); console.log("retryAllPendingUploads finished."); }
 // Alias fix for missing handler reference
 const handleRetryAll = retryAllPendingUploads;
+// ---------- Log Utility Handlers ----------
+function handleCopyLog() {
+  if (!syncLog) {
+    console.error("Sync log element not found.");
+    toast("No log data to copy.", "error");
+    return;
+  }
+
+  const text = syncLog.innerText.trim();
+  if (!text) {
+    toast("Log is empty.", "warn");
+    return;
+  }
+
+  navigator.clipboard.writeText(text)
+    .then(() => toast("Sync log copied to clipboard!", "success"))
+    .catch(err => {
+      console.error("Failed to copy log:", err);
+      toast("Failed to copy log.", "error");
+    });
+}
 
     // ---------- Sync summary banners ----------
     function showSummary(hadFailures=false){ /* ... same as before ... */ hide(syncProgress); if (!syncSummary || !syncSummaryText) return; const total=session.total || 0; let text; if (total === 0 && !hadFailures) { text = '✅ All items are synced.'; syncSummary.classList.remove('bg-yellow-700', 'text-yellow-100'); syncSummary.classList.add('bg-green-800', 'text-green-100'); } else if (session.failed > 0 || hadFailures) { syncSummary.classList.remove('bg-green-800', 'text-green-100'); syncSummary.classList.add('bg-yellow-700', 'text-yellow-100'); text = `⚠️ Sync Complete with errors — ${session.failed} item(s) failed and are cached offline.`; } else { syncSummary.classList.remove('bg-yellow-700', 'text-yellow-100'); syncSummary.classList.add('bg-green-800', 'text-green-100'); text = `✅ Sync Complete — ${session.uploaded + session.retried} item(s) uploaded successfully.`; } syncSummaryText.textContent = text; show(syncSummary); setTimeout(()=> hide(syncSummary), 10000); }
