@@ -582,6 +582,34 @@ function handleToggleSyncLog() {
     console.log("Sync log hidden");
   }
 }
+function handleViewLogFromSummary() {
+  const logElement = document.getElementById('sync-log');
+  const syncProgress = document.getElementById('sync-progress');
+
+  if (!logElement || !syncProgress) {
+    console.error("Sync log or progress container not found.");
+    toast("Sync log not found.", "error");
+    return;
+  }
+
+  // Make sure the sync-progress area is visible
+  show(syncProgress);
+
+  // Toggle visibility of the log section
+  const isHidden = (logElement.style.display === 'none' || logElement.classList.contains('hidden'));
+  if (isHidden) {
+    logElement.style.display = 'block';
+    logElement.classList.remove('hidden');
+    toast("Sync log opened.", "info");
+  } else {
+    logElement.style.display = 'none';
+    logElement.classList.add('hidden');
+    toast("Sync log hidden.", "info");
+  }
+
+  // Auto-scroll to latest log entry
+  logElement.scrollTop = logElement.scrollHeight;
+}
 
     // ---------- Sync summary banners ----------
     function showSummary(hadFailures=false){ /* ... same as before ... */ hide(syncProgress); if (!syncSummary || !syncSummaryText) return; const total=session.total || 0; let text; if (total === 0 && !hadFailures) { text = '✅ All items are synced.'; syncSummary.classList.remove('bg-yellow-700', 'text-yellow-100'); syncSummary.classList.add('bg-green-800', 'text-green-100'); } else if (session.failed > 0 || hadFailures) { syncSummary.classList.remove('bg-green-800', 'text-green-100'); syncSummary.classList.add('bg-yellow-700', 'text-yellow-100'); text = `⚠️ Sync Complete with errors — ${session.failed} item(s) failed and are cached offline.`; } else { syncSummary.classList.remove('bg-yellow-700', 'text-yellow-100'); syncSummary.classList.add('bg-green-800', 'text-green-100'); text = `✅ Sync Complete — ${session.uploaded + session.retried} item(s) uploaded successfully.`; } syncSummaryText.textContent = text; show(syncSummary); setTimeout(()=> hide(syncSummary), 10000); }
