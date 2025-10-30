@@ -4,38 +4,51 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Seminar Cloud App – PWA</title>
-  
-  <!-- App Theme & PWA Settings -->
+
+  <!-- ============================= -->
+  <!-- ✅ CROSS-BROWSER APP SETTINGS -->
+  <!-- ============================= -->
+  <!-- Basic Theme and Appearance -->
   <meta name="theme-color" content="#0891b2">
+  <meta name="description" content="Record, score, and analyze presentations.">
+
+  <!-- Apple / iPhone PWA Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="https://placehold.co/192x192/0e7490/ffffff?text=SCA">
-  
-  <!--
-    A valid JSON manifest is required to fix the "Manifest syntax error".
-    We embed it in a data URL for a true single-file experience.
-  -->
-  <link rel="manifest" href="data:application/manifest+json,{
-    &quot;name&quot;: &quot;Seminar Cloud App&quot;,
-    &quot;short_name&quot;: &quot;SeminarApp&quot;,
-    &quot;start_url&quot;: &quot;.&quot;,
-    &quot;display&quot;: &quot;standalone&quot;,
-    &quot;background_color&quot;: &quot;#020617&quot;,
-    &quot;theme_color&quot;: &quot;#0891b2&quot;,
-    &quot;description&quot;: &quot;Record, score, and analyze presentations.&quot;,
-    &quot;icons&quot;: [
+
+  <!-- Edge & Windows Tile Support -->
+  <meta name="msapplication-TileColor" content="#0891b2">
+  <meta name="msapplication-TileImage" content="https://placehold.co/144x144/0e7490/ffffff?text=SCA">
+
+  <!-- ============================= -->
+  <!-- ✅ WEB APP MANIFEST (INLINE)   -->
+  <!-- ============================= -->
+  <link rel="manifest" href='data:application/manifest+json,{
+    "name": "Seminar Cloud App",
+    "short_name": "SeminarApp",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#020617",
+    "theme_color": "#0891b2",
+    "description": "Record, score, and analyze presentations.",
+    "icons": [
       {
-        &quot;src&quot;: &quot;https://placehold.co/192x192/0e7490/ffffff?text=SCA&quot;,
-        &quot;sizes&quot;: &quot;192x192&quot;,
-        &quot;type&quot;: &quot;image/png&quot;
+        "src": "https://placehold.co/192x192/0e7490/ffffff?text=SCA",
+        "sizes": "192x192",
+        "type": "image/png"
       },
       {
-        &quot;src&quot;: &quot;https://placehold.co/512x512/0e7490/ffffff?text=SCA&quot;,
-        &quot;sizes&quot;: &quot;512x512&quot;,
-        &quot;type&quot;: &quot;image/png&quot;
+        "src": "https://placehold.co/512x512/0e7490/ffffff?text=SCA",
+        "sizes": "512x512",
+        "type": "image/png"
       }
     ]
-  }">
+  }'>
 
-  <!-- Tailwind CSS -->
+  <!-- ============================= -->
+  <!-- ✅ TAILWIND + FONTS            -->
+  <!-- ============================= -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -54,11 +67,13 @@
       darkMode:'class'
     };
   </script>
-  <!-- Google Font: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-  
+
+  <!-- ============================= -->
+  <!-- ✅ UNIVERSAL STYLING           -->
+  <!-- ============================= -->
   <style>
     :root{color-scheme:dark}
     body { font-family: 'Inter', sans-serif; }
@@ -87,6 +102,11 @@
       color: theme('colors.gray.400');
     }
   </style>
+  
+  <!-- 
+    NOTE: The service worker is registered at the BOTTOM of the <script type="module">
+    using an inlined Blob, to maintain a single-file structure.
+  -->
 </head>
 
 <body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
@@ -388,12 +408,114 @@
   <!-- ====================================================== -->
   <dialog id="help-faq-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-2xl border border-white/10 p-0">
       <form method="dialog">
-        <button class="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
+        <button class_DEFAULT="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
       </form>
       <h2 class="text-xl font-bold p-5 border-b border-white/10">Help & FAQ</h2>
-      <div class="p-5 max-h-[70vh] overflow-y-auto space-y-4">
-        <p class="text-gray-300">This section is under construction. It will contain guides for all app features.</p>
-        <!-- FAQ items will be added here -->
+      <div class="p-5 max-h-[70vh] overflow-y-auto space-y-6">
+        
+        <!-- How to Install -->
+        <details class="space-y-2" open>
+          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">How do I install this app on my phone? (Add to Home Screen)</summary>
+          <p class="text-gray-300">This is a Progressive Web App (PWA). You can install it from your browser for a full-screen, app-like experience.</p>
+          <div class="ml-4">
+            <h4 class="font-semibold text-gray-100">On iOS (iPhone/iPad - Safari):</h4>
+            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
+              <li>Open the app's website in the **Safari** browser.</li>
+              <li>Tap the **"Share"** icon (a box with an arrow pointing up).</li>
+              <li>Scroll down and tap on **"Add to Home Screen"**.</li>
+              <li>Confirm the name and tap **"Add"**.</li>
+            </ol>
+          </div>
+          <div class="ml-4 mt-2">
+            <h4 class="font-semibold text-gray-100">On Android (Chrome):</h4>
+            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
+              <li>Open the app's website in the **Chrome** browser.</li>
+              <li>Tap the **three-dot menu** (⋮) in the top-right corner.</li>
+              <li>Tap on **"Install app"** (or "Add to Home screen").</li>
+              <li>Follow the prompts to confirm.</li>
+            </ol>
+          </div>
+        </details>
+
+        <!-- iOS Requirements -->
+        <details class="space-y-2">
+          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">What are the requirements for iOS (iPhone/iPad)?</summary>
+          <p class="text-gray-300">The app works best on newer operating systems.</p>
+          <ul class="list-disc list-outside ml-5 space-y-2">
+            <li>
+              <strong class="text-gray-100">Recommended: iOS 17 / iPadOS 17 (or newer)</strong><br>
+              <span class="text-gray-300">Provides full support. You can "Add to Home Screen" and **offline recording is fully supported.**</span>
+            </li>
+            <li>
+              <strong class="text-gray-100">Older iOS (Version 16.x and below)</strong><br>
+              <span class="text-gray-300">**Online-Only.** The app will still run in Safari, but you must have an active internet connection. Offline recording is not available.</span>
+            </li>
+          </ul>
+        </details>
+
+        <!-- Storage & Data -->
+        <details class="space-y-2">
+          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Storage & Data Management</summary>
+          <div class="ml-4 space-y-3">
+            <div>
+              <h4 class="font-semibold text-gray-100">What do I do about the "Low Storage" warning?</h4>
+              <p class="text-gray-300">This warning appears when you use ~90% of your subscription's storage limit. To continue uploading, you have three options:</p>
+              <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
+                <li>**Upgrade Your Plan:** Go to the "Account" section to purchase a plan with more storage.</li>
+                <li>**Export & Delete (Firebase Storage):** Use the "Export (Firebase only)" button in the Account section to download a .zip file of a class's videos, save it to your computer, and then safely delete the recordings from the app.</li>
+                <li>**Manually Delete:** Go to the "Library" tab, find old videos you no longer need, and delete them.</li>
+              </ol>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-100">Firebase Storage vs. Google Drive</h4>
+              <p class="text-gray-300">**Firebase Storage** (Recommended) saves your videos privately to the app's storage. This is required for features like `Export as Zip` and is managed by your app subscription's storage limit.</p>
+              <p class="text-gray-300 mt-1">**Google Drive** saves videos to your *personal* Google Drive account. This uses your personal Google storage quota and does not count against your app limit. However, if you move or rename these files in your Google Drive, the app will lose access to them.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-100">What if I switch storage providers?</h4>
+              <p class="text-gray-300">You can switch providers in the "Account" section, but **this only affects *new* uploads.** The app will lose access to all videos saved in the previous location. This is not reversible and is only recommended for a "fresh start" (e.g., a new school year).</p>
+            </div>
+          </div>
+        </details>
+        
+        <!-- Class Lifecycle -->
+        <details class="space-y-2">
+          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Class Lifecycle (Archiving & Deletion)</summary>
+          <div class="ml-4 space-y-3">
+            <div>
+              <h4 class="font-semibold text-gray-100">Archiving vs. Deleting</h4>
+              <p class="text-gray-300">**Archiving** a class simply hides it from your active lists (like the "Class / Event" dropdown during recording). You can still view archived videos in the "Library" tab. This is the recommended action for finished classes.</p>
+              <p class="text-gray-300 mt-1">**Deleting** is permanent. When a class is deleted (either by you or by the auto-delete policy), all associated videos and scores are permanently erased from the system.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-100">How does Auto-Delete work?</h4>
+              <p class="text-gray-300">You can set an `Auto-Delete Date` for each class. This is useful for meeting data retention requirements. For example, if you must keep videos for 1 year after a class ends, set the `Auto-Archive Date` to the class end date, and the `Auto-Delete Date` to one year after that.</p>
+              <p class="text-gray-300 mt-1">**Fallback Policy:** For users on the **Firebase Storage** option, a system-wide rule will permanently delete any video file that is older than **18 months** (based on its creation date) as a safety net to manage storage costs, regardless of your in-app settings.</p>
+            </div>
+          </div>
+        </details>
+
+        <!-- Common Workflows -->
+        <details class="space-y-2">
+          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Common Workflows</summary>
+          <div class="ml-4 space-y-3">
+            <div>
+              <h4 class="font-semibold text-gray-100">How do I add my participant roster?</h4>
+              <p class="text-gray-300">Go to the "Class / Event" tab, select your class (or create a new one), and go to the "Participant Roster" text box. You can copy your list of names from any source (Google Classroom, Sheets, Word) and paste them in. **Ensure names are listed one per line.**</I>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-100">How do I use videos from Zoom or Google Meet?</h4>
+              <p class="text-gray-300">You cannot record *from* Zoom/Meet directly. Instead:</p>
+              <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
+                <li>Record the presentation using the record feature *inside* Zoom or Meet.</li>
+                <li>Download the video file (e.g., `.mp4`) from Zoom/Meet to your device.</li>
+                <li>In this app, go to the "Library" tab and find the **"Upload Existing Video File"** button (this feature is coming soon).</li>
+                <li>Select the file you downloaded, and tag it with metadata just like a normal recording.</li>
+              </ol>
+            </div>
+          </div>
+        </details>
+
       </div>
       <div class="p-5 border-t border-white/10 text-right">
         <form method="dialog">
@@ -1098,7 +1220,50 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 });
 
+/* ---------------- Service Worker (basic shell cache) ---------------- */
+/* Inlined registration; the SW script is created on-the-fly to keep one-file PWA */
+(async function registerSW(){
+  if(!("serviceWorker" in navigator)) return;
+  const swCode = `
+    const CACHE='sca-shell-v1';
+    const ASSETS = self.registration.scope ? [ self.registration.scope ] : ['/'];
+    self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))); self.skipWaiting(); });
+    self.addEventListener('activate',e=>{ e.waitUntil(self.clients.claim()); });
+    self.addEventListener('fetch',e=>{
+      const req=e.request;
+      e.respondWith(
+        caches.match(req).then(cached=>cached||fetch(req).then(res=>{
+          const copy=res.clone();
+          caches.open(CACHE).then(c=>c.put(req,copy));
+          return res;
+        }).catch(()=>cached))
+      );
+    });
+  `;
+  const blob = new Blob([swCode], {type:"text/javascript"});
+  const url = URL.createObjectURL(blob);
+  try{ await navigator.serviceWorker.register(url); }catch(_){}
+})();
+
+/* ---------------- Storage usage mock (update via profile) ---------------- */
+function mockUpdateStorageUsage(bytes){
+  userProfile.storageUsedBytes = bytes;
+  updateAccountPanel();
+}
+
+/* ---------------- Reserve: future placeholders ---------------- */
+// Stripe billing
+function redirectToStripeCheckout(){ toast("Stripe Checkout (placeholder)","info"); }
+document.getElementById("subscribe-btn")?.addEventListener("click", redirectToStripeCheckout);
+
+// Google Drive placeholder (if user selects Drive later)
+async function uploadToDrivePlaceholder(file, meta){
+  console.log("Drive upload placeholder", file?.size, meta);
+  toast("Google Drive upload not yet implemented.","info");
+}
+
 </script>
 </body>
 </html>
+
 
