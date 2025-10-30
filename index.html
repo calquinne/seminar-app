@@ -1529,7 +1529,150 @@ function handleTabClick(e) {
     }
     if (tabId === 'tab-record') {
         // Reset recorder UI when tab is clicked
-        discardRecording(); // This will just reset the UI elements
+        // Fix: Call startRecording() to initialize preview, but not record
+        startPreview(); 
+    }
+}
+/* -------------------------------------------------------------------------- */
+/* RECORDING FUNCTIONS (Updated)                                            */
+/* -------------------------------------------------------------------------- */
+async function startPreview() {
+    if (mediaStream) { // Stop any existing preview
+        mediaStream.getTracks().forEach(track => track.stop());
+    }
+    console.log("Initializing camera preview...");
+    updateRecordingUI('idle');
+    recordedChunks = [];
+    currentRecordingBlob = null;
+    if(timerInterval) clearInterval(timerInterval);
+    secondsElapsed = 0;
+    $("#rec-timer").textContent = "00:00";
+
+    try {
+        const constraints = {
+            video: { 
+                width: { ideal: 1280 }, 
+                height: { ideal: 720 }, 
+                facingMode: currentFacingMode 
+            },
+            audio: true // Request audio permission here
+        };
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        $("#video-preview").srcObject = mediaStream;
+        $("#video-preview").muted = true;
+        
+        // Mute the audio tracks to prevent feedback
+        mediaStream.getAudioTracks().forEach(track => track.enabled = false);
+
+    } catch (permErr) {
+        console.error("Permission error:", permErr);
+        if (permErr.name === "NotAllowedError" || permErr.name === "PermissionDeniedError") {
+            toast("You must allow access to your camera and microphone.", "error");
+        } else {
+            toast(`Could not access media devices: ${permErr.name}.`, "error");
+        }
+    }
+}
+async function startRecording() {
+    if (!mediaStream) {
+        console.log("No preview stream, starting stream first.");
+        await startPreview();
+        if (!mediaStream) { // If startPreview failed
+             console.error("Failed to get media stream for recording.");
+             return;
+        }
+    }
+    
+    console.log("Attempting to start recording...");
+    updateRecordingUI('recording');
+    recordedChunks = [];
+    currentRecordingBlob = null;
+    
+    try {
+        // Unmute audio tracks for recording
+        mediaStream.getAudioTracks().forEach(track => track.enabled = true);
+        
+        mediaRecorder = new MediaRecorder(mediaStream);
+        
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+            console.log("Recording stopped, chunks:", recordedChunks.length);
+            // Stop tracks and preview
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            $("#video-preview").srcObject = null;
+            
+            if (recordedChunks.length > 0) {
+                currentRecordingBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+                openMetadataScreen(); // Go to tagging screen
+            } else {
+                console.warn("No data recorded.");
+                updateRecordingUI('idle');
+            }
+            recordedChunks = [];
+        };
+        
+        mediaRecorder.start(1000); // Collect chunks every second
+        
+        // Start timer
+        secondsElapsed = 0;
+        if (timerInterval) clearInterval(timerInterval);
+        $("#rec-timer").textContent = "00:00"; // Reset timer text
+        timerInterval = setInterval(() => {
+            secondsElapsed++;
+            $("#rec-timer").textContent = new Date(secondsElapsed * 1000).toISOString().substr(14, 5);
+        }, 1000);
+        
+        toast("Recording started!", "success");
+
+    } catch (err) {
+        console.error("Failed to start recording:", err);
+        toast(`Error: ${err.message}`, "error");
+        if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+        updateRecordingUI('idle');
+    }
+}
+function discardRecording() {
+    if (confirm("Are you sure you want to discard this recording and start over?")) {
+        console.log("Discarding recording...");
+        if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
+            mediaRecorder.onstop = null; // Prevent onstop from opening metadata screen
+            mediaRecorder.stop();
+        }
+        mediaRecorder = null;
+        recordedChunks = [];
+        currentRecordingBlob = null;
+        
+        // Reset timer
+        if(timerInterval) clearInterval(timerInterval);
+        secondsElapsed = 0;
+        $("#rec-timer").textContent = "00:00";
+        
+        // Don't stop the stream, just reset the UI to idle
+        updateRecordingUI('idle');
+        toast("Recording discarded.", "warn");
+        
+        // We restart the preview
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+            mediaStream = null;
+        }
+        startPreview();
+    }
+}
+async function toggleCamera() {
+    currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+    toast(`Switched to ${currentFacingMode === 'user' ? 'front' : 'back'} camera.`);
+    
+    // Restart preview stream with new camera
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        await startPreview(); // This will use the new currentFacingMode
     }
 }
 
@@ -1705,25 +1848,7 @@ function setupEventListeners() {
   $("#pause-rec-btn").onclick = pauseOrResumeRecording;
   $("#stop-rec-btn").onclick = stopRecording;
   $("#discard-rec-btn").onclick = discardRecording;
-  $("#toggle-camera-btn").onclick = async () => {
-      currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-      toast(`Switched to ${currentFacingMode === 'user' ? 'front' : 'back'} camera.`);
-      // Restart preview stream with new camera
-      if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-          // Temporarily stop stream to switch
-          if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-          mediaStream = null;
-          try {
-            // Get new stream
-            const constraints = { video: { facingMode: currentFacingMode }, audio: false };
-            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-            $("#video-preview").srcObject = mediaStream;
-          } catch(e) {
-            console.error("Error switching camera preview:", e);
-            toast("Could not switch camera.", "error");
-          }
-      }
-  };
+  $("#toggle-camera-btn").onclick = toggleCamera;
   
   // Metadata Screen (NEW LISTENERS)
   $("#metadata-form").onsubmit = (e) => handleMetadataSubmit(e);
@@ -1795,7 +1920,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ---------------- Storage usage mock (update via profile) ---------------- */
 function mockUpdateStorageUsage(bytes){
-  // Fix: use userDoc, not userProfile
+  // Fix: use userDoc
   if (!userDoc) return;
   userDoc.storageUsedBytes = bytes;
   updateUIAfterAuth(currentUser, userDoc);
