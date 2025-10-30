@@ -26,7 +26,7 @@
   <!-- ============================= -->
   <!-- ✅ WEB APP MANIFEST (INLINE & ENCODED) -->
   <!-- ============================= -->
-  <!-- This is your fix, with the start_url corrected for GitHub Pages -->
+  <!-- Fix: start_url is now correct for GitHub Pages -->
   <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B"name":"Seminar%20Cloud%20App","short_name":"SeminarApp","start_url":"/seminar-app/","display":"standalone","background_color":"%23020617","theme_color":"%230891b2","description":"Record,%20score,%20and%20analyze%20presentations.","icons":[%7B"src":"https://placehold.co/192x192/0e7490/ffffff?text=SCA","sizes":"192x192","type":"image/png"%7D,%7B"src":"https://placehold.co/512x512/0e7490/ffffff?text=SCA","sizes":"512x512","type":"image/png"%7D]%7D'>
 
   <!-- ============================= -->
@@ -83,6 +83,14 @@
     .sub-tab {
       border-color: transparent;
       color: theme('colors.gray.400');
+    }
+    /* Ensure video preview is black and centered */
+    video#video-preview {
+      background-color: #000;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      object-fit: cover; /* Cover ensures it fills the space */
     }
   </style>
   
@@ -628,6 +636,32 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 /* -------------------------------------------------------------------------- */
+/* Firebase Initialization Helper (Moved to top for hoisting) */
+/* -------------------------------------------------------------------------- */
+function initFirebase() {
+  try {
+    const cfgStr = localStorage.getItem(LS.CFG);
+    if (!cfgStr) {
+      console.warn("⚠️ No Firebase config found in localStorage.");
+      return false;
+    }
+
+    const cfg = JSON.parse(cfgStr);
+    app = initializeApp(cfg);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+
+    console.log("✅ Firebase initialized successfully.");
+    return true;
+  } catch (e) {
+    console.error("❌ Firebase init error:", e);
+    toast("Firebase init failed: " + e.message, "error");
+    return false;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Utility Functions                             */
 /* -------------------------------------------------------------------------- */
 const $ = (s) => document.querySelector(s);
@@ -637,7 +671,7 @@ function toast(msg, type = "info") {
   const el = document.createElement("div");
   el.className = `px-3 py-2 rounded-lg text-sm border fade-enter
     ${type === "error" ? "bg-red-500/20 border-red-500/40 text-red-200" :
-    type === "success" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200" :
+    type === "success" ? "bg-emerald-500/20 border-emerald-500/44 text-emerald-200" : // Corrected typo
     "bg-white/10 border-white/20 text-white"}`;
   el.textContent = msg;
   $("#toast-container").appendChild(el);
@@ -689,15 +723,23 @@ function getStorageChoice() { return localStorage.getItem(LS.STORE) || "firebase
 function setStorageChoice(choice) {
     localStorage.setItem(LS.STORE, choice);
     $("#storage-provider").value = choice;
-    $("#account-pill").textContent = `Role: ${userDoc?.role || 'user'} • Storage: ${choice}`;
+    // Fix: Check if userDoc is populated before accessing role
+    $("#account-pill").textContent = `Role: ${userDoc?.role || '...'} • Storage: ${choice}`;
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* Firebase & App State Variables                       */
 /* -------------------------------------------------------------------------- */
 let app, auth, db, storage;
 let currentUser = null;
-let userDoc = { role: "user", activeSubscription: false }; // Default state
+// Fix: Use userDoc as the primary profile object, initialize with defaults
+let userDoc = { 
+    role: "user", 
+    activeSubscription: false, 
+    storageUsedBytes: 0,
+    planStorageLimit: 1 // Default to 1 to avoid div by zero
+};
 let classData = {}; // In-memory cache for class/roster data
 
 // --- NEW Recording State ---
@@ -847,6 +889,7 @@ async function handleSaveClass() {
       docRef = doc(db, `artifacts/${getAppId()}/users/${currentUser.uid}/classes`, selectedClassId);
       await updateDoc(docRef, payload);
       toast("Class updated!", "success");
+      newDocId = selectedClassId; // Keep the same ID
     } else {
       // Create new class
       payload.createdAt = serverTimestamp();
@@ -859,7 +902,7 @@ async function handleSaveClass() {
     // Refresh the list and form
     await refreshClassesList();
     // Select the newly saved/created class
-    $("#classes-list").value = selectedClassId || newDocId; 
+    $("#classes-list").value = newDocId; 
     
   } catch (e) {
     console.error("Error saving class:", e);
@@ -1181,6 +1224,7 @@ async function startRecording() {
     // Start timer
     secondsElapsed = 0;
     if (timerInterval) clearInterval(timerInterval);
+    $("#rec-timer").textContent = "00:00"; // Reset timer text
     timerInterval = setInterval(() => {
       secondsElapsed++;
       $("#rec-timer").textContent = new Date(secondsElapsed * 1000).toISOString().substr(14, 5);
@@ -1229,7 +1273,8 @@ function discardRecording() {
   if (confirm("Are you sure you want to discard this recording and start over?")) {
     console.log("Discarding recording...");
     if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
-        mediaRecorder.stop(); // Stop, but onstop handler will see empty chunks
+        mediaRecorder.onstop = null; // Prevent onstop from opening metadata screen
+        mediaRecorder.stop();
     }
     if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
@@ -1253,10 +1298,11 @@ function openMetadataScreen() {
     }
     
     // Pre-fill fields
-    $("#meta-org").value = userDoc.organizationName || "Default Org"; // TODO: Add to profile
-    $("#meta-instructor").value = userDoc.instructorName || currentUser.email; // TODO: Add to profile
+    $("#meta-org").value = userDoc.organizationName || "Default Org"; 
+    $("#meta-instructor").value = userDoc.instructorName || (currentUser ? currentUser.email : "Instructor"); 
     
     // Reset dropdowns
+    refreshMetadataClassList(); // Populate class list
     $("#meta-class").value = "";
     $("#meta-participant").innerHTML = '<option value="">Select a class/event first...</option>';
     $("#meta-participant").disabled = true;
@@ -1270,6 +1316,21 @@ function openMetadataScreen() {
     
     // Show the modal screen
     showScreen('metadata-screen');
+}
+
+// NEW function to specifically populate the metadata class list
+function refreshMetadataClassList() {
+    const metaClassSelect = $("#meta-class");
+    metaClassSelect.innerHTML = '<option value="">-- Select a Class / Event --</option>';
+    
+    Object.values(classData).forEach(classDoc => {
+        if (!classDoc.archived) {
+            const metaOpt = document.createElement("option");
+            metaOpt.value = classDoc.id;
+            metaOpt.textContent = classDoc.title || "Untitled";
+            metaClassSelect.appendChild(metaOpt);
+        }
+    });
 }
 
 function handleMetadataClassChange(e) {
@@ -1339,6 +1400,8 @@ async function handleAddNewParticipant() {
             const classRef = doc(db, `artifacts/${getAppId()}/users/${currentUser.uid}/classes`, classId);
             await updateDoc(classRef, { participants: currentParticipants });
             toast(`Added ${newName} to class!`, "success");
+            // Also update the local classData cache
+            classData[classId].participants = currentParticipants;
         } catch (e) {
             console.error("Failed to add new participant:", e);
             toast("Error saving new participant.", "error");
@@ -1372,6 +1435,12 @@ async function handleMetadataSubmit(e) {
         fileSize: currentRecordingBlob.size,
         duration: secondsElapsed
     };
+    
+    // Final check for valid participant
+    if (metadata.participant === "--ADD_NEW--" || !metadata.participant) {
+        toast("Please select a valid participant or add a new one.", "error");
+        return;
+    }
     
     console.log("Saving metadata:", metadata);
     
@@ -1435,10 +1504,12 @@ function handleTabClick(e) {
 
     const tabId = btn.dataset.tab;
     // Hide all main tabs AND the metadata screen (modal)
-    $$(".app-tab-content, #metadata-screen").forEach(el => {
-        if (el.tagName === 'DIALOG') el.close();
-        else el.classList.add("hidden");
+    $$(".app-tab-content").forEach(el => {
+        if(el) el.classList.add("hidden");
     });
+    const metaScreen = $("#metadata-screen");
+    if (metaScreen && metaScreen.open) metaScreen.close();
+
     // Show the selected tab
     $(`#${tabId}`)?.classList.remove("hidden");
     
@@ -1455,6 +1526,10 @@ function handleTabClick(e) {
         $$(".rubric-sub-tab-content").forEach(el => el.classList.toggle("hidden", el.id !== 'rubric-tab-my'));
         $$(".sub-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.subtab === 'rubric-tab-my'));
         refreshMyRubrics();
+    }
+    if (tabId === 'tab-record') {
+        // Reset recorder UI when tab is clicked
+        discardRecording(); // This will just reset the UI elements
     }
 }
 
@@ -1720,8 +1795,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ---------------- Storage usage mock (update via profile) ---------------- */
 function mockUpdateStorageUsage(bytes){
+  // Fix: use userDoc, not userProfile
+  if (!userDoc) return;
   userDoc.storageUsedBytes = bytes;
   updateUIAfterAuth(currentUser, userDoc);
+  console.log(`Mock storage usage updated to ${(bytes / 1e9).toFixed(2)} GB`);
 }
 
 /* ---------------- Reserve: future placeholders ---------------- */
