@@ -11,9 +11,11 @@
   <!-- Basic Theme and Appearance -->
   <meta name="theme-color" content="#0891b2">
   <meta name="description" content="Record, score, and analyze presentations.">
+  <link rel="icon" href="https://placehold.co/64x64/0e7490/ffffff?text=S">
 
   <!-- Apple / iPhone PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="https://placehold.co/192x192/0e7490/ffffff?text=SCA">
 
@@ -22,29 +24,9 @@
   <meta name="msapplication-TileImage" content="https://placehold.co/144x144/0e7490/ffffff?text=SCA">
 
   <!-- ============================= -->
-  <!-- ✅ WEB APP MANIFEST (INLINE)   -->
+  <!-- ✅ WEB APP MANIFEST (INLINE & ENCODED) -->
   <!-- ============================= -->
-  <link rel="manifest" href='data:application/manifest+json,{
-    "name": "Seminar Cloud App",
-    "short_name": "SeminarApp",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#020617",
-    "theme_color": "#0891b2",
-    "description": "Record, score, and analyze presentations.",
-    "icons": [
-      {
-        "src": "https://placehold.co/192x192/0e7490/ffffff?text=SCA",
-        "sizes": "192x192",
-        "type": "image/png"
-      },
-      {
-        "src": "https://placehold.co/512x512/0e7490/ffffff?text=SCA",
-        "sizes": "512x512",
-        "type": "image/png"
-      }
-    ]
-  }'>
+  <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B"name":"Seminar%20Cloud%20App","short_name":"SeminarApp","start_url":".","display":"standalone","background_color":"%23020617","theme_color":"%230891b2","description":"Record,%20score,%20and%20analyze%20presentations.","icons":[%7B"src":"https://placehold.co/192x192/0e7490/ffffff?text=SCA","sizes":"192x192","type":"image/png"%7D,%7B"src":"https://placehold.co/512x512/0e7490/ffffff?text=SCA","sizes":"512x512","type":"image/png"%7D]%7D'>
 
   <!-- ============================= -->
   <!-- ✅ TAILWIND + FONTS            -->
@@ -161,7 +143,7 @@
         </div>
         <div>
           <label for="firebase-config-json" class="block text-sm font-medium text-gray-300 mb-1">Firebase Config JSON</label>
-          <textarea id="firebase-config-json" rows="8" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm font-mono" placeholder='{ "apiKey": "...", ... }'></textarea>
+          <textarea id="firebase-config-json" rows="8" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm font-mono" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "appId": "..." }'></textarea>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-2">Default Storage</label>
@@ -408,7 +390,8 @@
   <!-- ====================================================== -->
   <dialog id="help-faq-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-2xl border border-white/10 p-0">
       <form method="dialog">
-        <button class_DEFAULT="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
+        <!-- Fix: Corrected class attribute -->
+        <button class="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
       </form>
       <h2 class="text-xl font-bold p-5 border-b border-white/10">Help & FAQ</h2>
       <div class="p-5 max-h-[70vh] overflow-y-auto space-y-6">
@@ -1265,5 +1248,4 @@ async function uploadToDrivePlaceholder(file, meta){
 </script>
 </body>
 </html>
-
 
