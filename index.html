@@ -1582,7 +1582,8 @@ async function onAuthReady() {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       console.log("onAuthStateChanged: User found", user.uid);
-      const ref = doc(db, `artifacts/${getAppId()}/users/${user.uid}/profile`);
+      const ref = doc(db, `artifacts/${getAppId()}/users/${user.uid}`);
+
       
       // Use onSnapshot for real-time profile updates (e.g., role changes)
       onSnapshot(ref, async (snap) => {
