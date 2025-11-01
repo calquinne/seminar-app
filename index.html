@@ -1792,6 +1792,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })();
 });
+// --- Firebase Auth Sign-Out Logic --- //
+import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+// reuse existing auth instance
+
+
+// Wait until page is fully loaded before wiring the button
+document.addEventListener("DOMContentLoaded", () => {
+  const signOutBtn = document.getElementById("signout-btn");
+
+  if (signOutBtn) {
+    signOutBtn.addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        console.log("✅ User signed out successfully");
+
+        // Optional cleanup
+        localStorage.clear();
+
+        // Reset UI immediately if showScreen() is defined
+        if (typeof showScreen === "function") {
+          showScreen("auth-screen");
+        } else {
+          // fallback if showScreen isn’t available
+          location.reload();
+        }
+
+      } catch (error) {
+        console.error("❌ Error signing out:", error);
+        alert("Sign-out failed. Check console for details.");
+      }
+    });
+  }
+});
+
+// --- Optional: Extra Reliability --- //
+// Automatically return to sign-in screen if session expires or user signs out elsewhere
+auth.onAuthStateChanged(user => {
+  if (!user) {
+    console.log("ℹ️ Auth state changed: no user detected, returning to auth screen");
+    if (typeof showScreen === "function") {
+      showScreen("auth-screen");
+    } else {
+      location.reload();
+    }
+  }
+});
 
 /* ---------------- Service Worker (basic shell cache) ---------------- */
 /* Inlined registration; the SW script is created on-the-fly to keep one-file PWA */
