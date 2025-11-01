@@ -1793,10 +1793,8 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 });
 // --- Firebase Auth Sign-Out Logic --- //
-import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-// reuse existing auth instance
-
+// Reuse existing Firebase Auth instance (already imported at top)
+auth = getAuth();
 
 // Wait until page is fully loaded before wiring the button
 document.addEventListener("DOMContentLoaded", () => {
@@ -1818,7 +1816,6 @@ document.addEventListener("DOMContentLoaded", () => {
           // fallback if showScreen isn’t available
           location.reload();
         }
-
       } catch (error) {
         console.error("❌ Error signing out:", error);
         alert("Sign-out failed. Check console for details.");
@@ -1826,6 +1823,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
 
 // --- Optional: Extra Reliability --- //
 // Automatically return to sign-in screen if session expires or user signs out elsewhere
