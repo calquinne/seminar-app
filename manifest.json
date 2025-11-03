@@ -1,0 +1,21 @@
+{
+  "name": "Seminar Cloud App",
+  "short_name": "SeminarApp",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0891b2",
+  "description": "Record, score, and analyze presentations.",
+  "icons": [
+    {
+      "src": "https://placehold.co/192x192/0e7490/ffffff?text=SCA",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://placehold.co/512x512/0e7490/ffffff?text=SCA",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

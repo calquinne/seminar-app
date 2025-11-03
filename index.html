@@ -5,33 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Seminar Cloud App – PWA</title>
 
-  <!-- ============================= -->
-  <!-- ✅ CROSS-BROWSER APP SETTINGS -->
-  <!-- ============================= -->
-  <!-- Basic Theme and Appearance -->
   <meta name="theme-color" content="#0891b2">
   <meta name="description" content="Record, score, and analyze presentations.">
   <link rel="icon" href="https://placehold.co/64x64/0e7490/ffffff?text=S">
 
-  <!-- Apple / iPhone PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="https://placehold.co/192x192/0e7490/ffffff?text=SCA">
 
-  <!-- Edge & Windows Tile Support -->
   <meta name="msapplication-TileColor" content="#0891b2">
   <meta name="msapplication-TileImage" content="https://placehold.co/144x144/0e7490/ffffff?text=SCA">
 
-  <!-- ============================= -->
-  <!-- ✅ WEB APP MANIFEST (INLINE & ENCODED) -->
-  <!-- ============================= -->
-  <!-- Fix: start_url is now correct for GitHub Pages -->
-  <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B"name":"Seminar%20Cloud%20App","short_name":"SeminarApp","start_url":"/seminar-app/","display":"standalone","background_color":"%23020617","theme_color":"%230891b2","description":"Record,%20score,%20and%20analyze%20presentations.","icons":[%7B"src":"https://placehold.co/192x192/0e7490/ffffff?text=SCA","sizes":"192x192","type":"image/png"%7D,%7B"src":"https://placehold.co/512x512/0e7490/ffffff?text=SCA","sizes":"512x512","type":"image/png"%7D]%7D'>
+  <link rel="manifest" href="./manifest.json">
 
-  <!-- ============================= -->
-  <!-- ✅ TAILWIND + FONTS            -->
-  <!-- ============================= -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -54,9 +41,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-  <!-- ============================= -->
-  <!-- ✅ UNIVERSAL STYLING           -->
-  <!-- ============================= -->
   <style>
     :root{color-scheme:dark}
     body { font-family: 'Inter', sans-serif; }
@@ -90,18 +74,12 @@
       width: 100%;
       height: auto;
       aspect-ratio: 16 / 9;
-      object-fit: cover; /* Cover ensures it fills the space */
+      object-fit: cover;
     }
   </style>
-  
-  <!-- 
-    NOTE: The service worker is registered at the BOTTOM of the <script type="module">
-    using an inlined Blob, to maintain a single-file structure.
-  -->
 </head>
 
 <body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
-<!-- Header -->
 <header class="sticky top-0 z-40 backdrop-blur bg-gray-900/70 border-b border-white/10">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
     <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
@@ -120,15 +98,11 @@
   </div>
 </header>
 
-<!-- Main Content Area -->
 <main class="max-w-6xl mx-auto px-4 pb-24">
   <div id="error-display"
        class="hidden mt-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm whitespace-pre-line"></div>
   <div id="toast-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 space-y-2"></div>
 
-  <!-- ====================================================== -->
-  <!-- ===== SCREEN 1: LOADING SCREEN (Default)         ===== -->
-  <!-- ====================================================== -->
   <section id="loading-screen" class="grid place-items-center h-[70vh]">
     <div class="flex flex-col items-center gap-3">
       <div class="h-10 w-10 border-4 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
@@ -136,47 +110,41 @@
     </div>
   </section>
 
-  <!-- ====================================================== -->
-  <!-- ===== SCREEN 2: SETUP SCREEN                     ===== -->
-  <!-- ====================================================== -->
   <section id="setup-screen" class="hidden mt-6 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
      <h2 class="text-2xl font-bold text-center mb-4">Welcome to Seminar Cloud</h2>
      <p class="text-sm text-gray-300 mb-4">
        This app requires a Firebase project to save data. Please paste your Firebase config JSON below to get started.
      </p>
      <div class="space-y-4">
-        <div>
-          <label for="app-id-input" class="block text-sm font-medium text-gray-300 mb-1">App ID (Namespace)</label>
-          <input id="app-id-input" type="text" value="seminar-cloud" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-          <p class="text-xs text-gray-500 mt-1">A unique ID for your app's data.</p>
-        </div>
-        <div>
-          <label for="firebase-config-json" class="block text-sm font-medium text-gray-300 mb-1">Firebase Config JSON</label>
-          <textarea id="firebase-config-json" rows="8" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm font-mono" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "appId": "..." }'></textarea>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">Default Storage</label>
-          <div class="flex gap-4">
-            <label class="flex items-center gap-2">
-              <input type="radio" name="storageChoice" value="firebase" class="bg-black/30" checked>
-              <span>App Storage (Firebase)</span>
-            </label>
-            <label class="flex items-center gap-2">
-              <input type="radio" name="storageChoice" value="gdrive" class="bg-black/30">
-              <span>Google Drive (personal)</span>
-            </label>
-          </div>
-        </div>
-        <div class="flex gap-3">
-          <button id="setup-save" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Save Config & Start</button>
-          <button id="setup-offline" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Test Offline (No Firebase)</button>
-        </div>
+       <div>
+         <label for="app-id-input" class="block text-sm font-medium text-gray-300 mb-1">App ID (Namespace)</label>
+         <input id="app-id-input" type="text" value="seminar-cloud" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+         <p class="text-xs text-gray-500 mt-1">A unique ID for your app's data.</p>
+       </div>
+       <div>
+         <label for="firebase-config-json" class="block text-sm font-medium text-gray-300 mb-1">Firebase Config JSON</label>
+         <textarea id="firebase-config-json" rows="8" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm font-mono" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "appId": "..." }'></textarea>
+       </div>
+       <div>
+         <label class="block text-sm font-medium text-gray-300 mb-2">Default Storage</label>
+         <div class="flex gap-4">
+           <label class="flex items-center gap-2">
+             <input type="radio" name="storageChoice" value="firebase" class="bg-black/30" checked>
+             <span>App Storage (Firebase)</span>
+           </label>
+           <label class="flex items-center gap-2">
+             <input type="radio" name="storageChoice" value="gdrive" class="bg-black/30">
+             <span>Google Drive (personal)</span>
+           </label>
+         </div>
+       </div>
+       <div class="flex gap-3">
+         <button id="setup-save" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Save Config & Start</button>
+         <button id="setup-offline" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Test Offline (No Firebase)</button>
+       </div>
      </div>
   </section>
 
-  <!-- ====================================================== -->
-  <!-- ===== SCREEN 3: AUTH SCREEN                      ===== -->
-  <!-- ====================================================== -->
   <section id="auth-screen" class="hidden mt-10 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
     <h2 class="text-2xl font-bold text-center mb-4">Sign In / Sign Up</h2>
     <form id="auth-form" class="space-y-4">
@@ -200,9 +168,6 @@
     </button>
   </section>
 
-  <!-- ====================================================== -->
-  <!-- ===== SCREEN 4: MAIN APP                         ===== -->
-  <!-- ====================================================== -->
   <section id="main-app" class="hidden mt-6">
     <div id="paywall-banner"
          class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm mb-4">
@@ -210,7 +175,6 @@
       <button id="subscribe-btn" class="underline ml-1">Subscribe</button>
     </div>
 
-    <!-- Main Navigation Tabs -->
     <div class="flex flex-wrap items-center gap-2 mb-4">
       <button data-tab="tab-manage" class="app-tab px-3 py-1.5 rounded-lg">Class / Event</button>
       <button data-tab="tab-rubrics" class="app-tab px-3 py-1.5 rounded-lg">Rubrics</button>
@@ -220,10 +184,8 @@
       <span id="account-pill" class="ml-auto text-xs text-gray-400">Role: — • Storage: —</span>
     </div>
 
-    <!-- Tab Content: Class / Event Manager -->
     <div class="app-tab-content" id="tab-manage">
       <div class="grid md:grid-cols-2 gap-6">
-        <!-- Class / Event Manager -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
           <div class="flex items-center gap-2 mb-3">
             <h3 class="font-semibold text-lg">Class / Event Manager</h3>
@@ -269,7 +231,6 @@
           </div>
         </div>
 
-        <!-- Account & Storage -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
           <h3 class="font-semibold text-lg mb-3">Account & Storage</h3>
           <div class="space-y-3 text-sm">
@@ -302,7 +263,6 @@
       </div>
     </div>
 
-    <!-- Tab: Rubrics Manager -->
     <div id="tab-rubrics" class="hidden app-tab-content">
       <div class="flex items-center gap-2 mb-3">
         <h2 class="text-xl font-semibold">Rubric Reference Manager</h2>
@@ -361,1529 +321,252 @@
         </div>
       </div>
     </div>
-    <!-- ===== END: Tab: Rubrics Manager ===== -->
-
-    <!-- ===== NEW: Tab: Record ===== -->
     <div id="tab-record" class="hidden app-tab-content max-w-2xl mx-auto">
-        <h2 class="text-xl font-semibold mb-4">Record Presentation</h2>
-        <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-            <!-- Video Preview -->
-            <video id="video-preview" class="w-full rounded-lg shadow aspect-video mb-4" playsinline muted autoplay></video>
+      <h2 class="text-xl font-semibold mb-4">Record Presentation</h2>
+      <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
+        <video id="video-preview" class="w-full rounded-lg shadow aspect-video mb-4" playsinline muted autoplay></video>
 
-            <!-- Status & Timer -->
-            <div class="flex justify-between items-center mb-4">
-                <div class="text-lg">
-                    Status: <span id="rec-status" class="font-semibold text-gray-300">Idle</span>
-                </div>
-                <div class="text-lg">
-                    Timer: <span id="rec-timer" class="font-semibold text-gray-300">00:00</span>
-                </div>
-            </div>
-
-            <!-- Controls -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <button id="start-rec-btn" class="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold col-span-2">
-                    Start Recording
-                </button>
-                <button id="pause-rec-btn" class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50" disabled>
-                    Pause
-                </button>
-                <button id="toggle-camera-btn" class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20">
-                    Switch Camera
-                </button>
-                
-                <button id="stop-rec-btn" class="hidden px-4 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold col-span-2">
-                    Stop & Tag Video
-                </button>
-                <button id="discard-rec-btn" class="hidden px-4 py-3 rounded-lg bg-red-800 hover:bg-red-700 text-white col-span-2">
-                    Discard & Restart
-                </button>
-            </div>
-            <p class="text-xs text-gray-500 mt-3 text-center">Note: Recording happens on your device. You will tag and upload after stopping.</p>
+        <div class="flex justify-between items-center mb-4">
+          <div class="text-lg">
+            Status: <span id="rec-status" class="font-semibold text-gray-300">Idle</span>
+          </div>
+          <div class="text-lg">
+            Timer: <span id="rec-timer" class="font-semibold text-gray-300">00:00</span>
+          </div>
         </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <button id="start-rec-btn" class="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold col-span-2">
+            Start Recording
+          </button>
+          <button id="pause-rec-btn" class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50" disabled>
+            Pause
+          </button>
+          <button id="toggle-camera-btn" class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20">
+            Switch Camera
+          </button>
+          
+          <button id="stop-rec-btn" class="hidden px-4 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold col-span-2">
+            Stop & Tag Video
+          </button>
+          <button id="discard-rec-btn" class="hidden px-4 py-3 rounded-lg bg-red-800 hover:bg-red-700 text-white col-span-2">
+            Discard & Restart
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 mt-3 text-center">Note: Recording happens on your device. You will tag and upload after stopping.</p>
+        
+        <div class="w-full h-1 mt-4 bg-white/10 rounded-full overflow-hidden">
+          <div id="upload-progress" class="h-1 bg-primary-500 w-0 transition-all duration-300"></div>
+        </div>
+      </div>
     </div>
-    <!-- ===== END: Tab: Record ===== -->
-
-
     <div id="tab-library" class="hidden app-tab-content">
-       <h2 class="text-xl font-semibold">Video Library</h2>
-       <p class="text-gray-400">This section is under construction.</p>
+      <h2 class="text-xl font-semibold mb-4">Video Library</h2>
+      <div id="library-list" class="space-y-3">
+        <p class="text-sm text-gray-400">Loading library...</p>
+      </div>
     </div>
-
     <div id="tab-analytics" class="hidden app-tab-content">
        <h2 class="text-xl font-semibold">Analytics Dashboard</h2>
        <p class="text-gray-400">This section is under construction.</p>
     </div>
   </section>
 
-  <!-- ====================================================== -->
-  <!-- ===== SCREEN 5: METADATA TAGGING (Dialog/Modal)  ===== -->
-  <!-- ====================================================== -->
   <dialog id="metadata-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-md border border-white/10 p-0">
-      <form id="metadata-form">
-          <h2 class="text-xl font-bold p-5 border-b border-white/10">Tag Your Recording</h2>
-          <div class="p-5 space-y-4">
-              <!-- Auto-filled Info -->
-              <div class="grid grid-cols-2 gap-4">
-                  <div>
-                      <label class="block text-xs font-medium text-gray-400">Organization</label>
-                      <input id="meta-org" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
-                  </div>
-                  <div>
-                      <label class="block text-xs font-medium text-gray-400">Instructor</label>
-                      <input id="meta-instructor" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
-                  </div>
-              </div>
-              
-              <!-- Core Tags -->
-              <div>
-                  <label for="meta-class" class="block text-sm font-medium text-gray-300 mb-1">Class / Event</label>
-                  <select id="meta-class" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
-              </div>
-              <div>
-                  <label for="meta-participant" class="block text-sm font-medium text-gray-300 mb-1">Participant</label>
-                  <select id="meta-participant" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" disabled>
-                      <option value="">Select a class/event first...</option>
-                  </select>
-                  <div id="add-participant-container" class="hidden flex gap-2 mt-2">
-                      <input id="new-participant-name" type="text" class="flex-1 rounded-lg bg-black/40 border border-white/10 p-2 text-sm" placeholder="New Participant Name...">
-                      <button id="add-participant-btn" type="button" class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-sm">Add</button>
-                  </div>
-              </div>
-
-              <!-- Extra Tags -->
-              <div class="grid grid-cols-2 gap-4">
-                  <div>
-                      <label for="meta-type" class="block text-sm font-medium text-gray-300 mb-1">Recording Type</label>
-                      <select id="meta-type" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-                          <option value="mock">mock</option>
-                          <option value="tmp">tmp</option>
-                          <option value="imp">imp</option> <!-- Corrected typo -->
-                          <option value="rehearsal">rehearsal</option>
-                          <option value="final">final</option>
-                          <option value="other">other</option>
-                      </select>
-                  </div>
-                  <div>
-                      <label for="meta-group" class="block text-sm font-medium text-gray-300 mb-1">Group / Tag</label>
-                      <input id="meta-group" type="text" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="e.g., Group 1">
-                  </div>
-              </div>
-              
-              <div>
-                  <label for="meta-notes" class="block text-sm font-medium text-gray-300 mb-1">General Notes</label>
-                  <textarea id="meta-notes" rows="3" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Optional notes..."></textarea>
-              </div>
-
+    <form id="metadata-form">
+      <h2 class="text-xl font-bold p-5 border-b border-white/10">Tag Your Recording</h2>
+      <div class="p-5 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-400">Organization</label>
+            <input id="meta-org" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
           </div>
-          <div class="p-5 border-t border-white/10 flex justify-between items-center">
-              <div>
-                  <span class="text-sm">File Size: <span id="meta-file-size" class="font-medium text-gray-300">0 MB</span></span>
-              </div>
-              <div>
-                  <button id="cancel-upload-btn" type="reset" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
-                  <button id="save-upload-btn" type="submit" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 ml-2">Save & Upload</button>
-              </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400">Instructor</label>
+            <input id="meta-instructor" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
           </div>
-      </form>
+        </div>
+        
+        <div>
+          <label for="meta-class" class="block text-sm font-medium text-gray-300 mb-1">Class / Event</label>
+          <select id="meta-class" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
+        </div>
+        <div>
+          <label for="meta-participant" class="block text-sm font-medium text-gray-300 mb-1">Participant</label>
+          <select id="meta-participant" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" disabled>
+            <option value="">Select a class/event first...</option>
+          </select>
+          <div id="add-participant-container" class="hidden flex gap-2 mt-2">
+            <input id="new-participant-name" type="text" class="flex-1 rounded-lg bg-black/40 border border-white/10 p-2 text-sm" placeholder="New Participant Name...">
+            <button id="add-participant-btn" type="button" class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-sm">Add</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="meta-type" class="block text-sm font-medium text-gray-300 mb-1">Recording Type</label>
+            <select id="meta-type" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+              <option value="mock">mock</option>
+              <option value="tmp">tmp</option>
+              <option value="imp">imp</option>
+              <option value="rehearsal">rehearsal</option>
+              <option value="final">final</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+          <div>
+            <label for="meta-group" class="block text-sm font-medium text-gray-300 mb-1">Group / Tag</label>
+            <input id="meta-group" type="text" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="e.g., Group 1">
+          </div>
+        </div>
+        
+        <div>
+          <label for="meta-notes" class="block text-sm font-medium text-gray-300 mb-1">General Notes</label>
+          <textarea id="meta-notes" rows="3" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Optional notes..."></textarea>
+        </div>
+
+      </div>
+      <div class="p-5 border-t border-white/10 flex justify-between items-center">
+        <div>
+          <span class="text-sm">File Size: <span id="meta-file-size" class="font-medium text-gray-300">0 MB</span></span>
+        </div>
+        <div>
+          <button id="cancel-upload-btn" type="reset" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
+          <button id="save-upload-btn" type="submit" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 ml-2">Save & Upload</button>
+        </div>
+      </div>
+    </form>
   </dialog>
 
 
-  <!-- ====================================================== -->
-  <!-- ===== SCREEN 6: HELP/FAQ MODAL (Dialog)          ===== -->
-  <!-- ====================================================== -->
   <dialog id="help-faq-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-2xl border border-white/10 p-0">
+    <form method="dialog">
+      <button class="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
+    </form>
+    <h2 class="text-xl font-bold p-5 border-b border-white/10">Help & FAQ</h2>
+    <div class="p-5 max-h-[70vh] overflow-y-auto space-y-6">
+      
+      <details class="space-y-2" open>
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">How do I install this app on my phone? (Add to Home Screen)</summary>
+        <p class="text-gray-300">This is a Progressive Web App (PWA). You can install it from your browser for a full-screen, app-like experience.</p>
+        <div class="ml-4">
+          <h4 class="font-semibold text-gray-100">On iOS (iPhone/iPad - Safari):</h4>
+          <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
+            <li>Open the app's website in the **Safari** browser.</li>
+            <li>Tap the **"Share"** icon (a box with an arrow pointing up).</li>
+            <li>Scroll down and tap on **"Add to Home Screen"**.</li>
+            <li>Confirm the name and tap **"Add"**.</li>
+          </ol>
+        </div>
+        <div class="ml-4 mt-2">
+          <h4 class="font-semibold text-gray-100">On Android (Chrome):</h4>
+          <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
+            <li>Open the app's website in the **Chrome** browser.</li>
+            <li>Tap the **three-dot menu** (⋮) in the top-right corner.</li>
+            <li>Tap on **"Install app"** (or "Add to Home screen").</li>
+            <li>Follow the prompts to confirm.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="space-y-2">
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">What are the requirements for iOS (iPhone/iPad)?</summary>
+        <p class="text-gray-300">The app works best on newer operating systems.</p>
+        <ul class="list-disc list-outside ml-5 space-y-2">
+          <li>
+            <strong class="text-gray-100">Recommended: iOS 17 / iPadOS 17 (or newer)</strong><br>
+            <span class="text-gray-300">Provides full support. You can "Add to Home Screen" and **offline recording is fully supported.**</span>
+          </li>
+          <li>
+            <strong class="text-gray-100">Older iOS (Version 16.x and below)</strong><br>
+            <span class="text-gray-300">**Online-Only.** The app will still run in Safari, but you must have an active internet connection. Offline recording is not available.</span>
+          </li>
+        </ul>
+      </details>
+
+      <details class="space-y-2">
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Storage & Data Management</summary>
+        <div class="ml-4 space-y-3">
+          <div>
+            <h4 class="font-semibold text-gray-100">What do I do about the "Low Storage" warning?</h4>
+            <p class="text-gray-300">This warning appears when you use ~90% of your subscription's storage limit. To continue uploading, you have three options:</p>
+            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
+              <li>**Upgrade Your Plan:** Go to the "Account" section to purchase a plan with more storage.</li>
+              <li>**Export & Delete (Firebase Storage):** Use the "Export (Firebase only)" button in the Account section to download a .zip file of a class's videos, save it to your computer, and then safely delete the recordings from the app.</li>
+              <li>**Manually Delete:** Go to the "Library" tab, find old videos you no longer need, and delete them.</li>
+            </ol>
+          </div>
+          <div>
+            <h4 class="font-semibold text-gray-100">Firebase Storage vs. Google Drive</h4>
+            <p class="text-gray-300">**Firebase Storage** (Recommended) saves your videos privately to the app's storage. This is required for features like `Export as Zip` and is managed by your app subscription's storage limit.</p>
+            <p class="text-gray-300 mt-1">**Google Drive** saves videos to your *personal* Google Drive account. This uses your personal Google storage quota and does not count against your app limit. However, if you move or rename these files in your Google Drive, the app will lose access to them.</p>
+          </div>
+          <div>
+            <h4 class="font-semibold text-gray-100">What if I switch storage providers?</h4>
+            <p class="text-gray-300">You can switch providers in the "Account" section, but **this only affects *new* uploads.** The app will lose access to all videos saved in the previous location. This is not reversible and is only recommended for a "fresh start" (e.g., a new school year).</p>
+          </div>
+        </div>
+      </details>
+      
+      <details class="space-y-2">
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Class Lifecycle (Archiving & Deletion)</summary>
+        <div class="ml-4 space-y-3">
+          <div>
+            <h4 class="font-semibold text-gray-100">Archiving vs. Deleting</h4>
+            <p class="text-gray-300">**Archiving** a class simply hides it from your active lists (like the "Class / Event" dropdown during recording). You can still view archived videos in the "Library" tab. This is the recommended action for finished classes.</p>
+            <p class="text-gray-300 mt-1">**Deleting** is permanent. When a class is deleted (either by you or by the auto-delete policy), all associated videos and scores are permanently erased from the system.</p>
+          </div>
+          <div>
+            <h4 class="font-semibold text-gray-100">How does Auto-Delete work?</h4>
+            <p class="text-gray-300">You can set an `Auto-Delete Date` for each class. This is useful for meeting data retention requirements. For example, if you must keep videos for 1 year after a class ends, set the `Auto-Archive Date` to the class end date, and the `Auto-Delete Date` to one year after that.</p>
+            <p class="text-gray-300 mt-1">**Fallback Policy:** For users on the **Firebase Storage** option, a system-wide rule will permanently delete any video file that is older than **18 months** (based on its creation date) as a safety net to manage storage costs, regardless of your in-app settings.</p>
+          </div>
+        </div>
+      </details>
+
+      <details class="space-y-2">
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Common Workflows</summary>
+        <div class="ml-4 space-y-3">
+          <div>
+            <h4 class="font-semibold text-gray-100">How do I add my participant roster?</h4>
+            <p class="text-gray-300">Go to the "Class / Event" tab, select your class (or create a new one), and go to the "Participant Roster" text box. You can copy your list of names from any source (Google Classroom, Sheets, Word) and paste them in. **Ensure names are listed one per line.**</p>
+          </div>
+          <div>
+            <h4 class="font-semibold text-gray-100">How do I use videos from Zoom or Google Meet?</h4>
+            <p class="text-gray-300">You cannot record *from* Zoom/Meet directly. Instead:</p>
+            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
+              <li>Record the presentation using the record feature *inside* Zoom or Meet.</li>
+              <li>Download the video file (e.g., `.mp4`) from Zoom/Meet to your device.</li>
+              <li>In this app, go to the "Library" tab and find the **"Upload Existing Video File"** button (this feature is coming soon).</li>
+              <li>Select the file you downloaded, and tag it with metadata just like a normal recording.</li>
+            </ol>
+          </div>
+        </div>
+      </details>
+
+    </div>
+    <div class="p-5 border-t border-white/10 text-right">
       <form method="dialog">
-        <!-- Fix: Corrected class attribute -->
-        <button class="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
+        <button class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Close</button>
       </form>
-      <h2 class="text-xl font-bold p-5 border-b border-white/10">Help & FAQ</h2>
-      <div class="p-5 max-h-[70vh] overflow-y-auto space-y-6">
-        
-        <!-- How to Install -->
-        <details class="space-y-2" open>
-          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">How do I install this app on my phone? (Add to Home Screen)</summary>
-          <p class="text-gray-300">This is a Progressive Web App (PWA). You can install it from your browser for a full-screen, app-like experience.</p>
-          <div class="ml-4">
-            <h4 class="font-semibold text-gray-100">On iOS (iPhone/iPad - Safari):</h4>
-            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
-              <li>Open the app's website in the **Safari** browser.</li>
-              <li>Tap the **"Share"** icon (a box with an arrow pointing up).</li>
-              <li>Scroll down and tap on **"Add to Home Screen"**.</li>
-              <li>Confirm the name and tap **"Add"**.</li>
-            </ol>
-          </div>
-          <div class="ml-4 mt-2">
-            <h4 class="font-semibold text-gray-100">On Android (Chrome):</h4>
-            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
-              <li>Open the app's website in the **Chrome** browser.</li>
-              <li>Tap the **three-dot menu** (⋮) in the top-right corner.</li>
-              <li>Tap on **"Install app"** (or "Add to Home screen").</li>
-              <li>Follow the prompts to confirm.</li>
-            </ol>
-          </div>
-        </details>
-
-        <!-- iOS Requirements -->
-        <details class="space-y-2">
-          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">What are the requirements for iOS (iPhone/iPad)?</summary>
-          <p class="text-gray-300">The app works best on newer operating systems.</p>
-          <ul class="list-disc list-outside ml-5 space-y-2">
-            <li>
-              <strong class="text-gray-100">Recommended: iOS 17 / iPadOS 17 (or newer)</strong><br>
-              <span class="text-gray-300">Provides full support. You can "Add to Home Screen" and **offline recording is fully supported.**</span>
-            </li>
-            <li>
-              <strong class="text-gray-100">Older iOS (Version 16.x and below)</strong><br>
-              <span class="text-gray-300">**Online-Only.** The app will still run in Safari, but you must have an active internet connection. Offline recording is not available.</span>
-            </li>
-          </ul>
-        </details>
-
-        <!-- Storage & Data -->
-        <details class="space-y-2">
-          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Storage & Data Management</summary>
-          <div class="ml-4 space-y-3">
-            <div>
-              <h4 class="font-semibold text-gray-100">What do I do about the "Low Storage" warning?</h4>
-              <p class="text-gray-300">This warning appears when you use ~90% of your subscription's storage limit. To continue uploading, you have three options:</p>
-              <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
-                <li>**Upgrade Your Plan:** Go to the "Account" section to purchase a plan with more storage.</li>
-                <li>**Export & Delete (Firebase Storage):** Use the "Export (Firebase only)" button in the Account section to download a .zip file of a class's videos, save it to your computer, and then safely delete the recordings from the app.</li>
-                <li>**Manually Delete:** Go to the "Library" tab, find old videos you no longer need, and delete them.</li>
-              </ol>
-            </div>
-            <div>
-              <h4 class="font-semibold text-gray-100">Firebase Storage vs. Google Drive</h4>
-              <p class="text-gray-300">**Firebase Storage** (Recommended) saves your videos privately to the app's storage. This is required for features like `Export as Zip` and is managed by your app subscription's storage limit.</p>
-              <p class="text-gray-300 mt-1">**Google Drive** saves videos to your *personal* Google Drive account. This uses your personal Google storage quota and does not count against your app limit. However, if you move or rename these files in your Google Drive, the app will lose access to them.</p>
-            </div>
-            <div>
-              <h4 class="font-semibold text-gray-100">What if I switch storage providers?</h4>
-              <p class="text-gray-300">You can switch providers in the "Account" section, but **this only affects *new* uploads.** The app will lose access to all videos saved in the previous location. This is not reversible and is only recommended for a "fresh start" (e.g., a new school year).</p>
-            </div>
-          </div>
-        </details>
-        
-        <!-- Class Lifecycle -->
-        <details class="space-y-2">
-          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Class Lifecycle (Archiving & Deletion)</summary>
-          <div class="ml-4 space-y-3">
-            <div>
-              <h4 class="font-semibold text-gray-100">Archiving vs. Deleting</h4>
-              <p class="text-gray-300">**Archiving** a class simply hides it from your active lists (like the "Class / Event" dropdown during recording). You can still view archived videos in the "Library" tab. This is the recommended action for finished classes.</p>
-              <p class="text-gray-300 mt-1">**Deleting** is permanent. When a class is deleted (either by you or by the auto-delete policy), all associated videos and scores are permanently erased from the system.</p>
-            </div>
-            <div>
-              <h4 classs="font-semibold text-gray-100">How does Auto-Delete work?</h4>
-              <p class="text-gray-300">You can set an `Auto-Delete Date` for each class. This is useful for meeting data retention requirements. For example, if you must keep videos for 1 year after a class ends, set the `Auto-Archive Date` to the class end date, and the `Auto-Delete Date` to one year after that.</p>
-              <p class="text-gray-300 mt-1">**Fallback Policy:** For users on the **Firebase Storage** option, a system-wide rule will permanently delete any video file that is older than **18 months** (based on its creation date) as a safety net to manage storage costs, regardless of your in-app settings.</p>
-            </div>
-          </div>
-        </details>
-
-        <!-- Common Workflows -->
-        <details class="space-y-2">
-          <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Common Workflows</summary>
-          <div class="ml-4 space-y-3">
-            <div>
-              <h4 class="font-semibold text-gray-100">How do I add my participant roster?</h4>
-              <p class="text-gray-300">Go to the "Class / Event" tab, select your class (or create a new one), and go to the "Participant Roster" text box. You can copy your list of names from any source (Google Classroom, Sheets, Word) and paste them in. **Ensure names are listed one per line.**</p>
-            </div>
-            <div>
-              <h4 class="font-semibold text-gray-100">How do I use videos from Zoom or Google Meet?</h4>
-              <p class="text-gray-300">You cannot record *from* Zoom/Meet directly. Instead:</p>
-              <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
-                <li>Record the presentation using the record feature *inside* Zoom or Meet.</li>
-                <li>Download the video file (e.g., `.mp4`) from Zoom/Meet to your device.</li>
-                <li>In this app, go to the "Library" tab and find the **"Upload Existing Video File"** button (this feature is coming soon).</li>
-                <li>Select the file you downloaded, and tag it with metadata just like a normal recording.</li>
-              </ol>
-            </div>
-          </div>
-        </details>
-
-      </div>
-      <div class="p-5 border-t border-white/10 text-right">
-        <form method="dialog">
-          <button class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Close</button>
-        </form>
-      </div>
+    </div>
   </dialog>
+
+  <dialog id="confirm-modal" class="backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-sm border border-white/10 p-0">
+    <div class="p-5">
+      <h3 id="confirm-title" class="text-lg font-semibold text-white mb-2">Are you sure?</h3>
+      <p id="confirm-message" class="text-sm text-gray-300 mb-4">This action cannot be undone.</p>
+    </div>
+    <div class="p-4 bg-white/5 border-t border-white/10 flex justify-end gap-2">
+      <button id="confirm-btn-no" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
+      <button id="confirm-btn-yes" class="px-4 py-2 text-sm rounded-lg">Confirm</button>
+    </div>
+  </dialog>
+
 </main>
 
 
-<!-- ====================================================== -->
-<!-- ====================================================== -->
-<!-- ===== JAVASCRIPT (ES MODULE)                   ===== -->
-<!-- ====================================================== -->
-<!-- ====================================================== -->
-<script type="module">
-/* -------------------------------------------------------------------------- */
-/* Firebase SDK Imports                            */
-/* -------------------------------------------------------------------------- */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import {
-  getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot,
-  collection, addDoc, query, where, getDocs, orderBy, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import {
-  getStorage, ref as sRef, uploadBytesResumable, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+<script type="module" src="./scripts/main.js"></script>
 
-/* -------------------------------------------------------------------------- */
-/* Firebase Initialization Helper (Moved to top for hoisting) */
-/* -------------------------------------------------------------------------- */
-function initFirebase() {
-  try {
-    const cfgStr = localStorage.getItem(LS.CFG);
-    if (!cfgStr) {
-      console.warn("⚠️ No Firebase config found in localStorage.");
-      return false;
-    }
-
-    const cfg = JSON.parse(cfgStr);
-    app = initializeApp(cfg);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-
-    console.log("✅ Firebase initialized successfully.");
-    return true;
-  } catch (e) {
-    console.error("❌ Firebase init error:", e);
-    toast("Firebase init failed: " + e.message, "error");
-    return false;
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Utility Functions                             */
-/* -------------------------------------------------------------------------- */
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
-
-function toast(msg, type = "info") {
-  const el = document.createElement("div");
-  el.className = `px-3 py-2 rounded-lg text-sm border fade-enter
-    ${type === "error" ? "bg-red-500/20 border-red-500/40 text-red-200" :
-    type === "success" ? "bg-emerald-500/20 border-emerald-500/44 text-emerald-200" : // Corrected typo
-    "bg-white/10 border-white/20 text-white"}`;
-  el.textContent = msg;
-  $("#toast-container").appendChild(el);
-  requestAnimationFrame(() => el.classList.add('fade-enter-active'));
-  setTimeout(() => {
-    el.classList.remove('fade-enter-active');
-    setTimeout(() => el.remove(), 200);
-  }, 3000);
-}
-
-// Updated showScreen to handle the new metadata-screen modal
-function showScreen(id) {
-  // Hide all main sections
-  ["loading-screen", "setup-screen", "auth-screen", "main-app"].forEach(s => {
-      const el = $(`#${s}`);
-      if (el) el.classList.toggle("hidden", s !== id);
-      else console.warn(`Screen element not found: #${s}`);
-  });
-  // Special case for metadata modal
-  if (id === 'metadata-screen') {
-    $("#metadata-screen").showModal();
-  } else {
-    // Make sure modal is closed if we're showing a main screen
-    const metaScreen = $("#metadata-screen");
-    if (metaScreen && metaScreen.open) metaScreen.close();
-  }
-  console.log(`Switched to screen: ${id}`);
-}
-
-window.onerror = (m, s, l, c, e) => {
-    const error = e || m;
-    console.error("Global Error:", error);
-    $("#error-display").textContent = `Error: ${error.message || m}\nAt: ${s}:${l}:${c}`;
-    $("#error-display").classList.remove("hidden");
-    showScreen("loading-screen"); // Go to loading screen on fatal error
-};
-window.onunhandledrejection = (event) => {
-    console.error("Unhandled Rejection:", event.reason);
-    $("#error-display").textContent = `Error: ${event.reason?.message || event.reason}`;
-    $("#error-display").classList.remove("hidden");
-};
-
-/* -------------------------------------------------------------------------- */
-/* Local Storage / Config                          */
-/* -------------------------------------------------------------------------- */
-const LS = { CFG: "sc/firebaseConfig", APP: "sc/appId", STORE: "sc/storageChoice" };
-function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud"; }
-function getStorageChoice() { return localStorage.getItem(LS.STORE) || "firebase"; }
-function setStorageChoice(choice) {
-    localStorage.setItem(LS.STORE, choice);
-    $("#storage-provider").value = choice;
-    // Fix: Check if userDoc is populated before accessing role
-    $("#account-pill").textContent = `Role: ${userDoc?.role || '...'} • Storage: ${choice}`;
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Firebase & App State Variables                       */
-/* -------------------------------------------------------------------------- */
-let app, auth, db, storage;
-let currentUser = null;
-// Fix: Use userDoc as the primary profile object, initialize with defaults
-let userDoc = { 
-    role: "user", 
-    activeSubscription: false, 
-    storageUsedBytes: 0,
-    planStorageLimit: 1 // Default to 1 to avoid div by zero
-};
-let classData = {}; // In-memory cache for class/roster data
-
-// --- NEW Recording State ---
-let mediaStream = null;
-let mediaRecorder = null;
-let recordedChunks = [];
-let currentRecordingBlob = null;
-let timerInterval = null;
-let secondsElapsed = 0;
-let currentFacingMode = "environment"; // 'user' (front) or 'environment' (back)
-
-
-/* -------------------------------------------------------------------------- */
-/* IndexedDB for Offline Storage                        */
-/* -------------------------------------------------------------------------- */
-const IDB_NAME = "seminar-cloud", IDB_STORE = "pendingUploads";
-function idbOpen() {
-  return new Promise((res, rej) => {
-    const r = indexedDB.open(IDB_NAME, 1);
-    r.onupgradeneeded = () => {
-      if (!r.result.objectStoreNames.contains(IDB_STORE))
-        r.result.createObjectStore(IDB_STORE, { keyPath: "id", autoIncrement: true });
-    };
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
-  });
-}
-async function cacheOffline(blob, meta) {
-  try {
-    const dbx = await idbOpen();
-    await new Promise((res, rej) => {
-      const tx = dbx.transaction(IDB_STORE, "readwrite");
-      tx.objectStore(IDB_STORE).add({ blob, meta, createdAt: Date.now() });
-      tx.oncomplete = res;
-      tx.onerror = () => rej(tx.error);
-    });
-    toast("Saved offline. Will upload when back online.", "info");
-  } catch (e) {
-    console.error("Failed to cache offline", e);
-    toast("Failed to save offline. Storage may be full.", "error");
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Class / Event (Management Hub)                      */
-/* -------------------------------------------------------------------------- */
-async function refreshClassesList() {
-  if (!db || !currentUser) return;
-  const col = collection(db, `artifacts/${getAppId()}/users/${currentUser.uid}/classes`);
-  const q = query(col, orderBy("createdAt", "desc"));
-  
-  // Clear lists
-  const classListSelect = $("#classes-list");
-  const metaClassSelect = $("#meta-class");
-  classListSelect.innerHTML = '<option value="">-- Select class to edit --</option>';
-  metaClassSelect.innerHTML = '<option value="">-- Select a Class / Event --</option>';
-  
-  classData = {}; // Clear in-memory cache
-
-  try {
-    const snap = await getDocs(q);
-    if (snap.empty) {
-        console.log("No classes found in Firestore.");
-        return;
-    }
-    
-    let firstClassId = null;
-    snap.forEach(d => {
-      const classDoc = { id: d.id, ...d.data() };
-      classData[d.id] = classDoc; // Populate in-memory cache
-      
-      const o = document.createElement("option");
-      o.value = d.id;
-      o.textContent = classDoc.title || "Untitled";
-      
-      if(classDoc.archived) {
-          o.textContent += " (Archived)";
-          // Don't disable here, allow selection for editing
-      } else {
-          // Only add non-archived classes to the metadata dropdown
-          const metaOpt = o.cloneNode(true);
-          metaClassSelect.appendChild(metaOpt);
-      }
-      
-      classListSelect.appendChild(o);
-      
-      if (!firstClassId) firstClassId = d.id; // Select first one regardless of archive status for editing
-    });
-    
-    // Auto-select the first class in the edit form
-    if (firstClassId) {
-        classListSelect.value = firstClassId;
-        loadClassIntoEditor(firstClassId);
-    }
-
-  } catch (e) {
-    console.error("Error refreshing classes:", e);
-    toast("Could not load classes.", "error");
-  }
-}
-
-function loadClassIntoEditor(classId) {
-    const cls = classData[classId];
-    if (!cls) {
-        $("#class-title").value = "";
-        $("#class-archive-date").value = "";
-        $("#class-delete-date").value = "";
-        $("#class-roster").value = "";
-        return;
-    }
-    $("#class-title").value = cls.title || "";
-    $("#class-archive-date").value = cls.archiveDate || "";
-    $("#class-delete-date").value = cls.deleteDate || "";
-    $("#class-roster").value = (cls.participants || []).join('\n');
-}
-
-async function handleSaveClass() {
-  if (!db || !currentUser) {
-      toast("Not signed in.", "error");
-      return;
-  }
-  
-  const title = $("#class-title").value.trim();
-  if (!title) {
-      toast("Class Title is required.", "error");
-      return;
-  }
-  
-  const participants = $("#class-roster").value.split(/\n+/).map(s => s.trim()).filter(Boolean);
-  const archiveDate = $("#class-archive-date").value || null;
-  const deleteDate = $("#class-delete-date").value || null;
-  const selectedClassId = $("#classes-list").value;
-
-  const payload = {
-      title,
-      participants,
-      archiveDate,
-      deleteDate,
-      updatedAt: serverTimestamp()
-  };
-
-  try {
-    let docRef;
-    let newDocId = null;
-    if (selectedClassId) {
-      // Update existing class
-      docRef = doc(db, `artifacts/${getAppId()}/users/${currentUser.uid}/classes`, selectedClassId);
-      await updateDoc(docRef, payload);
-      toast("Class updated!", "success");
-      newDocId = selectedClassId; // Keep the same ID
-    } else {
-      // Create new class
-      payload.createdAt = serverTimestamp();
-      payload.archived = false;
-      const newDoc = await addDoc(collection(db, `artifacts/${getAppId()}/users/${currentUser.uid}/classes`), payload);
-      newDocId = newDoc.id; // Get the ID of the new document
-      toast("Class created!", "success");
-    }
-    
-    // Refresh the list and form
-    await refreshClassesList();
-    // Select the newly saved/created class
-    $("#classes-list").value = newDocId; 
-    
-  } catch (e) {
-    console.error("Error saving class:", e);
-    toast(`Failed to save class: ${e.message}`, "error");
-  }
-}
-
-async function handleArchiveClass() {
-  const id = $("#classes-list").value;
-  if (!id) {
-      toast("Select a class to archive first.", "error");
-      return;
-  }
-
-  // Confirmation pop-up with export prompt
-  const doExport = (getStorageChoice() === 'firebase') ? 
-    confirm("Archiving will hide this class from active lists. Videos remain accessible in the archive until auto-deletion.\n\nDo you want to export videos now? (Recommended before potential deletion).") :
-    confirm("Archiving will hide this class from active lists. Videos remain accessible in the archive until auto-deletion.\n\n(Export feature is only available for Firebase App Storage).");
-  
-  if (doExport && getStorageChoice() === 'firebase') {
-      // Placeholder for the export function
-      console.log("Triggering export for class:", id);
-      toast("Exporting... (This feature is under construction)", "info");
-      // await exportClassAsZip(id); // Call the export function
-  }
-
-  // Proceed with archiving
-  try {
-    const appId = getAppId();
-    await updateDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/classes`, id), {
-      archived: true,
-      updatedAt: serverTimestamp()
-    });
-    toast("Class archived.", "success");
-    await refreshClassesList();
-    clearClassEditor(); // Clear form after archiving
-  } catch (e) {
-    console.error("Error archiving class:", e);
-    toast(`Failed to archive class: ${e.message}`, "error");
-  }
-}
-
-function clearClassEditor() {
-    $("#classes-list").value = ""; // Deselect
-    $("#class-title").value = "";
-    $("#class-archive-date").value = "";
-    $("#class-delete-date").value = "";
-    $("#class-roster").value = "";
-    $("#class-title").focus();
-}
-
-/* -------------------------------------------------------------------------- */
-/* Rubric Manager                          */
-/* -------------------------------------------------------------------------- */
-function handleRubricTabClick(e) {
-    const btn = e.target.closest(".sub-tab");
-    if (!btn) return;
-    
-    const tabId = btn.dataset.subtab;
-    $$(".rubric-sub-tab-content").forEach(el => el.classList.toggle("hidden", el.id !== tabId));
-    $$(".sub-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.subtab === tabId));
-    
-    console.log(`Switched to rubric sub-tab: ${tabId}`);
-}
-
-function handleAddRubricRow() {
-    const container = $("#new-rubric-rows-container");
-    if (!container) return;
-    
-    const rowCount = container.children.length + 1;
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm";
-    input.placeholder = `Row ${rowCount}: e.g., Pacing`;
-    container.appendChild(input);
-}
-
-async function handleSaveNewRubric() {
-    if (!db || !currentUser || !storage) {
-        toast("Not signed in or storage not ready.", "error");
-        return;
-    }
-
-    const title = $("#new-rubric-title").value.trim();
-    const file = $("#new-rubric-file").files[0];
-    const componentNames = $$(".new-rubric-row")
-                            .map(input => input.value.trim())
-                            .filter(name => name); // Get all non-empty row names
-                            
-    if (!title) {
-        toast("Rubric Title is required.", "error");
-        return;
-    }
-    if (!file) {
-        toast("A PDF or Image reference file is required.", "error");
-        return;
-    }
-    if (componentNames.length === 0) {
-        toast("At least one Scoring Row name is required for analytics.", "error");
-        return;
-    }
-    
-    const btn = $("#save-new-rubric-btn");
-    btn.disabled = true;
-    btn.textContent = "Uploading file...";
-
-    try {
-        // 1. Upload the reference file (PDF/Image) to Firebase Storage
-        const fileRef = sRef(storage, `artifacts/${getAppId()}/users/${currentUser.uid}/rubric-files/${Date.now()}_${file.name}`);
-        const uploadTask = await uploadBytesResumable(fileRef, file);
-        const fileURL = await getDownloadURL(uploadTask.ref);
-        console.log("Rubric file uploaded:", fileURL);
-        btn.textContent = "Saving to database...";
-
-        // 2. Save the metadata (including file path and row names) to Firestore
-        const payload = {
-            title: title,
-            referenceFilePath: fileURL, // Store the URL/path
-            componentNames: componentNames, // Save the array of row names
-            createdAt: serverTimestamp()
-        };
-        
-        const docRef = await addDoc(collection(db, `artifacts/${getAppId()}/users/${currentUser.uid}/rubrics`), payload);
-        
-        toast("Rubric saved successfully!", "success");
-        
-        // 3. Clear the form
-        $("#new-rubric-title").value = "";
-        $("#new-rubric-file").value = "";
-        $("#new-rubric-rows-container").innerHTML = `
-          <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Row 1: e.g., Context">
-          <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Row 2: e.g., Argument">
-        `;
-        
-        // 4. Refresh the "My Rubrics" list
-        await refreshMyRubrics();
-
-    } catch (e) {
-        console.error("Failed to save rubric:", e);
-        toast(`Error saving rubric: ${e.message}`, "error");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Save New Rubric";
-    }
-}
-
-async function refreshMyRubrics() {
-    if (!db || !currentUser) return;
-    
-    const listEl = $("#my-rubrics-list");
-    listEl.innerHTML = '<p class="text-sm text-gray-400">Loading rubrics...</p>';
-    
-    try {
-        const col = collection(db, `artifacts/${getAppId()}/users/${currentUser.uid}/rubrics`);
-        const q = query(col, orderBy("createdAt", "desc"));
-        const snap = await getDocs(q);
-        
-        if (snap.empty) {
-            listEl.innerHTML = '<p class="text-sm text-gray-400">No rubrics saved yet.</p>';
-            return;
-        }
-        
-        listEl.innerHTML = ""; // Clear "Loading..."
-        snap.forEach(d => {
-            const rubric = d.data();
-            const el = document.createElement("div");
-            el.className = "p-3 bg-gray-800 rounded-lg flex justify-between items-center";
-            el.innerHTML = `
-                <div>
-                    <span class="font-medium">${rubric.title}</span>
-                    <span class="text-xs text-gray-400 ml-2">(${rubric.componentNames?.length || 0} rows)</span>
-                </div>
-                <div class="flex gap-2">
-                    <button class="share-rubric-btn text-xs text-primary-400 hover:underline" data-id="${d.id}">Share</button>
-                    <button class="delete-rubric-btn text-xs text-red-400 hover:underline" data-id="${d.id}">Delete</button>
-                </div>
-            `;
-            listEl.appendChild(el);
-        });
-        
-        // Add event listeners for new buttons
-        listEl.onclick = (e) => {
-          handleShareRubric(e);
-          handleDeleteRubric(e);
-        };
-        
-    } catch (e) {
-        console.error("Failed to refresh rubrics:", e);
-        toast("Could not load rubrics.", "error");
-        listEl.innerHTML = '<p class="text-sm text-red-400">Error loading rubrics.</p>';
-    }
-}
-
-function handleShareRubric(e) {
-    if (!e.target.classList.contains('share-rubric-btn')) return;
-    const rubricId = e.target.dataset.id;
-    console.log("Share rubric clicked:", rubricId);
-    
-    // T&C Modal
-    if (confirm("Share this rubric to the Public Library?\n\nYou confirm you have the rights to share this content and it does not violate copyright.")) {
-        // TODO: Implement submission to `submittedRubrics` collection
-        toast("Submitting rubric for review... (placeholder)", "info");
-    }
-}
-
-function handleDeleteRubric(e) {
-    if (!e.target.classList.contains('delete-rubric-btn')) return;
-    const rubricId = e.target.dataset.id;
-    console.log("Delete rubric clicked:", rubricId);
-    
-    if (confirm("Are you sure you want to delete this rubric? This cannot be undone.")) {
-         // TODO: Implement deletion (delete Firestore doc AND the reference file from Storage)
-        toast("Deleting rubric... (placeholder)", "info");
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-/* NEW: Recording & Metadata                        */
-/* -------------------------------------------------------------------------- */
-
-function updateRecordingUI(state) {
-  const isIdle = state === 'idle';
-  const isRecording = state === 'recording';
-  const isPaused = state === 'paused';
-  const isStopped = state === 'stopped';
-
-  // Show/Hide buttons based on state
-  $("#start-rec-btn").classList.toggle('hidden', !isIdle);
-  $("#stop-rec-btn").classList.toggle('hidden', !isRecording && !isPaused);
-  $("#discard-rec-btn").classList.toggle('hidden', !isRecording && !isPaused);
-  
-  // Enable/Disable buttons
-  $("#pause-rec-btn").disabled = !isRecording && !isPaused;
-  $("#toggle-camera-btn").disabled = isRecording || isPaused;
-  
-  // Update text
-  $("#pause-rec-btn").textContent = isPaused ? 'Resume' : 'Pause';
-  
-  if (isIdle) {
-    $("#rec-status").textContent = "Idle";
-    $("#rec-status").classList.remove('text-red-400', 'text-amber-400');
-  } else if (isRecording) {
-    $("#rec-status").textContent = "Recording";
-    $("#rec-status").classList.add('text-red-400');
-    $("#rec-status").classList.remove('text-amber-400');
-  } else if (isPaused) {
-    $("#rec-status").textContent = "Paused";
-    $("#rec-status").classList.add('text-amber-400');
-    $("#rec-status").classList.remove('text-red-400');
-  } else if (isStopped) {
-    $("#rec-status").textContent = "Stopped";
-    $("#rec-status").classList.remove('text-red-400', 'text-amber-400');
-  }
-}
-
-async function startPreview() {
-    if (mediaStream) { // Stop any existing preview
-        mediaStream.getTracks().forEach(track => track.stop());
-    }
-    console.log("Initializing camera preview...");
-    updateRecordingUI('idle');
-    recordedChunks = [];
-    currentRecordingBlob = null;
-    if(timerInterval) clearInterval(timerInterval);
-    secondsElapsed = 0;
-    $("#rec-timer").textContent = "00:00";
-
-    try {
-        const constraints = {
-            video: { 
-                width: { ideal: 1280 }, 
-                height: { ideal: 720 }, 
-                facingMode: currentFacingMode 
-            },
-            audio: true // Request audio permission here
-        };
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        $("#video-preview").srcObject = mediaStream;
-        $("#video-preview").muted = true;
-        
-        // Mute the audio tracks to prevent feedback
-        mediaStream.getAudioTracks().forEach(track => track.enabled = false);
-
-    } catch (permErr) {
-        console.error("Permission error:", permErr);
-        if (permErr.name === "NotAllowedError" || permErr.name === "PermissionDeniedError") {
-            toast("You must allow access to your camera and microphone.", "error");
-        } else {
-            toast(`Could not access media devices: ${permErr.name}.`, "error");
-        }
-    }
-}
-
-async function startRecording() {
-  if (!mediaStream) {
-    console.log("No preview stream, starting stream first.");
-    await startPreview();
-    if (!mediaStream) { // If startPreview failed
-         console.error("Failed to get media stream for recording.");
-         return;
-    }
-  }
-  
-  console.log("Attempting to start recording...");
-  updateRecordingUI('recording');
-  recordedChunks = [];
-  currentRecordingBlob = null;
-  
-  try {
-    // Unmute audio tracks for recording
-    mediaStream.getAudioTracks().forEach(track => track.enabled = true);
-    
-    mediaRecorder = new MediaRecorder(mediaStream);
-    
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunks.push(e.data);
-    };
-    
-    mediaRecorder.onstop = () => {
-      console.log("Recording stopped, chunks:", recordedChunks.length);
-      // Stop tracks and preview
-      if (mediaStream) {
-          mediaStream.getTracks().forEach(track => track.stop());
-          mediaStream = null;
-      }
-      $("#video-preview").srcObject = null;
-      
-      if (recordedChunks.length > 0) {
-          currentRecordingBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
-          openMetadataScreen(); // Go to tagging screen
-      } else {
-          console.warn("No data recorded.");
-          updateRecordingUI('idle');
-          startPreview(); // Restart preview
-      }
-      recordedChunks = [];
-    };
-    
-    mediaRecorder.start(1000); // Collect chunks every second
-    
-    // Start timer
-    secondsElapsed = 0;
-    if (timerInterval) clearInterval(timerInterval);
-    $("#rec-timer").textContent = "00:00"; // Reset timer text
-    timerInterval = setInterval(() => {
-        secondsElapsed++;
-        $("#rec-timer").textContent = new Date(secondsElapsed * 1000).toISOString().substr(14, 5);
-    }, 1000);
-    
-    toast("Recording started!", "success");
-
-  } catch (err) {
-    console.error("Failed to start recording:", err);
-    toast(`Error: ${err.message}`, "error");
-    if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-    mediaStream = null;
-    updateRecordingUI('idle');
-  }
-}
-
-function pauseOrResumeRecording() {
-  if (!mediaRecorder) return;
-  
-  if (mediaRecorder.state === 'recording') {
-    mediaRecorder.pause();
-    if(timerInterval) clearInterval(timerInterval);
-    updateRecordingUI('paused');
-    toast("Recording paused", "info");
-  } else if (mediaRecorder.state === 'paused') {
-    mediaRecorder.resume();
-    timerInterval = setInterval(() => {
-      secondsElapsed++;
-      $("#rec-timer").textContent = new Date(secondsElapsed * 1000).toISOString().substr(14, 5);
-    }, 1000);
-    updateRecordingUI('recording');
-    toast("Recording resumed", "info");
-  }
-}
-
-function stopRecording() {
-  if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
-    mediaRecorder.stop();
-    if(timerInterval) clearInterval(timerInterval);
-    updateRecordingUI('stopped');
-  }
-}
-
-function discardRecording() {
-    // If a recording is in progress, confirm and stop
-    if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
-        if (confirm("Are you sure you want to discard this recording and start over?")) {
-            console.log("Discarding active recording...");
-            mediaRecorder.onstop = null; // Prevent onstop from opening metadata screen
-            mediaRecorder.stop();
-            mediaRecorder = null;
-            toast("Recording discarded.", "warn");
-        } else {
-            return; // User cancelled
-        }
-    }
-    
-    // Reset all state and restart preview
-    console.log("Resetting recorder UI.");
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-    }
-    $("#video-preview").srcObject = null;
-    recordedChunks = [];
-    currentRecordingBlob = null;
-    if(timerInterval) clearInterval(timerInterval);
-    secondsElapsed = 0;
-    $("#rec-timer").textContent = "00:00";
-    updateRecordingUI('idle');
-    
-    // Restart the camera preview
-    startPreview();
-}
-
-async function toggleCamera() {
-    currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-    toast(`Switched to ${currentFacingMode === 'user' ? 'front' : 'back'} camera.`);
-    
-    // Restart preview stream with new camera
-    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-        await startPreview(); // This will use the new currentFacingMode
-    }
-}
-
-
-function openMetadataScreen() {
-    if (!currentRecordingBlob) {
-        toast("No recording to tag.", "error");
-        return;
-    }
-    
-    // Pre-fill fields
-    $("#meta-org").value = userDoc.organizationName || "Default Org"; 
-    $("#meta-instructor").value = userDoc.instructorName || (currentUser ? currentUser.email : "Instructor"); 
-    
-    // Reset dropdowns
-    refreshMetadataClassList(); // Populate class list
-    $("#meta-class").value = "";
-    $("#meta-participant").innerHTML = '<option value="">Select a class/event first...</option>';
-    $("#meta-participant").disabled = true;
-    $("#add-participant-container").classList.add("hidden");
-    
-    // Reset form fields
-    $("#metadata-form").reset();
-    
-    // Show file size
-    $("#meta-file-size").textContent = `${(currentRecordingBlob.size / 1024 / 1024).toFixed(2)} MB`;
-    
-    // Show the modal screen
-    showScreen('metadata-screen');
-}
-
-// NEW function to specifically populate the metadata class list
-function refreshMetadataClassList() {
-    const metaClassSelect = $("#meta-class");
-    metaClassSelect.innerHTML = '<option value="">-- Select a Class / Event --</option>';
-    
-    Object.values(classData).forEach(classDoc => {
-        if (!classDoc.archived) {
-            const metaOpt = document.createElement("option");
-            metaOpt.value = classDoc.id;
-            metaOpt.textContent = classDoc.title || "Untitled";
-            metaClassSelect.appendChild(metaOpt);
-        }
-    });
-}
-
-function handleMetadataClassChange(e) {
-    const classId = e.target.value;
-    const participantSelect = $("#meta-participant");
-    
-    participantSelect.innerHTML = '<option value="">Select a participant...</option>';
-    
-    if (!classId || !classData[classId]) {
-        participantSelect.disabled = true;
-        participantSelect.innerHTML = '<option value="">Select a class/event first...</option>';
-        return;
-    }
-    
-    const participants = classData[classId].participants || [];
-    
-    if (participants.length === 0) {
-        participantSelect.innerHTML = '<option value="">No participants in this class</option>';
-    } else {
-        participants.forEach(name => {
-            const opt = document.createElement("option");
-            opt.value = name;
-            opt.textContent = name;
-            participantSelect.appendChild(opt);
-        });
-    }
-    
-    // Add the "Add New" option
-    const addNewOpt = document.createElement("option");
-    addNewOpt.value = "--ADD_NEW--";
-    addNewOpt.textContent = "-- Add New Participant --";
-    participantSelect.appendChild(addNewOpt);
-    
-    participantSelect.disabled = false;
-}
-
-function handleMetadataParticipantChange(e) {
-    const selected = e.target.value;
-    $("#add-participant-container").classList.toggle("hidden", selected !== "--ADD_NEW--");
-}
-
-async function handleAddNewParticipant() {
-    const classId = $("#meta-class").value;
-    const newName = $("#new-participant-name").value.trim();
-    
-    if (!classId || !newName) {
-        toast("Select a class and enter a name.", "error");
-        return;
-    }
-    
-    if (!classData[classId]) {
-        toast("Error: Class data not found.", "error");
-        return;
-    }
-    
-    const currentParticipants = classData[classId].participants || [];
-    
-    if (currentParticipants.includes(newName)) {
-        toast("Participant already exists in this roster.", "warn");
-    } else {
-        // Add to the list
-        currentParticipants.push(newName);
-        classData[classId].participants = currentParticipants;
-        
-        // Save this change back to Firestore
-        try {
-            const classRef = doc(db, `artifacts/${getAppId()}/users/${currentUser.uid}/classes`, classId);
-            await updateDoc(classRef, { participants: currentParticipants });
-            toast(`Added ${newName} to class!`, "success");
-            // Also update the local classData cache
-            classData[classId].participants = currentParticipants;
-        } catch (e) {
-            console.error("Failed to add new participant:", e);
-            toast("Error saving new participant.", "error");
-            // Don't revert, just let it be in-memory for now
-        }
-    }
-    
-    // Refresh the dropdown and select the new name
-    handleMetadataClassChange({ target: { value: classId } });
-    $("#meta-participant").value = newName;
-    $("#add-participant-container").classList.add("hidden");
-    $("#new-participant-name").value = "";
-}
-
-async function handleMetadataSubmit(e) {
-    e.preventDefault();
-    if (!currentRecordingBlob) {
-        toast("No recording to save.", "error");
-        return;
-    }
-
-    const metadata = {
-        organization: $("#meta-org").value,
-        instructor: $("#meta-instructor").value,
-        classEventId: $("#meta-class").value,
-        classEventTitle: $("#meta-class").options[$("#meta-class").selectedIndex]?.text || "N/A",
-        participant: $("#meta-participant").value,
-        recordingType: $("#meta-type").value,
-        group: $("#meta-group").value.trim() || null,
-        notes: $("#meta-notes").value.trim() || null,
-        fileSize: currentRecordingBlob.size,
-        duration: secondsElapsed
-    };
-    
-    // Final check for valid participant
-    if (metadata.participant === "--ADD_NEW--" || !metadata.participant) {
-        toast("Please select a valid participant or add a new one.", "error");
-        return;
-    }
-    
-    console.log("Saving metadata:", metadata);
-    
-    // TODO: Call master uploadFile function
-    // await uploadFile(currentRecordingBlob, metadata);
-    toast("Saving... (Upload placeholder)", "info");
-    
-    // For now, just close modal and reset
-    $("#metadata-form").reset();
-    $("#metadata-screen").close();
-    updateRecordingUI('idle');
-    currentRecordingBlob = null;
-    secondsElapsed = 0;
-    $("#rec-timer").textContent = "00:00";
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* App-Wide UI & Paywall                           */
-/* -------------------------------------------------------------------------- */
-function updateUIAfterAuth(u, docData) {
-    currentUser = u;
-    userDoc = docData;
-
-    // Show/Hide Signout button
-    $("#signout-btn").classList.toggle("hidden", !u);
-    
-    // Check paywall
-    const hasAccess = userDoc.activeSubscription || userDoc.role === "admin" || userDoc.role === "tester";
-    $("#paywall-banner").classList.toggle("hidden", hasAccess);
-
-    // Disable features if no access
-    $$("#tab-record, #tab-library, #tab-analytics, #save-class-btn, #archive-class-btn, #save-new-rubric-btn").forEach(el => {
-        if(el) {
-          el.disabled = !hasAccess;
-          el.classList.toggle("opacity-50", !hasAccess);
-        }
-    });
-
-    // Update account pill
-    const storageChoice = getStorageChoice();
-    $("#storage-provider").value = storageChoice;
-    $("#account-pill").textContent = `Role: ${userDoc.role} • Storage: ${storageChoice}`;
-    
-    // Update storage limit bar
-    const storageUsed = userDoc.storageUsedBytes || 0;
-    const storageLimit = userDoc.planStorageLimit || 1; // Avoid division by zero
-    const percentUsed = Math.min(100, Math.max(0, (storageUsed / storageLimit) * 100));
-    
-    $("#storage-used").textContent = `${(storageUsed / 1e9).toFixed(2)} GB`;
-    $("#storage-limit").textContent = `${(storageLimit / 1e9).toFixed(1)} GB`;
-    $("#storage-progress").style.width = `${percentUsed}%`;
-    
-    // Show low storage banner if needed
-    $("#low-storage-banner").classList.toggle("hidden", percentUsed < 90);
-}
-
-function handleTabClick(e) {
-    const btn = e.target.closest(".app-tab");
-    if (!btn) return;
-
-    const tabId = btn.dataset.tab;
-    // Hide all main tabs AND the metadata screen (modal)
-    $$(".app-tab-content").forEach(el => {
-        if(el) el.classList.add("hidden");
-    });
-    const metaScreen = $("#metadata-screen");
-    if (metaScreen && metaScreen.open) metaScreen.close();
-
-    // Show the selected tab
-    $(`#${tabId}`)?.classList.remove("hidden");
-    
-    $$(".app-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.tab === tabId));
-    
-    console.log(`Switched to tab: ${tabId}`);
-    
-    // Load data for the shown tab
-    if (tabId === 'tab-manage') {
-        refreshClassesList();
-    }
-    if (tabId === 'tab-rubrics') {
-        // Default to "My Rubrics" sub-tab
-        $$(".rubric-sub-tab-content").forEach(el => el.classList.toggle("hidden", el.id !== 'rubric-tab-my'));
-        $$(".sub-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.subtab === 'rubric-tab-my'));
-        refreshMyRubrics();
-    }
-    if (tabId === 'tab-record') {
-        // Reset recorder UI when tab is clicked
-        startPreview(); 
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Auth Flow                                 */
-/* -------------------------------------------------------------------------- */
-async function onAuthReady() {
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      console.log("onAuthStateChanged: User found", user.uid);
-      const ref = doc(db, `artifacts/${getAppId()}/users/${user.uid}`);
-
-      
-      // Use onSnapshot for real-time profile updates (e.g., role changes)
-      onSnapshot(ref, async (snap) => {
-          let profileData;
-          if (snap.exists()) {
-              profileData = snap.data();
-              console.log("Profile snapshot loaded:", profileData);
-          } else {
-              console.log("No profile doc, creating one.");
-              profileData = { 
-                  role: "user", 
-                  activeSubscription: false, // Default: no subscription
-                  storageUsedBytes: 0,
-                  planStorageLimit: 10 * 1e9, // Default 10GB plan
-                  createdAt: serverTimestamp(),
-                  organizationName: "Default Organization", // Add fields from outline
-                  instructorName: user.email || "Instructor"
-              };
-              try {
-                  await setDoc(ref, profileData);
-              } catch (e) {
-                  console.error("Failed to create profile doc:", e);
-                  toast("Failed to create user profile.", "error");
-              }
-          }
-          
-          updateUIAfterAuth(user, profileData);
-          showScreen("main-app");
-          // Set default tab
-          handleTabClick({ target: { closest: () => ({ dataset: { tab: 'tab-manage' } }) } });
-          
-      }, (error) => {
-          console.error("Profile snapshot error:", error);
-          toast("Failed to load user profile.", "error");
-          signOut(auth); // Log out on profile error
-      });
-      
-    } else {
-      console.log("onAuthStateChanged: No user");
-      currentUser = null;
-      userDoc = { role: "user", activeSubscription: false };
-      showScreen("auth-screen");
-      $("#signout-btn").classList.add("hidden");
-    }
-  });
-}
-
-async function handleAuthFormSubmit(e) {
-    e.preventDefault();
-    const isSignUp = e.submitter.id === 'auth-signup-btn';
-    const email = $("#auth-email").value;
-    const password = $("#auth-password").value;
-    
-    try {
-        if (isSignUp) {
-            console.log("Attempting sign up...");
-            await createUserWithEmailAndPassword(auth, email, password);
-            toast("Account created! Please sign in.", "success");
-        } else {
-            console.log("Attempting sign in...");
-            await signInWithEmailAndPassword(auth, email, password);
-            toast("Signed in!", "success");
-        }
-    } catch (e) {
-        console.error("Auth error:", e);
-        toast(e.message, "error");
-    }
-}
-
-async function handleGoogleSignIn() {
-    const provider = new GoogleAuthProvider();
-    try {
-        await signInWithPopup(auth, provider);
-        toast("Signed in with Google!", "success");
-    } catch (e) {
-        console.error("Google sign-in error:", e);
-        toast(e.message, "error");
-    }
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Boot                                    */
-/* -------------------------------------------------------------------------- */
-function setupEventListeners() {
-  console.log("Setting up event listeners...");
-  
-  // Header
-  $("#nav-help").onclick = () => $("#help-faq-screen").showModal();
-  $("#nav-account").onclick = () => {
-      // jump to manage tab
-      $$(".app-tab").forEach(el => el.setAttribute("aria-selected", "false"));
-      $$(".app-tab-content").forEach(el => el.classList.add("hidden"));
-      $("#tab-manage").classList.remove("hidden");
-      $$(".app-tab[data-tab='tab-manage']").forEach(el => el.setAttribute("aria-selected", "true"));
-  };
-  $("#signout-btn").onclick = () => signOut(auth);
-
-  // Setup Screen
-  $("#setup-save").onclick = () => {
-    try {
-      // Use the placeholder if the textarea is empty
-      const configStr = $("#firebase-config-json").value.trim() || $("#firebase-config-json").placeholder;
-      const cfg = JSON.parse(configStr);
-      localStorage.setItem(LS.CFG, JSON.stringify(cfg));
-      localStorage.setItem(LS.APP, $("#app-id-input").value || "seminar-cloud");
-      setStorageChoice($("input[name='storageChoice']:checked").value);
-      
-      if (initFirebase()) {
-          onAuthReady();
-      } else {
-          toast("Firebase config appears invalid.", "error");
-      }
-    } catch (e) {
-      toast("Bad config JSON. " + e.message, "error");
-    }
-  };
-  $("#setup-offline").onclick = () => {
-    localStorage.removeItem(LS.CFG);
-    setStorageChoice('firebase'); // Default to firebase logic, even if offline
-    showScreen("auth-screen");
-    toast("Testing in offline mode. Firebase is disabled.", "info");
-  };
-
-  // Auth Screen
-  $("#auth-form").onsubmit = (e) => handleAuthFormSubmit(e);
-  $("#auth-google-btn").onclick = handleGoogleSignIn;
-
-  // Main App Tabs
-  $$(".app-tab").forEach(btn => btn.onclick = handleTabClick);
-  
-  // Class / Event Manager
-  $("#new-class-btn").onclick = clearClassEditor;
-  $("#save-class-btn").onclick = handleSaveClass;
-  $("#archive-class-btn").onclick = handleArchiveClass;
-  $("#classes-list").onchange = (e) => loadClassIntoEditor(e.target.value);
-  $("#storage-provider").onchange = (e) => {
-      // Show warning pop-up
-      if (confirm("Are you sure? Changing providers will hide all files from the old location in the app.\nThis is for a 'fresh start' and does not move old data.")) {
-          setStorageChoice(e.target.value);
-          toast(`Storage set to: ${e.target.value}`, "success");
-          // (We'll need to refresh the library view here)
-      } else {
-          e.target.value = getStorageChoice(); // Revert
-      }
-  };
-  $("#upgrade-plan-btn").onclick = () => toast("Stripe checkout placeholder", "info"); // Placeholder
-  $("#export-data-btn").onclick = () => toast("Export feature under construction", "info"); // Placeholder
-
-  // Rubric Manager
-  $$(".sub-tab").forEach(btn => btn.onclick = handleRubricTabClick);
-  $("#add-rubric-row-btn").onclick = handleAddRubricRow;
-  $("#save-new-rubric-btn").onclick = handleSaveNewRubric;
-  // Use event delegation for dynamic share/delete buttons
-  $("#my-rubrics-list").onclick = (e) => {
-      handleShareRubric(e);
-      handleDeleteRubric(e);
-  };
-
-  // Record Tab (NEW LISTENERS)
-  $("#start-rec-btn").onclick = startRecording;
-  $("#pause-rec-btn").onclick = pauseOrResumeRecording;
-  $("#stop-rec-btn").onclick = stopRecording;
-  $("#discard-rec-btn").onclick = discardRecording;
-  $("#toggle-camera-btn").onclick = toggleCamera;
-  
-  // Metadata Screen (NEW LISTENLEDNERS)
-  $("#metadata-form").onsubmit = (e) => handleMetadataSubmit(e);
-  $("#meta-class").onchange = handleMetadataClassChange;
-  $("#meta-participant").onchange = handleMetadataParticipantChange;
-  $("#add-participant-btn").onclick = handleAddNewParticipant;
-  $("#cancel-upload-btn").onclick = () => {
-      if (confirm("Are you sure you want to cancel and discard this recording?")) {
-          $("#metadata-screen").close();
-          discardRecording(); // This will clear the blob and reset UI
-      }
-  };
-
-  // (Listeners for Library, Analytics will be added here as we build)
-  
-  console.log("Event listeners attached.");
-}
-
-// Main App Boot Sequence
-document.addEventListener('DOMContentLoaded', () => {
-  console.log("DOM loaded.");
-  // Attach listeners right away so setup screen buttons work
-  setupEventListeners(); 
-  
-  (async () => {
-    showScreen("loading-screen");
-    
-    // Check for Firebase config in localStorage
-    const config = localStorage.getItem(LS.CFG);
-    if (config) {
-      console.log("Config found, initializing Firebase...");
-      if (initFirebase()) {
-        onAuthReady(); // Firebase will now handle auth state and show main app or auth screen
-      } else {
-        console.log("Config invalid, showing setup.");
-        showScreen("setup-screen"); // Config was bad
-      }
-    } else {
-      console.log("No config, showing setup screen.");
-      showScreen("setup-screen"); // First-time user
-    }
-  })();
-});
-// --- Firebase Auth Sign-Out Logic --- //
-// Reuse existing Firebase Auth instance (already imported at top)
-auth = getAuth();
-
-// Wait until page is fully loaded before wiring the button
-document.addEventListener("DOMContentLoaded", () => {
-  const signOutBtn = document.getElementById("signout-btn");
-
-  if (signOutBtn) {
-    signOutBtn.addEventListener("click", async () => {
-      try {
-        await signOut(auth);
-        console.log("✅ User signed out successfully");
-
-        // Optional cleanup
-        localStorage.clear();
-
-        // Reset UI immediately if showScreen() is defined
-        if (typeof showScreen === "function") {
-          showScreen("auth-screen");
-        } else {
-          // fallback if showScreen isn’t available
-          location.reload();
-        }
-      } catch (error) {
-        console.error("❌ Error signing out:", error);
-        alert("Sign-out failed. Check console for details.");
-      }
-    });
-  }
-});
-
-
-// --- Optional: Extra Reliability --- //
-// Automatically return to sign-in screen if session expires or user signs out elsewhere
-auth.onAuthStateChanged(user => {
-  if (!user) {
-    console.log("ℹ️ Auth state changed: no user detected, returning to auth screen");
-    if (typeof showScreen === "function") {
-      showScreen("auth-screen");
-    } else {
-      location.reload();
-    }
-  }
-});
-
-/* ---------------- Service Worker (basic shell cache) ---------------- */
-/* Inlined registration; the SW script is created on-the-fly to keep one-file PWA */
-(async function registerSW(){
-  if(!("serviceWorker" in navigator)) return;
-  const swCode = `
-    const CACHE='sca-shell-v1';
-    const ASSETS = self.registration.scope ? [ self.registration.scope ] : ['/'];
-    self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))); self.skipWaiting(); });
-    self.addEventListener('activate',e=>{ e.waitUntil(self.clients.claim()); });
-    self.addEventListener('fetch',e=>{
-      const req=e.request;
-      e.respondWith(
-        caches.match(req).then(cached=>cached||fetch(req).then(res=>{
-          const copy=res.clone();
-          caches.open(CACHE).then(c=>c.put(req,copy));
-          return res;
-        }).catch(()=>cached))
-      );
-    });
-  `;
-  const blob = new Blob([swCode], {type:"text/javascript"});
-  const url = URL.createObjectURL(blob);
-  try{ await navigator.serviceWorker.register(url); }catch(_){}
-})();
-
-/* ---------------- Storage usage mock (update via profile) ---------------- */
-function mockUpdateStorageUsage(bytes){
-  // Fix: use userDoc
-  if (!userDoc) return;
-  userDoc.storageUsedBytes = bytes;
-  updateUIAfterAuth(currentUser, userDoc);
-  console.log(`Mock storage usage updated to ${(bytes / 1e9).toFixed(2)} GB`);
-}
-
-/* ---------------- Reserve: future placeholders ---------------- */
-// Stripe billing
-function redirectToStripeCheckout(){ toast("Stripe Checkout (placeholder)","info"); }
-$("#subscribe-btn")?.addEventListener("click", redirectToStripeCheckout);
-
-// Google Drive placeholder (if user selects Drive later)
-async function uploadToDrivePlaceholder(file, meta){
-  console.log("Drive upload placeholder", file?.size, meta);
-  toast("Google Drive upload not yet implemented.","info");
-}
-
-</script>
 </body>
 </html>
-

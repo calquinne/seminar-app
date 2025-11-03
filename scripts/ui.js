@@ -1,0 +1,388 @@
+/* ========================================================================== */
+/* MODULE: ui.js 
+/* Exports shared state, constants, and UI helper functions.
+/* ========================================================================== */
+
+/* -------------------------------------------------------------------------- */
+/* Constants
+/* -------------------------------------------------------------------------- */
+export const LS = { CFG: "sc/firebaseConfig", APP: "sc/appId", STORE: "sc/storageChoice" };
+export const IDB_NAME = "seminar-cloud";
+export const IDB_STORE = "pendingUploads";
+
+/* -------------------------------------------------------------------------- */
+/* Shared State
+/* We export the variables and setters to avoid circular dependencies.
+/* -------------------------------------------------------------------------- */
+export let app, auth, db, storage;
+export let currentUser = null;
+export let userDoc = { role: "user", activeSubscription: false, storageUsedBytes: 0, planStorageLimit: 1 };
+export let classData = {};
+export let mediaStream = null;
+export let mediaRecorder = null;
+export let recordedChunks = [];
+export let currentRecordingBlob = null;
+export let timerInterval = null;
+export let secondsElapsed = 0;
+export let currentFacingMode = "environment";
+
+// Setters for state
+export function setFirebase(a, au, d, s) { app = a; auth = au; db = d; storage = s; }
+export function setCurrentUser(u) { currentUser = u; }
+export function setUserDoc(doc) { userDoc = doc; }
+export function setClassData(data) { classData = data; }
+export function setMediaStream(s) { mediaStream = s; }
+export function setMediaRecorder(r) { mediaRecorder = r; }
+export function setRecordedChunks(c) { recordedChunks = c; }
+export function setCurrentRecordingBlob(b) { currentRecordingBlob = b; }
+export function setTimerInterval(i) { timerInterval = i; }
+export function setSecondsElapsed(s) { secondsElapsed = s; }
+export function setCurrentFacingMode(m) { currentFacingMode = m; }
+
+/* -------------------------------------------------------------------------- */
+/* DOM Utilities
+/* -------------------------------------------------------------------------- */
+export const $ = (s) => document.querySelector(s);
+export const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+export function toast(msg, type = "info") {
+  const container = $("#toast-container");
+  // Limit to 3 toasts
+  if (container.children.length >= 3) {
+    container.removeChild(container.firstChild);
+  }
+
+  const el = document.createElement("div");
+  el.className = `px-3 py-2 rounded-lg text-sm border fade-enter
+    ${type === "error" ? "bg-red-500/20 border-red-500/40 text-red-200" :
+    type ==="success" ? "bg-emerald-500/20 border-emerald-500/44 text-emerald-200" :
+    "bg-white/10 border-white/20 text-white"}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('fade-enter-active'));
+  setTimeout(() => {
+    el.classList.remove('fade-enter-active');
+    setTimeout(() => el.remove(), 200);
+  }, 3000);
+}
+
+export function showScreen(id) {
+  ["loading-screen", "setup-screen", "auth-screen", "main-app"].forEach(s => {
+    const el = $(`#${s}`);
+    if (el) el.classList.toggle("hidden", s !== id);
+    else console.warn(`Screen element not found: #${s}`);
+  });
+  if (id === 'metadata-screen') {
+    $("#metadata-screen").showModal();
+  } else {
+    const metaScreen = $("#metadata-screen");
+    if (metaScreen && metaScreen.open) metaScreen.close();
+  }
+  console.log(`Switched to screen: ${id}`);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Config Getters/Setters
+/* -------------------------------------------------------------------------- */
+export function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud"; }
+export function getStorageChoice() { return localStorage.getItem(LS.STORE) || "firebase"; }
+export function setStorageChoice(choice) {
+  localStorage.setItem(LS.STORE, choice);
+  $("#storage-provider").value = choice;
+  $("#account-pill").textContent = `Role: ${userDoc?.role || '...'} • Storage: ${choice}`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* UI Updaters
+/* -------------------------------------------------------------------------- */
+export function updateRecordingUI(state) {
+  const isIdle = state === 'idle';
+  const isRecording = state === 'recording';
+  const isPaused = state === 'paused';
+  const isStopped = state === 'stopped';
+
+  $("#start-rec-btn").classList.toggle('hidden', !isIdle);
+  $("#stop-rec-btn").classList.toggle('hidden', !isRecording && !isPaused);
+  $("#discard-rec-btn").classList.toggle('hidden', !isRecording && !isPaused);
+  
+  $("#pause-rec-btn").disabled = !isRecording && !isPaused;
+  $("#toggle-camera-btn").disabled = isRecording || isPaused;
+  
+  $("#pause-rec-btn").textContent = isPaused ? 'Resume' : 'Pause';
+  
+  if (isIdle) {
+    $("#rec-status").textContent = "Idle";
+    $("#rec-status").classList.remove('text-red-400', 'text-amber-400');
+  } else if (isRecording) {
+    $("#rec-status").textContent = "Recording";
+    $("#rec-status").classList.add('text-red-400');
+    $("#rec-status").classList.remove('text-amber-400');
+  } else if (isPaused) {
+    $("#rec-status").textContent = "Paused";
+    $("#rec-status").classList.add('text-amber-400');
+    $("#rec-status").classList.remove('text-red-400');
+  } else if (isStopped) {
+    $("#rec-status").textContent = "Stopped";
+    $("#rec-status").classList.remove('text-red-400', 'text-amber-400');
+  }
+}
+
+export function updateUIAfterAuth(u, docData) {
+  setCurrentUser(u);
+  setUserDoc(docData);
+
+  $("#signout-btn").classList.toggle("hidden", !u);
+  
+  const hasAccess = userDoc.activeSubscription || userDoc.role === "admin" || userDoc.role === "tester";
+  $("#paywall-banner").classList.toggle("hidden", hasAccess);
+
+  $$("#tab-record, #tab-library, #tab-analytics, #save-class-btn, #archive-class-btn, #save-new-rubric-btn").forEach(el => {
+    if(el) {
+      el.disabled = !hasAccess;
+      el.classList.toggle("opacity-50", !hasAccess);
+    }
+  });
+
+  const storageChoice = getStorageChoice();
+  $("#storage-provider").value = storageChoice;
+  $("#account-pill").textContent = `Role: ${userDoc.role} • Storage: ${storageChoice}`;
+  
+  const storageUsed = userDoc.storageUsedBytes || 0;
+  const storageLimit = userDoc.planStorageLimit || 1;
+  const percentUsed = Math.min(100, Math.max(0, (storageUsed / storageLimit) * 100));
+  
+  $("#storage-used").textContent = `${(storageUsed / 1e9).toFixed(2)} GB`;
+  $("#storage-limit").textContent = `${(storageLimit / 1e9).toFixed(1)} GB`;
+  $("#storage-progress").style.width = `${percentUsed}%`;
+  
+  $("#low-storage-banner").classList.toggle("hidden", percentUsed < 90);
+}
+
+export function loadClassIntoEditor(classId) {
+  const cls = classData[classId];
+  if (!cls) {
+    $("#class-title").value = "";
+    $("#class-archive-date").value = "";
+    $("#class-delete-date").value = "";
+    $("#class-roster").value = "";
+    return;
+  }
+  $("#class-title").value = cls.title || "";
+  $("#class-archive-date").value = cls.archiveDate || "";
+  $("#class-delete-date").value = cls.deleteDate || "";
+  $("#class-roster").value = (cls.participants || []).join('\n');
+}
+
+export function clearClassEditor() {
+  $("#classes-list").value = "";
+  $("#class-title").value = "";
+  $("#class-archive-date").value = "";
+  $("#class-delete-date").value = "";
+  $("#class-roster").value = "";
+  $("#class-title").focus();
+}
+
+export function refreshMetadataClassList() {
+  const metaClassSelect = $("#meta-class");
+  metaClassSelect.innerHTML = '<option value="">-- Select a Class / Event --</option>';
+  
+  Object.values(classData).forEach(classDoc => {
+    if (!classDoc.archived) {
+      const metaOpt = document.createElement("option");
+      metaOpt.value = classDoc.id;
+      metaOpt.textContent = classDoc.title || "Untitled";
+      metaClassSelect.appendChild(metaOpt);
+    }
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Global Event Handlers
+/* -------------------------------------------------------------------------- */
+export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPreview, loadLibrary) {
+  const btn = e.target.closest(".app-tab");
+  if (!btn) return;
+
+  const tabId = btn.dataset.tab;
+  $$(".app-tab-content").forEach(el => {
+    if(el) el.classList.add("hidden");
+  });
+  const metaScreen = $("#metadata-screen");
+  if (metaScreen && metaScreen.open) metaScreen.close();
+
+  $(`#${tabId}`)?.classList.remove("hidden");
+  
+  $$(".app-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.tab === tabId));
+  
+  console.log(`Switched to tab: ${tabId}`);
+  
+  // Reset upload progress bar when leaving record tab
+  if (tabId !== 'tab-record') {
+    const progressEl = $("#upload-progress");
+    if (progressEl) progressEl.style.width = '0%';
+  }
+
+  // Call data-loading functions
+  if (tabId === 'tab-manage') {
+    refreshClassesList();
+  }
+  if (tabId === 'tab-rubrics') {
+    $$(".rubric-sub-tab-content").forEach(el => el.classList.toggle("hidden", el.id !== 'rubric-tab-my'));
+    $$(".sub-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.subtab === 'rubric-tab-my'));
+    refreshMyRubrics();
+  }
+  if (tabId === 'tab-record') {
+    startPreview(); 
+  }
+  if (tabId === 'tab-library') {
+    loadLibrary();
+  }
+}
+
+export function handleRubricTabClick(e) {
+  const btn = e.target.closest(".sub-tab");
+  if (!btn) return;
+  
+  const tabId = btn.dataset.subtab;
+  $$(".rubric-sub-tab-content").forEach(el => el.classList.toggle("hidden", el.id !== tabId));
+  $$(".sub-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.subtab === tabId));
+  
+  console.log(`Switched to rubric sub-tab: ${tabId}`);
+}
+
+export function handleAddRubricRow() {
+  const container = $("#new-rubric-rows-container");
+  if (!container) return;
+  
+  const rowCount = container.children.length + 1;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm";
+  input.placeholder = `Row ${rowCount}: e.g., Pacing`;
+  container.appendChild(input);
+}
+
+/* -------------------------------------------------------------------------- */
+/* NEW: Reusable Confirmation Modal
+/* -------------------------------------------------------------------------- */
+// Store the promise resolver to be accessed by event listeners
+let confirmPromiseResolver = null;
+
+/**
+ * Shows a custom confirmation modal.
+ * @param {string} message - The question to ask the user.
+ * @param {string} title - The title for the modal.
+ * @param {string} confirmText - The text for the "Yes" button (e.g., "Delete").
+ * @returns {Promise<boolean>} - Resolves true if "Yes" was clicked, false if "Cancel".
+ */
+export function showConfirm(message, title = "Are you sure?", confirmText = "OK") {
+  const modal = $("#confirm-modal");
+  const msgEl = $("#confirm-message");
+  const titleEl = $("#confirm-title");
+  const yesBtn = $("#confirm-btn-yes");
+  const noBtn = $("#confirm-btn-no");
+
+  // Set content
+  msgEl.textContent = message;
+  titleEl.textContent = title;
+  yesBtn.textContent = confirmText;
+
+  // Apply danger styling if needed
+  if (confirmText.toLowerCase() === 'delete' || confirmText.toLowerCase() === 'discard') {
+    yesBtn.classList.remove('bg-primary-600', 'hover:bg-primary-500');
+    yesBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+  } else {
+    yesBtn.classList.remove('bg-red-600', 'hover:bg-red-500');
+    yesBtn.classList.add('bg-primary-600', 'hover:bg-primary-500');
+  }
+  
+  modal.showModal();
+
+  return new Promise((resolve) => {
+    // Store the resolver so the button clicks can access it
+    confirmPromiseResolver = resolve;
+
+    // We only need to add listeners once
+    if (!yesBtn.dataset.listener) {
+      yesBtn.dataset.listener = "true";
+      noBtn.dataset.listener = "true";
+      
+      yesBtn.addEventListener('click', () => {
+        if (confirmPromiseResolver) {
+          modal.close();
+          confirmPromiseResolver(true);
+          confirmPromiseResolver = null;
+        }
+      });
+      
+      noBtn.addEventListener('click', () => {
+        if (confirmPromiseResolver) {
+          modal.close();
+          confirmPromiseResolver(false);
+          confirmPromiseResolver = null;
+        }
+      });
+      
+      // Also resolve false if the dialog is closed by pressing Escape
+      modal.addEventListener('close', () => {
+        if (confirmPromiseResolver) {
+          confirmPromiseResolver(false);
+          confirmPromiseResolver = null;
+        }
+      });
+    }
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Error Handlers & Placeholders
+/* -------------------------------------------------------------------------- */
+export function setupGlobalErrorHandlers() {
+  window.onerror = (m, s, l, c, e) => {
+    const error = e || m;
+    console.error("Global Error:", error);
+    $("#error-display").textContent = `Error: ${error.message || m}\nAt: ${s}:${l}:${c}`;
+    $("#error-display").classList.remove("hidden");
+    showScreen("loading-screen");
+  };
+  window.onunhandledrejection = (event) => {
+    console.error("Unhandled Rejection:", event.reason);
+    $("#error-display").textContent = `Error: ${event.reason?.message || event.reason}`;
+    $("#error-display").classList.remove("hidden");
+  };
+  // Warn before leaving if recording
+  window.addEventListener('beforeunload', e => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      e.preventDefault(); 
+      e.returnValue = '';
+    }
+  });
+}
+
+export function mockUpdateStorageUsage(bytes){
+  if (!userDoc) return;
+  userDoc.storageUsedBytes = bytes;
+  updateUIAfterAuth(currentUser, userDoc);
+  console.log(`Mock storage usage updated to ${(bytes / 1e9).toFixed(2)} GB`);
+}
+
+export function redirectToStripeCheckout(){ toast("Stripe Checkout (placeholder)","info"); }
+export function uploadToDrivePlaceholder(file, meta){
+  console.log("Drive upload placeholder", file?.size, meta);
+  toast("Google Drive upload not yet implemented.","info");
+}
+
+/* -------------------------------------------------------------------------- */
+/* PWA Service Worker
+/* -------------------------------------------------------------------------- */
+export async function registerSW(){
+  if(!("serviceWorker" in navigator)) return;
+  
+  // ✅ UPDATED: Register the static file
+  try {
+    await navigator.serviceWorker.register('./sca-sw.js', { scope: './' });
+    console.log("✅ Service Worker registered successfully.");
+  } catch (e) {
+    console.error("❌ Service Worker registration failed:", e);
+  }
+}
