@@ -1,10 +1,10 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v4: Adds claim() and fixes CORS caching
+/* v5: Forces full cache refresh + fixes auth loop (CORS-safe)
 /* ========================================================================== */
 
 // ✅ BUMPED: Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v4";
+const CACHE_NAME = "seminar-cloud-cache-v5";
 
 const ASSETS_TO_CACHE = [
   "./",
@@ -23,28 +23,33 @@ const ASSETS_TO_CACHE = [
 /* INSTALL – Pre-cache core app shell
 /* -------------------------------------------------------------------------- */
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installing and caching app shell (v4)...");
+  console.log("[SW] Installing and caching app shell (v5)...");
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log("[SW] Caching assets...");
-        
+
+        // ✅ Safer caching of local + cross-origin assets
         const cachePromises = ASSETS_TO_CACHE.map(asset => {
           if (asset.startsWith('http')) {
+            // For cross-origin assets, use 'no-cors'
             return cache.add(new Request(asset, { mode: 'no-cors' })).catch(err => {
               console.warn(`[SW] Failed to cache (CORS) ${asset}:`, err);
             });
           } else {
+            // For local assets, cache normally
             return cache.add(asset).catch(err => {
               console.warn(`[SW] Failed to cache (local) ${asset}:`, err);
             });
           }
         });
-        
+
         return Promise.all(cachePromises);
       })
-      .then(() => self.skipWaiting()) // Immediately activate new SW
-      .then(() => self.clients.claim())  // ✅ ADDED: Take immediate control
+      .then(() => {
+        console.log("[SW] Precache complete, skipping waiting...");
+        return self.skipWaiting();
+      })
       .catch((err) => console.error("[SW] Install error:", err))
   );
 });
@@ -56,9 +61,15 @@ self.addEventListener("activate", (event) => {
   console.log("[SW] Activating and cleaning old caches...");
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then((keys) => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => {
+          console.log("[SW] Deleting old cache:", k);
+          return caches.delete(k);
+        })
+      ))
       .then(() => {
-        console.log("[SW] Old caches removed");
+        console.log("[SW] Old caches removed, claiming clients...");
+        return self.clients.claim(); // ✅ Immediate control
       })
   );
 });
@@ -83,15 +94,10 @@ self.addEventListener("fetch", (event) => {
   // ✅ Cache-first strategy for static assets
   event.respondWith(
     caches.match(event.request).then(async (cachedResponse) => {
-      // If we have a cached response, return it
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+      if (cachedResponse) return cachedResponse;
 
-      // Fetch from network and cache it
       try {
         const networkResponse = await fetch(event.request);
-        // Check for valid, cacheable responses (only local 'basic' files)
         if (
           event.request.method === "GET" && 
           networkResponse && 
@@ -103,7 +109,6 @@ self.addEventListener("fetch", (event) => {
         }
         return networkResponse;
       } catch (err) {
-        // Fallback to cached index.html for navigation requests
         if (event.request.mode === "navigate") {
           return caches.match("./index.html");
         }
