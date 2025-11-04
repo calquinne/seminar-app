@@ -4,13 +4,12 @@
 /* ========================================================================== */
 
 // Firebase SDK Imports
-// ✅ ADDED: getApps
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc,
   collection, addDoc, query, getDocs, orderBy, serverTimestamp,
-  deleteDoc, increment // ✅ ADDED: increment
+  deleteDoc, increment
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import {
   getStorage, ref as sRef, uploadBytesResumable, getDownloadURL,
@@ -25,10 +24,9 @@ import * as UI from './ui.js';
 /* -------------------------------------------------------------------------- */
 export function initFirebase() {
   try {
-    // ✅ ADDED: Firebase init guard
+    // ✅ Firebase init guard
     if (getApps().length) {
       console.log("Firebase already initialized, reusing app.");
-      // Just re-get the services from the default app
       const app = getApps()[0];
       const auth = getAuth(app);
       const db = getFirestore(app);
@@ -93,12 +91,8 @@ export async function cacheOffline(blob, meta) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* ✅ NEW: Quota Management
+/* Quota Management
 /* -------------------------------------------------------------------------- */
-/**
- * Updates the user's storage quota in Firestore by a delta.
- * @param {number} deltaBytes - Positive number to add, negative to subtract.
- */
 export async function updateUserStorageQuota(deltaBytes) {
   if (!UI.db || !UI.currentUser || deltaBytes === 0) return;
   
@@ -109,7 +103,6 @@ export async function updateUserStorageQuota(deltaBytes) {
     });
     console.log(`Quota updated by ${deltaBytes} bytes.`);
   } catch (e) {
-    // This isn't a fatal error, so just warn
     console.warn("User quota update failed:", e);
   }
 }
@@ -133,7 +126,7 @@ export async function refreshClassesList() {
     const snap = await getDocs(q);
     if (snap.empty) {
       console.log("No classes found in Firestore.");
-      UI.setClassData({}); // Clear cache
+      UI.setClassData({});
       return;
     }
     
@@ -158,7 +151,7 @@ export async function refreshClassesList() {
       if (!firstClassId) firstClassId = d.id;
     });
     
-    UI.setClassData(newClassData); // Update cache
+    UI.setClassData(newClassData);
     
     if (firstClassId) {
       classListSelect.value = firstClassId;
@@ -177,6 +170,12 @@ export async function handleSaveClass() {
     return;
   }
   
+  // ✅ ADDED: Paywall Check
+  if (!UI.hasAccess()) {
+    UI.toast("Saving classes requires an active subscription.", "error");
+    return;
+  }
+
   const title = UI.$("#class-title").value.trim();
   if (!title) {
     UI.toast("Class Title is required.", "error");
@@ -226,12 +225,31 @@ export async function handleArchiveClass() {
     UI.toast("Select a class to archive first.", "error");
     return;
   }
-
-  const doExport = (UI.getStorageChoice() === 'firebase') ? 
-    confirm("Archiving will hide this class from active lists. Videos remain accessible in the archive until auto-deletion.\n\nDo you want to export videos now? (Recommended before potential deletion).") :
-    confirm("Archiving will hide this class from active lists. Videos remain accessible in the archive until auto-deletion.\n\n(Export feature is only available for Firebase App Storage).");
   
-  if (doExport && UI.getStorageChoice() === 'firebase') {
+  // ✅ ADDED: Paywall Check
+  if (!UI.hasAccess()) {
+    UI.toast("Archiving requires an active subscription.", "error");
+    return;
+  }
+
+  // ✅ UPDATED: Use showConfirm
+  let doExport = false;
+  if (UI.getStorageChoice() === 'firebase') {
+    doExport = await UI.showConfirm(
+      "Archiving will hide this class. Videos remain accessible. Do you want to export videos now? (Recommended before potential deletion).",
+      "Archive Class?",
+      "Export & Archive"
+    );
+  } else {
+    const proceed = await UI.showConfirm(
+      "Archiving will hide this class from active lists. Videos remain accessible until auto-deletion.",
+      "Archive Class?",
+      "Archive"
+    );
+    if (!proceed) return; // User cancelled
+  }
+
+  if (doExport) {
     console.log("Triggering export for class:", id);
     UI.toast("Exporting... (This feature is under construction)", "info");
   }
@@ -259,6 +277,12 @@ export async function handleSaveNewRubric() {
     UI.toast("Not signed in or storage not ready.", "error");
     return;
   }
+  
+  // ✅ ADDED: Paywall Check
+  if (!UI.hasAccess()) {
+    UI.toast("Saving rubrics requires an active subscription.", "error");
+    return;
+  }
 
   const title = UI.$("#new-rubric-title").value.trim();
   const file = UI.$("#new-rubric-file").files[0];
@@ -278,7 +302,6 @@ export async function handleSaveNewRubric() {
   try {
     const fileRef = sRef(UI.storage, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/rubric-files/${Date.now()}_${file.name}`);
     
-    // ✅ ADDED: Progress tracking for rubric upload
     const uploadTask = uploadBytesResumable(fileRef, file);
     uploadTask.on('state_changed', snapshot => {
       const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
@@ -359,22 +382,24 @@ export async function refreshMyRubrics() {
   }
 }
 
-export function handleShareRubric(e) {
+export async function handleShareRubric(e) {
   if (!e.target.classList.contains('share-rubric-btn')) return;
   const rubricId = e.target.dataset.id;
   console.log("Share rubric clicked:", rubricId);
   
-  if (confirm("Share this rubric to the Public Library?\n\nYou confirm you have the rights to share this content and it does not violate copyright.")) {
+  // ✅ UPDATED: Use showConfirm
+  if (await UI.showConfirm("Share this rubric to the Public Library? You confirm you have the rights to share this content.", "Share Rubric?", "Share")) {
     UI.toast("Submitting rubric for review... (placeholder)", "info");
   }
 }
 
-export function handleDeleteRubric(e) {
+export async function handleDeleteRubric(e) {
   if (!e.target.classList.contains('delete-rubric-btn')) return;
   const rubricId = e.target.dataset.id;
   console.log("Delete rubric clicked:", rubricId);
   
-  if (confirm("Are you sure you want to delete this rubric? This cannot be undone.")) {
+  // ✅ UPDATED: Use showConfirm
+  if (await UI.showConfirm("Are you sure you want to delete this rubric? This cannot be undone.", "Delete Rubric?", "Delete")) {
     UI.toast("Deleting rubric... (placeholder)", "info");
   }
 }
@@ -404,7 +429,6 @@ export async function uploadFile(blob, meta) {
     const fileRef = sRef(UI.storage, path);
     const uploadTask = uploadBytesResumable(fileRef, blob);
 
-    // ✅ ADDED: Progress bar listener
     uploadTask.on('state_changed', snapshot => {
       const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
       if (progressEl) {
@@ -412,7 +436,6 @@ export async function uploadFile(blob, meta) {
       }
     });
 
-    // Wait for the upload to complete
     await uploadTask;
     
     const url = await getDownloadURL(uploadTask.ref);
@@ -430,10 +453,8 @@ export async function uploadFile(blob, meta) {
 
     UI.toast("Upload complete!", "success");
     
-    // ✅ ADDED: Update quota on success
     await updateUserStorageQuota(meta.fileSize); 
     
-    // Reset progress bar
     if (progressEl) progressEl.style.width = '0%';
     return { id: docRef.id, url };
 
@@ -441,46 +462,67 @@ export async function uploadFile(blob, meta) {
     await cacheOffline(blob, meta);
     console.error("Upload failed, caching locally:", e);
     UI.toast("Offline or failed—queued for later.", "info");
-    // Reset progress bar on failure
     if (progressEl) progressEl.style.width = '0%';
   }
 }
 
+// ✅ UPDATED: Correct IndexedDB transaction logic
 export async function flushOfflineQueue() {
   if (!navigator.onLine) return;
-  console.log("Online, checking for offline queue...");
   
+  let dbx;
   try {
-    const dbx = await idbOpen();
-    const tx = dbx.transaction(UI.IDB_STORE, "readwrite");
-    const store = tx.objectStore(UI.IDB_STORE);
-    const all = await new Promise((res, rej) => {
-      const req = store.getAll(); 
-      req.onsuccess = () => res(req.result); 
+    dbx = await idbOpen();
+  } catch (e) {
+    console.error("Failed to open IDB for flushing:", e);
+    return;
+  }
+
+  // Read all in a read-only tx
+  let all;
+  try {
+    all = await new Promise((res, rej) => {
+      const tx = dbx.transaction(UI.IDB_STORE, "readonly");
+      const store = tx.objectStore(UI.IDB_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);
     });
-    
-    if (all.length > 0) {
-      UI.toast(`Uploading ${all.length} queued file(s)...`, "info");
-      for (const item of all) {
-        try {
-          if (!UI.storage || !UI.db || !UI.currentUser) {
-            console.warn("Auth not ready, skipping queue flush.");
-            break;
-          }
-          // Note: This will show progress for each queued file
-          await uploadFile(item.blob, item.meta); 
-          store.delete(item.id);
-        } catch (uploadErr) {
-          console.error("Failed to flush item, will retry later:", item.id, uploadErr);
-        }
-      }
-      console.log("Offline queue flush complete.");
-    } else {
-      console.log("Offline queue is empty.");
-    }
   } catch (e) {
-    console.error("Flush failed", e);
+    console.error("Failed to read from IDB queue:", e);
+    return;
+  }
+
+  if (!all.length) {
+    console.log("Offline queue is empty.");
+    return;
+  }
+
+  UI.toast(`Uploading ${all.length} queued file(s)...`, "info");
+
+  for (const item of all) {
+    try {
+      if (!UI.storage || !UI.db || !UI.currentUser) {
+         console.warn("Auth not ready, skipping queue flush.");
+         break;
+      }
+      
+      // 1. Upload the file
+      await uploadFile(item.blob, item.meta);
+
+      // 2. Delete in a *new* transaction
+      await new Promise((res, rej) => {
+        const deleteTx = dbx.transaction(UI.IDB_STORE, "readwrite");
+        deleteTx.objectStore(UI.IDB_STORE).delete(item.id);
+        deleteTx.oncomplete = res;
+        deleteTx.onerror = () => rej(deleteTx.error);
+      });
+      
+      UI.toast("Queued file uploaded!", "success");
+
+    } catch (e) {
+      console.error("Failed to flush item, will retry later:", item.id, e);
+    }
   }
 }
 
@@ -505,13 +547,20 @@ export async function loadLibrary() {
     listEl.innerHTML = "";
     snap.forEach(d => {
       const v = d.data();
+      
+      // ✅ UPDATED: Robust date formatting
+      const created = v.createdAt?.seconds
+        ? new Date(v.createdAt.seconds * 1000)
+        : (v.createdAt?.toDate ? v.createdAt.toDate() : null);
+      const dateStr = created ? created.toLocaleDateString() : '—';
+      
       const li = document.createElement("div");
       li.className = "p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center";
       li.innerHTML = `
         <div class="text-sm overflow-hidden mr-2">
           <div class="font-medium truncate">${v.classEventTitle || "Untitled"} — ${v.participant}</div>
           <div class="text-xs text-gray-400">
-            ${(v.fileSize/1048576).toFixed(1)} MB • ${new Date(v.createdAt?.seconds * 1000).toLocaleDateString()}
+            ${(v.fileSize/1048576).toFixed(1)} MB • ${dateStr}
           </div>
         </div>
         <div class="flex gap-2 flex-shrink-0">
@@ -528,7 +577,10 @@ export async function loadLibrary() {
 
 export async function handleDeleteVideo(docId) {
   if (!UI.db || !UI.storage || !UI.currentUser) return;
-  if (!confirm("Are you sure you want to permanently delete this video?")) return;
+  
+  // ✅ UPDATED: Use showConfirm
+  const confirmed = await UI.showConfirm("Are you sure you want to permanently delete this video?", "Delete Video?", "Delete");
+  if (!confirmed) return;
 
   const appId = UI.getAppId();
   const docRef = doc(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`, docId);
@@ -552,7 +604,6 @@ export async function handleDeleteVideo(docId) {
 
     await deleteDoc(docRef);
     
-    // ✅ ADDED: Decrement storage quota
     await updateUserStorageQuota(-fileSize);
 
     UI.toast("Video deleted.", "success");

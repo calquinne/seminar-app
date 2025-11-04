@@ -14,6 +14,11 @@ import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/fireba
 /* Recording Flow
 /* -------------------------------------------------------------------------- */
 export async function startPreview() {
+  if (!UI.hasAccess()) {
+    UI.toast("Recording disabled without an active subscription.", "error");
+    return;
+  }
+  
   if (UI.mediaStream) {
     UI.mediaStream.getTracks().forEach(track => track.stop());
   }
@@ -25,12 +30,10 @@ export async function startPreview() {
   UI.setSecondsElapsed(0);
   UI.$("#rec-timer").textContent = "00:00";
   
-  // Reset progress bar on new preview
   const progressEl = UI.$("#upload-progress");
   if (progressEl) progressEl.style.width = '0%';
 
   try {
-    // Guard clause for older browsers
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         UI.toast("Media devices not supported on this browser.", "error");
         return;
@@ -48,8 +51,8 @@ export async function startPreview() {
     UI.$("#video-preview").srcObject = stream;
     UI.$("#video-preview").muted = true;
     
-    // Mute audio tracks in preview to prevent feedback
     UI.mediaStream.getAudioTracks().forEach(track => track.enabled = false);
+    UI.toast("🎤 Audio is being recorded but muted in preview.", "info");
 
   } catch (permErr) {
     console.error("Permission error:", permErr);
@@ -62,6 +65,11 @@ export async function startPreview() {
 }
 
 export async function startRecording() {
+  if (!UI.hasAccess()) {
+    UI.toast("Recording disabled without an active subscription.", "error");
+    return;
+  }
+  
   if (!UI.mediaStream) {
     console.log("No preview stream, starting stream first.");
     await startPreview();
@@ -77,10 +85,20 @@ export async function startRecording() {
   UI.setCurrentRecordingBlob(null);
   
   try {
-    // Unmute audio tracks for recording
     UI.mediaStream.getAudioTracks().forEach(track => track.enabled = true);
     
-    const recorder = new MediaRecorder(UI.mediaStream);
+    // ✅ UPDATED: MIME Type negotiation
+    let mime = 'video/webm;codecs=vp9,opus';
+    if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm;codecs=vp8,opus';
+    if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
+
+    let recorder;
+    try {
+      recorder = new MediaRecorder(UI.mediaStream, { mimeType: mime });
+    } catch (e) {
+      console.warn("MIME negotiation failed, using default.", e);
+      recorder = new MediaRecorder(UI.mediaStream);
+    }
     UI.setMediaRecorder(recorder);
     
     recorder.ondataavailable = (e) => {
@@ -157,12 +175,11 @@ export function stopRecording() {
 
 export async function discardRecording() {
   if (UI.mediaRecorder && (UI.mediaRecorder.state === 'recording' || UI.mediaRecorder.state === 'paused')) {
-    // ✅ UPDATED: Use custom confirm dialog
     const confirmed = await UI.showConfirm("Are you sure you want to discard this recording and start over?", "Discard Recording?", "Discard");
     
     if (confirmed) {
         console.log("Discarding active recording...");
-        UI.mediaRecorder.onstop = null; // Prevent onstop from opening metadata screen
+        UI.mediaRecorder.onstop = null;
         UI.mediaRecorder.stop();
         UI.setMediaRecorder(null);
         UI.toast("Recording discarded.", "warn");
@@ -205,25 +222,21 @@ function openMetadataScreen() {
     return;
   }
   
-  // Pre-fill fields
   UI.$("#meta-org").value = UI.userDoc.organizationName || "Default Org"; 
   UI.$("#meta-instructor").value = UI.userDoc.instructorName || (UI.currentUser ? UI.currentUser.email : "Instructor"); 
   
-  // Reset dropdowns
-  UI.refreshMetadataClassList(); // Populate class list
+  UI.refreshMetadataClassList();
   UI.$("#meta-class").value = "";
   UI.$("#meta-participant").innerHTML = '<option value="">Select a class/event first...</option>';
   UI.$("#meta-participant").disabled = true;
   UI.$("#add-participant-container").classList.add("hidden");
   
-  // Reset form fields
   UI.$("#metadata-form").reset();
   
-  // Show file size
   UI.$("#meta-file-size").textContent = `${(UI.currentRecordingBlob.size / 1024 / 1024).toFixed(2)} MB`;
   
-  // Show the modal screen
-  UI.showScreen('metadata-screen');
+  // ✅ FIXED: Call showModal() directly, do not call UI.showScreen()
+  UI.$("#metadata-screen").showModal();
 }
 
 export function handleMetadataClassChange(e) {
@@ -320,7 +333,8 @@ export async function handleMetadataSubmit(e) {
     group: UI.$("#meta-group").value.trim() || null,
     notes: UI.$("#meta-notes").value.trim() || null,
     fileSize: UI.currentRecordingBlob.size,
-    duration: UI.secondsElapsed
+    duration: UI.secondsElapsed,
+    recordedAt: new Date().toISOString() // ✅ ADDED: Timestamp
   };
   
   if (!metadata.classEventId || metadata.participant === "--ADD_NEW--" || !metadata.participant) {
@@ -330,15 +344,12 @@ export async function handleMetadataSubmit(e) {
   
   console.log("Saving metadata and uploading file:", metadata);
   
-  // Close modal and reset UI *before* upload starts
   UI.$("#metadata-form").reset();
   UI.$("#metadata-screen").close();
   UI.updateRecordingUI('idle');
 
-  // Call master uploadFile function
   await uploadFile(UI.currentRecordingBlob, metadata);
   
-  // Clear the blob and reset timer
   UI.setCurrentRecordingBlob(null);
   UI.setSecondsElapsed(0);
   UI.$("#rec-timer").textContent = "00:00";
