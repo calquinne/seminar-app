@@ -1,20 +1,21 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v7: Corrects CORS cache. This is the final version.
+/* v8: Final cache-busting and CORS-safe version
 /* ========================================================================== */
 
 // ✅ BUMPED: Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v7";
+const CACHE_NAME = "seminar-cloud-cache-v8";
 
+// ✅ UPDATED: All local assets are versioned
 const ASSETS_TO_CACHE = [
   "./",
-  "./index.html?v=7",
-  "./scripts/main.js?v=7",
-  "./scripts/ui.js?v=7",
-  "./scripts/auth.js?v=7",
-  "./scripts/firestore.js?v=7",
-  "./scripts/record.js?v=7",
-  "./manifest.json?v=7",
+  "./index.html?v=8",
+  "./scripts/main.js?v=8",
+  "./scripts/ui.js?v=8",
+  "./scripts/auth.js?v=8",
+  "./scripts/firestore.js?v=8",
+  "./scripts/record.js?v=8",
+  "./manifest.json?v=8",
   "https://cdn.tailwindcss.com",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
 ];
@@ -31,17 +32,12 @@ self.addEventListener("install", (event) => {
         
         const cachePromises = ASSETS_TO_CACHE.map(assetUrl => {
           if (assetUrl.startsWith('http')) {
-            // ✅ UPDATED: Manually fetch and cache cross-origin requests
-            // This is the correct way to cache 'no-cors' requests
             return fetch(new Request(assetUrl, { mode: 'no-cors' }))
-              .then(response => {
-                return cache.put(assetUrl, response);
-              })
+              .then(response => cache.put(assetUrl, response))
               .catch(err => {
                 console.warn(`[SW] Failed to cache (CORS) ${assetUrl}:`, err);
               });
           } else {
-            // Local asset
             return cache.add(assetUrl).catch(err => {
               console.warn(`[SW] Failed to cache (local) ${assetUrl}:`, err);
             });
@@ -73,7 +69,7 @@ self.addEventListener("activate", (event) => {
       ))
       .then(() => {
         console.log("[SW] Old caches removed, claiming clients...");
-        return self.clients.claim(); // ✅ Immediate control
+        return self.clients.claim();
       })
   );
 });
@@ -114,7 +110,8 @@ self.addEventListener("fetch", (event) => {
         return networkResponse;
       } catch (err) {
         if (event.request.mode === "navigate") {
-          return caches.match("./index.html?v=7"); // Make sure to match the cached version
+          // ✅ UPDATED: Fallback to the versioned index.html
+          return caches.match("./index.html?v=8"); 
         }
       }
     })

@@ -33,7 +33,6 @@ function setupEventListeners() {
       localStorage.setItem(UI.LS.APP, UI.$("#app-id-input").value || "seminar-cloud");
       UI.setStorageChoice(UI.$("input[name='storageChoice']:checked").value);
       
-
       if (DB.initFirebase()) {
         Auth.onAuthReady();
       } else {
@@ -64,7 +63,6 @@ function setupEventListeners() {
   UI.$("#archive-class-btn").onclick = DB.handleArchiveClass; // This is now async
   UI.$("#classes-list").onchange = (e) => UI.loadClassIntoEditor(e.target.value);
   
-  // ✅ UPDATED: Now uses async/await for showConfirm
   UI.$("#storage-provider").onchange = async (e) => {
     const confirmed = await UI.showConfirm(
       "Changing providers will hide all files from the old location in the app. This is for a 'fresh start' and does not move old data.",
@@ -103,7 +101,6 @@ function setupEventListeners() {
   UI.$("#meta-participant").onchange = Record.handleMetadataParticipantChange;
   UI.$("#add-participant-btn").onclick = Record.handleAddNewParticipant;
 
-  // ✅ UPDATED: Now uses async/await for showConfirm
   UI.$("#cancel-upload-btn").onclick = async () => {
     const confirmed = await UI.showConfirm("Are you sure you want to cancel and discard this recording?", "Cancel Upload?", "Discard");
     if (confirmed) {
@@ -146,30 +143,38 @@ document.addEventListener('DOMContentLoaded', () => {
   UI.registerSW(); // Register the static service worker
   
   (async () => {
-    UI.showScreen("loading-screen");
-
     // ✅ Cache-busting: ensures old SW caches are cleared whenever version changes
-// Must match CACHE_NAME in sca-sw.js (e.g. seminar-cloud-cache-v7)
-
-    const appVersion = "v7"; // This must match your service worker
+    // This is the new, correct v8 logic
+    const appVersion = "v8"; // This must match your service worker
     const storedVersion = localStorage.getItem("appVersion");
 
     if (storedVersion !== appVersion) {
       console.log(`Cache mismatch. Stored: ${storedVersion}, New: ${appVersion}. Clearing cache…`);
       if (window.caches) {
-        await caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key))));
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
       }
+      // Save version *before* reload so it sticks
       localStorage.setItem("appVersion", appVersion);
-      window.location.reload();
-      return;
+    
+      // Only reload once per new version using sessionStorage
+      if (!sessionStorage.getItem("reloadDone")) {
+        sessionStorage.setItem("reloadDone", "true");
+        console.log("Reloading once to apply new version...");
+        window.location.reload();
+        return; // Stop execution here
+      }
     }
+    // Clear the one-time flag if the versions match
+    sessionStorage.removeItem("reloadDone");
     // ✅ End of cache-busting block
 
+    UI.showScreen("loading-screen");
     
     const config = localStorage.getItem(UI.LS.CFG);
     if (config) {
       console.log("Config found, initializing Firebase...");
-      if (await DB.initFirebase()) { 
+      if (await DB.initFirebase()) { // Make sure initFirebase is awaited
         Auth.onAuthReady();
       } else {
         console.log("Config invalid, showing setup.");

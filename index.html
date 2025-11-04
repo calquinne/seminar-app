@@ -5,20 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Seminar Cloud App – PWA</title>
 
+  <!-- ============================= -->
+  <!-- ✅ CROSS-BROWSER APP SETTINGS -->
+  <!-- ============================= -->
   <meta name="theme-color" content="#0891b2">
   <meta name="description" content="Record, score, and analyze presentations.">
   <link rel="icon" href="https://placehold.co/64x64/0e7490/ffffff?text=S">
 
+  <!-- Apple / iPhone PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="https://placehold.co/192x192/0e7490/ffffff?text=SCA">
 
+  <!-- Edge & Windows Tile Support -->
   <meta name="msapplication-TileColor" content="#0891b2">
   <meta name="msapplication-TileImage" content="https://placehold.co/144x144/0e7490/ffffff?text=SCA">
 
-  <link rel="manifest" href="./manifest.json">
+  <!-- ============================= -->
+  <!-- ✅ WEB APP MANIFEST (EXTERNAL) -->
+  <!-- ============================= -->
+  <link rel="manifest" href="./manifest.json?v=8"> <!-- ✅ Added v8 -->
 
+  <!-- ============================= -->
+  <!-- ✅ TAILWIND + FONTS            -->
+  <!-- ============================= -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -41,6 +52,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
+  <!-- ============================= -->
+  <!-- ✅ UNIVERSAL STYLING           -->
+  <!-- ============================= -->
   <style>
     :root{color-scheme:dark}
     body { font-family: 'Inter', sans-serif; }
@@ -51,7 +65,6 @@
     .fade-enter-active{opacity:1;transform:none;transition:all .2s ease}
     dialog::backdrop{background:rgba(0,0,0,.6)}
     
-    /* ✅ FIXED: Replaced theme() with literal values */
     .app-tab[aria-selected="true"] {
         background-color: rgba(255, 255, 255, 0.1);
         font-weight: 600;
@@ -69,7 +82,6 @@
       color: #9ca3af; /* Tailwind gray-400 */
     }
     
-    /* Ensure video preview is black and centered */
     video#video-preview {
       background-color: #000;
       width: 100%;
@@ -81,6 +93,7 @@
 </head>
 
 <body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
+<!-- Header -->
 <header class="sticky top-0 z-40 backdrop-blur bg-gray-900/70 border-b border-white/10">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
     <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
@@ -99,11 +112,15 @@
   </div>
 </header>
 
+<!-- Main Content Area -->
 <main class="max-w-6xl mx-auto px-4 pb-24">
   <div id="error-display"
        class="hidden mt-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm whitespace-pre-line"></div>
   <div id="toast-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 space-y-2"></div>
 
+  <!-- ====================================================== -->
+  <!-- ===== SCREEN 1: LOADING SCREEN (Default)         ===== -->
+  <!-- ====================================================== -->
   <section id="loading-screen" class="grid place-items-center h-[70vh]">
     <div class="flex flex-col items-center gap-3">
       <div class="h-10 w-10 border-4 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
@@ -111,6 +128,9 @@
     </div>
   </section>
 
+  <!-- ====================================================== -->
+  <!-- ===== SCREEN 2: SETUP SCREEN                     ===== -->
+  <!-- ====================================================== -->
   <section id="setup-screen" class="hidden mt-6 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
      <h2 class="text-2xl font-bold text-center mb-4">Welcome to Seminar Cloud</h2>
      <p class="text-sm text-gray-300 mb-4">
@@ -146,6 +166,9 @@
      </div>
   </section>
 
+  <!-- ====================================================== -->
+  <!-- ===== SCREEN 3: AUTH SCREEN                      ===== -->
+  <!-- ====================================================== -->
   <section id="auth-screen" class="hidden mt-10 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
     <h2 class="text-2xl font-bold text-center mb-4">Sign In / Sign Up</h2>
     <form id="auth-form" class="space-y-4">
@@ -169,6 +192,9 @@
     </button>
   </section>
 
+  <!-- ====================================================== -->
+  <!-- ===== SCREEN 4: MAIN APP                         ===== -->
+  <!-- ====================================================== -->
   <section id="main-app" class="hidden mt-6">
     <div id="paywall-banner"
          class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm mb-4">
@@ -176,6 +202,7 @@
       <button id="subscribe-btn" class="underline ml-1">Subscribe</button>
     </div>
 
+    <!-- Main Navigation Tabs -->
     <div class="flex flex-wrap items-center gap-2 mb-4">
       <button data-tab="tab-manage" class="app-tab px-3 py-1.5 rounded-lg">Class / Event</button>
       <button data-tab="tab-rubrics" class="app-tab px-3 py-1.5 rounded-lg">Rubrics</button>
@@ -185,8 +212,10 @@
       <span id="account-pill" class="ml-auto text-xs text-gray-400">Role: — • Storage: —</span>
     </div>
 
+    <!-- Tab Content: Class / Event Manager -->
     <div class="app-tab-content" id="tab-manage">
       <div class="grid md:grid-cols-2 gap-6">
+        <!-- Class / Event Manager -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
           <div class="flex items-center gap-2 mb-3">
             <h3 class="font-semibold text-lg">Class / Event Manager</h3>
@@ -232,6 +261,7 @@
           </div>
         </div>
 
+        <!-- Account & Storage -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
           <h3 class="font-semibold text-lg mb-3">Account & Storage</h3>
           <div class="space-y-3 text-sm">
@@ -264,6 +294,7 @@
       </div>
     </div>
 
+    <!-- Tab: Rubrics Manager -->
     <div id="tab-rubrics" class="hidden app-tab-content">
       <div class="flex items-center gap-2 mb-3">
         <h2 class="text-xl font-semibold">Rubric Reference Manager</h2>
@@ -322,11 +353,16 @@
         </div>
       </div>
     </div>
+    <!-- ===== END: Tab: Rubrics Manager ===== -->
+
+    <!-- ===== UPDATED: Tab: Record ===== -->
     <div id="tab-record" class="hidden app-tab-content max-w-2xl mx-auto">
       <h2 class="text-xl font-semibold mb-4">Record Presentation</h2>
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
+        <!-- Video Preview -->
         <video id="video-preview" class="w-full rounded-lg shadow aspect-video mb-4" playsinline muted autoplay></video>
 
+        <!-- Status & Timer -->
         <div class="flex justify-between items-center mb-4">
           <div class="text-lg">
             Status: <span id="rec-status" class="font-semibold text-gray-300">Idle</span>
@@ -336,6 +372,7 @@
           </div>
         </div>
 
+        <!-- Controls -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <button id="start-rec-btn" class="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold col-span-2">
             Start Recording
@@ -356,27 +393,38 @@
         </div>
         <p class="text-xs text-gray-500 mt-3 text-center">Note: Recording happens on your device. You will tag and upload after stopping.</p>
         
+        <!-- ✅ ADDED: UPLOAD PROGRESS BAR -->
         <div class="w-full h-1 mt-4 bg-white/10 rounded-full overflow-hidden">
           <div id="upload-progress" class="h-1 bg-primary-500 w-0 transition-all duration-300"></div>
         </div>
       </div>
     </div>
+    <!-- ===== END: Tab: Record ===== -->
+
+    <!-- ===== UPDATED: Tab: Library ===== -->
     <div id="tab-library" class="hidden app-tab-content">
       <h2 class="text-xl font-semibold mb-4">Video Library</h2>
+      <!-- This is the target for your loadLibrary() function -->
       <div id="library-list" class="space-y-3">
         <p class="text-sm text-gray-400">Loading library...</p>
       </div>
     </div>
+    <!-- ===== END: Tab: Library ===== -->
+
     <div id="tab-analytics" class="hidden app-tab-content">
        <h2 class="text-xl font-semibold">Analytics Dashboard</h2>
        <p class="text-gray-400">This section is under construction.</p>
     </div>
   </section>
 
+  <!-- ====================================================== -->
+  <!-- ===== SCREEN 5: METADATA TAGGING (Dialog/Modal)  ===== -->
+  <!-- ====================================================== -->
   <dialog id="metadata-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-md border border-white/10 p-0">
     <form id="metadata-form">
       <h2 class="text-xl font-bold p-5 border-b border-white/10">Tag Your Recording</h2>
       <div class="p-5 space-y-4">
+        <!-- Auto-filled Info -->
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-400">Organization</label>
@@ -388,6 +436,7 @@
           </div>
         </div>
         
+        <!-- Core Tags -->
         <div>
           <label for="meta-class" class="block text-sm font-medium text-gray-300 mb-1">Class / Event</label>
           <select id="meta-class" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
@@ -403,6 +452,7 @@
           </div>
         </div>
 
+        <!-- Extra Tags -->
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label for="meta-type" class="block text-sm font-medium text-gray-300 mb-1">Recording Type</label>
@@ -440,6 +490,9 @@
   </dialog>
 
 
+  <!-- ====================================================== -->
+  <!-- ===== SCREEN 6: HELP/FAQ MODAL (Dialog)          ===== -->
+  <!-- ====================================================== -->
   <dialog id="help-faq-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-2xl border border-white/10 p-0">
     <form method="dialog">
       <button class="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
@@ -447,6 +500,7 @@
     <h2 class="text-xl font-bold p-5 border-b border-white/10">Help & FAQ</h2>
     <div class="p-5 max-h-[70vh] overflow-y-auto space-y-6">
       
+      <!-- How to Install -->
       <details class="space-y-2" open>
         <summary class="text-lg font-semibold text-primary-300 cursor-pointer">How do I install this app on my phone? (Add to Home Screen)</summary>
         <p class="text-gray-300">This is a Progressive Web App (PWA). You can install it from your browser for a full-screen, app-like experience.</p>
@@ -470,6 +524,7 @@
         </div>
       </details>
 
+      <!-- iOS Requirements -->
       <details class="space-y-2">
         <summary class="text-lg font-semibold text-primary-300 cursor-pointer">What are the requirements for iOS (iPhone/iPad)?</summary>
         <p class="text-gray-300">The app works best on newer operating systems.</p>
@@ -485,6 +540,7 @@
         </ul>
       </details>
 
+      <!-- Storage & Data -->
       <details class="space-y-2">
         <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Storage & Data Management</summary>
         <div class="ml-4 space-y-3">
@@ -509,6 +565,7 @@
         </div>
       </details>
       
+      <!-- Class Lifecycle -->
       <details class="space-y-2">
         <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Class Lifecycle (Archiving & Deletion)</summary>
         <div class="ml-4 space-y-3">
@@ -518,6 +575,7 @@
             <p class="text-gray-300 mt-1">**Deleting** is permanent. When a class is deleted (either by you or by the auto-delete policy), all associated videos and scores are permanently erased from the system.</p>
           </div>
           <div>
+            <!-- ✅ FIXED: Corrected typo 'classs' to 'class' -->
             <h4 class="font-semibold text-gray-100">How does Auto-Delete work?</h4>
             <p class="text-gray-300">You can set an `Auto-Delete Date` for each class. This is useful for meeting data retention requirements. For example, if you must keep videos for 1 year after a class ends, set the `Auto-Archive Date` to the class end date, and the `Auto-Delete Date` to one year after that.</p>
             <p class="text-gray-300 mt-1">**Fallback Policy:** For users on the **Firebase Storage** option, a system-wide rule will permanently delete any video file that is older than **18 months** (based on its creation date) as a safety net to manage storage costs, regardless of your in-app settings.</p>
@@ -525,6 +583,7 @@
         </div>
       </details>
 
+      <!-- Common Workflows -->
       <details class="space-y-2">
         <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Common Workflows</summary>
         <div class="ml-4 space-y-3">
@@ -553,6 +612,7 @@
     </div>
   </dialog>
 
+  <!-- ✅ ADDED: Reusable Confirmation Modal -->
   <dialog id="confirm-modal" class="backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-sm border border-white/10 p-0">
     <div class="p-5">
       <h3 id="confirm-title" class="text-lg font-semibold text-white mb-2">Are you sure?</h3>
@@ -567,7 +627,14 @@
 </main>
 
 
-<script type="module" src="./scripts/main.js?v=7"></script>
+<!-- 
+======================================================
+✅ JAVASCRIPT
+All inline JS has been removed and refactored into modules.
+The app is now booted by main.js in the 'scripts' folder.
+======================================================
+-->
+<script type="module" src="./scripts/main.js?v=8"></script>
 
 </body>
 </html>
