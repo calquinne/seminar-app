@@ -12,7 +12,6 @@ export const IDB_STORE = "pendingUploads";
 
 /* -------------------------------------------------------------------------- */
 /* Shared State
-/* We export the variables and setters to avoid circular dependencies.
 /* -------------------------------------------------------------------------- */
 export let app, auth, db, storage;
 export let currentUser = null;
@@ -47,7 +46,6 @@ export const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 export function toast(msg, type = "info") {
   const container = $("#toast-container");
-  // Limit to 3 toasts
   if (container.children.length >= 3) {
     container.removeChild(container.firstChild);
   }
@@ -72,13 +70,11 @@ export function showScreen(id) {
     if (el) el.classList.toggle("hidden", s !== id);
     else console.warn(`Screen element not found: #${s}`);
   });
-  if (id === 'metadata-screen') {
-    $("#metadata-screen").showModal();
-  } else {
+  // This function should NOT handle modals, only main screens.
+  if (id !== 'metadata-screen') {
     const metaScreen = $("#metadata-screen");
     if (metaScreen && metaScreen.open) metaScreen.close();
   }
-  console.log(`Switched to screen: ${id}`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -140,7 +136,8 @@ export function updateUIAfterAuth(u, docData) {
   const access = hasAccess();
   $("#paywall-banner").classList.toggle("hidden", access);
 
-  $$("#tab-record, #tab-library, #tab-analytics, #save-class-btn, #archive-class-btn, #save-new-rubric-btn").forEach(el => {
+  // Disable buttons, but not tabs (tabs are handled by handleTabClick)
+  $$("#save-class-btn, #archive-class-btn, #save-new-rubric-btn").forEach(el => {
     if(el) {
       el.disabled = !access;
       el.classList.toggle("opacity-50", !access);
@@ -210,10 +207,9 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
 
   const tabId = btn.dataset.tab;
   
-  // Paywall check for restricted tabs
   if (!hasAccess() && (tabId === 'tab-record' || tabId === 'tab-library' || tabId === 'tab-analytics')) {
     toast("This feature requires an active subscription.", "error");
-    return; // Stop navigation
+    return;
   }
 
   $$(".app-tab-content").forEach(el => {
@@ -233,7 +229,6 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
     if (progressEl) progressEl.style.width = '0%';
   }
 
-  // Call data-loading functions
   if (tabId === 'tab-manage') {
     refreshClassesList();
   }
@@ -341,7 +336,6 @@ export function setupGlobalErrorHandlers() {
     console.error("Global Error:", error);
     $("#error-display").textContent = `Error: ${error.message || m}\nAt: ${s}:${l}:${c}`;
     $("#error-display").classList.remove("hidden");
-    // Don't switch screen, just show error
   };
   window.onunhandledrejection = (event) => {
     console.error("Unhandled Rejection:", event.reason);
@@ -372,7 +366,6 @@ export function uploadToDrivePlaceholder(file, meta){
 /* -------------------------------------------------------------------------- */
 /* PWA Service Worker
 /* -------------------------------------------------------------------------- */
-// ✅ UPDATED: This is the final, polished "top-slide + glow" version
 export async function registerSW(){
   if(!("serviceWorker" in navigator)) return;
   
@@ -380,7 +373,7 @@ export async function registerSW(){
     const reg = await navigator.serviceWorker.register('./sca-sw.js', { scope: './' });
     console.log("✅ Service Worker registered successfully.");
 
-    // 🎬 Inject animation CSS once
+    // Inject animation CSS once
     if (!document.getElementById("update-banner-style")) {
       const style = document.createElement("style");
       style.id = "update-banner-style";
@@ -400,6 +393,8 @@ export async function registerSW(){
         }
         #update-banner {
           animation: slideDownFade 0.5s ease-out forwards, pingGlow 1.4s ease-out 0.3s;
+          /* ✅ ADDED: Text shadow for legibility */
+          text-shadow: 0 0 4px rgba(0,0,0,0.5);
         }
         #update-banner.fade-out {
           animation: slideUpFadeOut 0.5s ease-in forwards;
@@ -414,32 +409,42 @@ export async function registerSW(){
       if (!newWorker) return;
 
       newWorker.onstatechange = () => {
-        if (newWorker.state === "installed" && navigator.service.controller) {
-          // 🎨 Top glassy banner (Seminar Cloud blue)
-          const banner = document.createElement("div");
-          banner.id = "update-banner";
-          banner.className = `
-            fixed top-4 left-1/2 -translate-x-1/2 z-50
-            bg-[#0e7490]/90 backdrop-blur-md text-white text-sm
-            px-5 py-2.5 rounded-2xl shadow-lg border border-white/10
-            cursor-pointer transition hover:bg-[#0e7490]/100
-          `;
-          banner.textContent = "🔄 A new update is available — click to refresh";
+        // ✅ UPDATED: Added full defensive check
+        try {
+          if (
+            newWorker.state === "installed" &&
+            navigator.serviceWorker &&
+            navigator.serviceWorker.controller
+          ) {
+            // 🎨 Top glassy banner (Seminar Cloud blue)
+            const banner = document.createElement("div");
+            banner.id = "update-banner";
+            banner.className = `
+              fixed top-4 left-1/2 -translate-x-1/2 z-50
+              bg-[#0e7490]/90 backdrop-blur-md text-white text-sm
+              px-5 py-2.5 rounded-2xl shadow-lg border border-white/10
+              cursor-pointer transition hover:bg-[#0e7490]/100
+            `;
+            banner.textContent = "🔄 A new update is available — click to refresh";
 
-          banner.onclick = () => {
-            newWorker.postMessage({ type: "SKIP_WAITING" });
-            banner.textContent = "⏳ Updating…";
-            banner.classList.add("opacity-80");
-            setTimeout(() => window.location.reload(), 1000);
-          };
+            banner.onclick = () => {
+              newWorker.postMessage({ type: "SKIP_WAITING" });
+              banner.textContent = "⏳ Updating…";
+              banner.classList.add("opacity-80");
+              // ✅ UPDATED: Shorter 500ms delay
+              setTimeout(() => window.location.reload(), 500);
+            };
 
-          document.body.appendChild(banner);
+            document.body.appendChild(banner);
 
-          // 🕐 Auto fade-out if ignored after 20s
-          setTimeout(() => {
-            banner.classList.add("fade-out");
-            setTimeout(() => banner.remove(), 600);
-          }, 20000);
+            // 🕐 Auto fade-out if ignored after 20s
+            setTimeout(() => {
+              banner.classList.add("fade-out");
+              setTimeout(() => banner.remove(), 600);
+            }, 20000);
+          }
+        } catch (err) {
+          console.warn("[SW] Update check skipped (controller not yet ready)", err);
         }
       };
     };
