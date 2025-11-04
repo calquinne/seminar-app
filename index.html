@@ -562,7 +562,73 @@
       <button id="confirm-btn-yes" class="px-4 py-2 text-sm rounded-lg">Confirm</button>
     </div>
   </dialog>
+</section> <dialog id="metadata-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-md border border-white/10 p-0">
+    <form id="metadata-form">
+      <h2 class="text-xl font-bold p-5 border-b border-white/10">Tag Your Recording</h2>
+      <div class="p-5 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-400">Organization</label>
+            <input id="meta-org" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400">Instructor</label>
+            <input id="meta-instructor" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
+          </div>
+        </div>
+        
+        <div>
+          <label for="meta-class" class="block text-sm font-medium text-gray-300 mb-1">Class / Event</label>
+          <select id="meta-class" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
+        </div>
+        <div>
+          <label for="meta-participant" class="block text-sm font-medium text-gray-300 mb-1">Participant</label>
+          <select id="meta-participant" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" disabled>
+            <option value="">Select a class/event first...</option>
+          </select>
+          <div id="add-participant-container" class="hidden flex gap-2 mt-2">
+            <input id="new-participant-name" type="text" class="flex-1 rounded-lg bg-black/40 border border-white/10 p-2 text-sm" placeholder="New Participant Name...">
+            <button id="add-participant-btn" type="button" class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-sm">Add</button>
+          </div>
+        </div>
 
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="meta-type" class="block text-sm font-medium text-gray-300 mb-1">Recording Type</label>
+            <select id="meta-type" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+              <option value="mock">mock</option>
+              <option value="tmp">tmp</option>
+              <option value="imp">imp</option>
+              <option value="rehearsal">rehearsal</option>
+              <option value="final">final</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+          <div>
+            <label for="meta-group" class="block text-sm font-medium text-gray-300 mb-1">Group / Tag</label>
+            <input id="meta-group" type="text" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="e.g., Group 1">
+          </div>
+        </div>
+        
+        <div>
+          <label for="meta-notes" class="block text-sm font-medium text-gray-300 mb-1">General Notes</label>
+          <textarea id="meta-notes" rows="3" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Optional notes..."></textarea>
+        </div>
+
+      </div>
+      <div class="p-5 border-t border-white/10 flex justify-between items-center">
+        <div>
+          <span class="text-sm">File Size: <span id="meta-file-size" class="font-medium text-gray-300">0 MB</span></span>
+        </div>
+        <div>
+          <button id="cancel-upload-btn" type="reset" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
+          <button id="save-upload-btn" type="submit" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 ml-2">Save & Upload</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="help-faq-screen" ...>
 </main>
 
 
