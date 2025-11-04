@@ -6,7 +6,8 @@
 // Firebase SDK Imports
 import {
   onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+  signInWithRedirect, getRedirectResult
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   doc, getDoc, setDoc, onSnapshot, serverTimestamp
@@ -21,6 +22,19 @@ import { flushOfflineQueue } from './firestore.js';
 /* Auth State Management
 /* -------------------------------------------------------------------------- */
 export async function onAuthReady() {
+  // ✅ ADD THIS BLOCK TO CATCH THE REDIRECT
+  try {
+    const result = await getRedirectResult(UI.auth);
+    if (result) {
+      // This was a redirect sign-in.
+      console.log("Google redirect result found:", result.user);
+      UI.toast("Signed in with Google!", "success");
+    }
+  } catch (e) {
+    console.error("Google redirect error:", e);
+    UI.toast(e.message, "error");
+  }
+  // ✅ END OF NEW BLOCK
   onAuthStateChanged(UI.auth, async (user) => {
     if (user) {
       console.log("onAuthStateChanged: User found", user.uid);
@@ -105,8 +119,8 @@ export async function handleAuthFormSubmit(e) {
 export async function handleGoogleSignIn() {
   const provider = new GoogleAuthProvider();
   try {
-    await signInWithPopup(UI.auth, provider);
-    UI.toast("Signed in with Google!", "success");
+    // This will redirect the user to Google, then bring them back
+    await signInWithRedirect(UI.auth, provider);
   } catch (e) {
     console.error("Google sign-in error:", e);
     UI.toast(e.message, "error");
