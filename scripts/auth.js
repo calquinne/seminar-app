@@ -47,7 +47,7 @@ async function handleUserFound(user) {
         instructorName: user.email || "Instructor"
       };
       try {
-        await setDoc(ref, profileData);
+        await setDoc(ref, profileData, { merge: true }); // Use merge for safety
       } catch (e) {
         console.error("Failed to create profile doc:", e);
         UI.toast("Failed to create user profile.", "error");
@@ -78,36 +78,37 @@ async function handleUserFound(user) {
  * It sets up the *listener* first, then checks for a redirect.
  */
 export async function onAuthReady() {
-  
-  // 1. SET UP THE LISTENER FIRST
-  // This is the single source of truth for auth state.
-  onAuthStateChanged(UI.auth, async (user) => {
-    if (user) {
-      // A user is signed in (either from redirect or session).
-      await handleUserFound(user);
-    } else {
-      // No user is signed in.
-      console.log("onAuthStateChanged: No user");
-      UI.updateUIAfterAuth(null, { role: "user", activeSubscription: false, storageUsedBytes: 0, planStorageLimit: 1 });
-      UI.showScreen("auth-screen");
-    }
-  });
-  
-  // 2. NOW, CHECK FOR THE REDIRECT RESULT
-  // This will complete the sign-in and trigger the listener above.
+  console.log("Auth initializing...");
+
+  // 1️⃣ Small delay to ensure Firebase + SW fully loaded
+  await new Promise(res => setTimeout(res, 300));
+
+  // 2️⃣ Finish any pending redirect first
   try {
     const result = await getRedirectResult(UI.auth);
-    if (result) {
-      // A redirect just completed.
-      // The listener above will handle the user.
+    if (result?.user) {
+      console.log("Redirect sign-in completed:", result.user.uid);
       UI.toast("Signed in with Google!", "success");
+      // handleUserFound() will run automatically via onAuthStateChanged
     }
-    // If result is null, it means no redirect happened,
-    // and the listener above has already handled the "no user" case.
   } catch (e) {
     console.error("Google redirect error:", e);
     UI.toast(e.message, "error");
   }
+
+  // 3️⃣ Now attach the auth state listener
+  onAuthStateChanged(UI.auth, async (user) => {
+    if (user) {
+      // A user is signed in (either from redirect or session).
+      console.log("onAuthStateChanged: User is signed in:", user.uid);
+      await handleUserFound(user);
+    } else {
+      // No user is signed in.
+      console.log("onAuthStateChanged: No user signed in.");
+      UI.updateUIAfterAuth(null, { role: "user", activeSubscription: false, storageUsedBytes: 0, planStorageLimit: 1 });
+      UI.showScreen("auth-screen");
+    }
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -123,12 +124,11 @@ export async function handleAuthFormSubmit(e) {
   try {
     if (isSignUp) {
       await createUserWithEmailAndPassword(UI.auth, email, password);
-      // We don't need to do anything else.
-      // The onAuthStateChanged listener will see the new user and run handleUserFound.
+      // Listener will catch this
       UI.toast("Account created! Signing in...", "success");
     } else {
       await signInWithEmailAndPassword(UI.auth, email, password);
-      // The onAuthStateChanged listener will see the user and run handleUserFound.
+      // Listener will catch this
       UI.toast("Signed in!", "success");
     }
   } catch (e) {
@@ -139,9 +139,20 @@ export async function handleAuthFormSubmit(e) {
 
 export async function handleGoogleSignIn() {
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" }); // Good for UX
+
   try {
-    // This will redirect the user to Google, then bring them back
-    await signInWithRedirect(UI.auth, provider);
+    if (location.hostname === "localhost" || location.protocol === "file:") {
+      // 🧩 Use popup locally (redirect often fails in dev)
+      const result = await signInWithPopup(UI.auth, provider);
+      if (result?.user) {
+        UI.toast("Signed in with Google!", "success");
+      }
+    } else {
+      // 🌐 Use redirect in production (for GitHub Pages)
+      UI.toast("Redirecting to Google...", "info");
+      await signInWithRedirect(UI.auth, provider);
+    }
   } catch (e) {
     console.error("Google sign-in error:", e);
     UI.toast(e.message, "error");
