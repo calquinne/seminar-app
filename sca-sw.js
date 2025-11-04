@@ -1,10 +1,10 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* Firebase-safe + Offline caching + Update notifier
+/* v3: Fixes CORS caching and Auth redirect loops
 /* ========================================================================== */
 
-// ⚙️ Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v3"; // Bumped version to v3
+// ⚙️ Bumped cache version to force an update for all users
+const CACHE_NAME = "seminar-cloud-cache-v3";
 
 const ASSETS_TO_CACHE = [
   "./",
@@ -23,7 +23,7 @@ const ASSETS_TO_CACHE = [
 /* INSTALL – Pre-cache core app shell
 /* -------------------------------------------------------------------------- */
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installing and caching app shell...");
+  console.log("[SW] Installing and caching app shell (v3)...");
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -32,8 +32,7 @@ self.addEventListener("install", (event) => {
         // ✅ UPDATED: Handle cross-origin (CORS) requests
         const cachePromises = ASSETS_TO_CACHE.map(asset => {
           if (asset.startsWith('http')) {
-            // For cross-origin assets, we must use 'no-cors'
-            // This caches an "opaque" response, but it works
+            // For cross-origin assets, use 'no-cors'
             return cache.add(new Request(asset, { mode: 'no-cors' })).catch(err => {
               console.warn(`[SW] Failed to cache (CORS) ${asset}:`, err);
             });
@@ -47,8 +46,8 @@ self.addEventListener("install", (event) => {
         
         return Promise.all(cachePromises);
       })
-      .then(() => self.skipWaiting())
-      .then(() => self.clients.claim())
+      .then(() => self.skipWaiting()) // Immediately activate new SW
+      .then(() => self.clients.claim())  // Take immediate control
       .catch((err) => console.error("[SW] Install error:", err))
   );
 });
@@ -77,7 +76,7 @@ self.addEventListener("fetch", (event) => {
   if (
     url.pathname.startsWith("/__/auth/") ||
     url.hostname.includes("accounts.google.com") ||
-    url.hostname.includes("googleapis.com") || // Broader rule for google apis
+    url.hostname.includes("googleapis.com") ||
     url.hostname.includes("securetoken.googleapis.com")
   ) {
     console.log("[SW] Skipping auth request (network only):", url.href);
@@ -86,33 +85,32 @@ self.addEventListener("fetch", (event) => {
 
   // ✅ Cache-first strategy for static assets
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
+    caches.match(event.request).then(async (cachedResponse) => {
       // If we have a cached response, return it
       if (cachedResponse) {
         return cachedResponse;
       }
 
       // Fetch from network and cache it
-      return fetch(event.request)
-        .then((networkResponse) => {
-          // Check for valid, cacheable responses
-          if (
-            event.request.method === "GET" && 
-            networkResponse && 
-            networkResponse.status === 200 && 
-            networkResponse.type === 'basic' // Only cache same-origin assets
-          ) {
-            const cloned = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // Fallback to cached index.html for navigation requests
-          if (event.request.mode === "navigate") {
-            return caches.match("./index.html");
-          }
-        });
+      try {
+        const networkResponse = await fetch(event.request);
+        // Check for valid, cacheable responses (only local 'basic' files)
+        if (
+          event.request.method === "GET" && 
+          networkResponse && 
+          networkResponse.status === 200 && 
+          networkResponse.type === 'basic'
+        ) {
+          const cloned = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+        }
+        return networkResponse;
+      } catch (err) {
+        // Fallback to cached index.html for navigation requests
+        if (event.request.mode === "navigate") {
+          return caches.match("./index.html");
+        }
+      }
     })
   );
 });

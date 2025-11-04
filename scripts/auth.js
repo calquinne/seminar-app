@@ -22,15 +22,26 @@ import { flushOfflineQueue } from './firestore.js';
 /* Auth State Management
 /* ========================================================================== */
 
+// ✅ ADDED: Keep track of the snapshot listener
+let unsubscribeUserSnap = null;
+
 /**
  * A shared function to handle all the logic when a user is found.
  * This sets up their profile, loads their data, and shows the main app.
  */
 async function handleUserFound(user) {
   console.log("handleUserFound: User found", user.uid);
+  
+  // ✅ ADDED: Unsubscribe from any previous user's listener
+  if (unsubscribeUserSnap) {
+    console.log("Unsubscribing from old user snapshot.");
+    unsubscribeUserSnap();
+  }
+
   const ref = doc(UI.db, `artifacts/${UI.getAppId()}/users/${user.uid}`);
   
-  onSnapshot(ref, async (snap) => {
+  // ✅ ADDED: Store the new unsubscribe function
+  unsubscribeUserSnap = onSnapshot(ref, async (snap) => {
     let profileData;
     if (snap.exists()) {
       profileData = snap.data();
@@ -105,6 +116,12 @@ export async function onAuthReady() {
     } else {
       // No user is signed in.
       console.log("onAuthStateChanged: No user signed in.");
+      // ✅ ADDED: Unsubscribe listener on sign out
+      if (unsubscribeUserSnap) {
+        console.log("User signed out, unsubscribing from snapshot.");
+        unsubscribeUserSnap();
+        unsubscribeUserSnap = null;
+      }
       UI.updateUIAfterAuth(null, { role: "user", activeSubscription: false, storageUsedBytes: 0, planStorageLimit: 1 });
       UI.showScreen("auth-screen");
     }
@@ -162,6 +179,6 @@ export async function handleGoogleSignIn() {
 export function handleSignOut() {
     if (UI.auth) {
         signOut(UI.auth).catch(e => console.error("Sign out error", e));
-        // The onAuthStateChanged listener will see the user is null and show the auth-screen.
+        // The onAuthStateChanged listener will handle cleanup
     }
 }
