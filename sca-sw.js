@@ -4,9 +4,8 @@
 /* ========================================================================== */
 
 // ⚙️ Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v1"; // Bump this to v2, v3 etc. when you deploy changes
+const CACHE_NAME = "seminar-cloud-cache-v3"; // Bumped version to v3
 
-// ✅ Files to pre-cache
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -28,22 +27,34 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log("[SW] Caching assets:", ASSETS_TO_CACHE);
-        return Promise.all(
-          ASSETS_TO_CACHE.map(asset => {
-            return cache.add(asset).catch(err => {
-              console.warn(`[SW] Failed to cache ${asset}:`, err);
+        console.log("[SW] Caching assets...");
+        
+        // ✅ UPDATED: Handle cross-origin (CORS) requests
+        const cachePromises = ASSETS_TO_CACHE.map(asset => {
+          if (asset.startsWith('http')) {
+            // For cross-origin assets, we must use 'no-cors'
+            // This caches an "opaque" response, but it works
+            return cache.add(new Request(asset, { mode: 'no-cors' })).catch(err => {
+              console.warn(`[SW] Failed to cache (CORS) ${asset}:`, err);
             });
-          })
-        );
+          } else {
+            // For local assets, cache normally
+            return cache.add(asset).catch(err => {
+              console.warn(`[SW] Failed to cache (local) ${asset}:`, err);
+            });
+          }
+        });
+        
+        return Promise.all(cachePromises);
       })
-      .then(() => self.skipWaiting()) // ✅ Immediately activate new SW
+      .then(() => self.skipWaiting())
+      .then(() => self.clients.claim())
       .catch((err) => console.error("[SW] Install error:", err))
   );
 });
 
 /* -------------------------------------------------------------------------- */
-/* ACTIVATE – Cleanup old caches + claim clients
+/* ACTIVATE – Cleanup old caches
 /* -------------------------------------------------------------------------- */
 self.addEventListener("activate", (event) => {
   console.log("[SW] Activating and cleaning old caches...");
@@ -52,7 +63,6 @@ self.addEventListener("activate", (event) => {
       .then((keys) => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
       .then(() => {
         console.log("[SW] Old caches removed");
-        return self.clients.claim(); // Take control immediately
       })
   );
 });
@@ -61,27 +71,28 @@ self.addEventListener("activate", (event) => {
 /* FETCH – Safe caching with Firebase Auth bypass
 /* -------------------------------------------------------------------------- */
 self.addEventListener("fetch", (event) => {
-  const url = event.request.url;
+  const url = new URL(event.request.url);
 
-  // 🚫 Skip Firebase Auth and Google identity endpoints to prevent redirect loops
+  // 🚫 Skip Firebase Auth and Google identity endpoints
   if (
-    url.includes("/__/auth/") ||
-    url.includes("accounts.google.com") ||
-    url.includes("googleapis.com/identitytoolkit") ||
-    url.includes("securetoken.googleapis.com")
+    url.pathname.startsWith("/__/auth/") ||
+    url.hostname.includes("accounts.google.com") ||
+    url.hostname.includes("googleapis.com") || // Broader rule for google apis
+    url.hostname.includes("securetoken.googleapis.com")
   ) {
-    console.log("[SW] Skipping Firebase Auth request (network only):", url);
-    return; // Let the browser handle it (network first)
+    console.log("[SW] Skipping auth request (network only):", url.href);
+    return; // Let the browser handle it
   }
 
   // ✅ Cache-first strategy for static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
+      // If we have a cached response, return it
       if (cachedResponse) {
         return cachedResponse;
       }
 
-      // Fetch from network and cache it for next time
+      // Fetch from network and cache it
       return fetch(event.request)
         .then((networkResponse) => {
           // Check for valid, cacheable responses
@@ -89,7 +100,7 @@ self.addEventListener("fetch", (event) => {
             event.request.method === "GET" && 
             networkResponse && 
             networkResponse.status === 200 && 
-            (networkResponse.type === 'basic' || networkResponse.type === 'cors') // Cache CDN assets
+            networkResponse.type === 'basic' // Only cache same-origin assets
           ) {
             const cloned = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
@@ -107,7 +118,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* 🔄 UPDATE NOTIFIER – Tell clients when a new SW is ready
+/* UPDATE NOTIFIER – Listen for message from UI
 /* -------------------------------------------------------------------------- */
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
