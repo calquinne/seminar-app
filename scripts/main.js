@@ -143,9 +143,8 @@ document.addEventListener('DOMContentLoaded', () => {
   UI.registerSW(); // Register the static service worker
   
   (async () => {
-    // ✅ Cache-busting: ensures old SW caches are cleared whenever version changes
-    // This is the new, correct v8 logic
-    const appVersion = "v8"; // This must match your service worker
+    // ✅ Cache-busting: v9
+    const appVersion = "v9"; // This must match your service worker
     const storedVersion = localStorage.getItem("appVersion");
 
     if (storedVersion !== appVersion) {
@@ -154,18 +153,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const keys = await caches.keys();
         await Promise.all(keys.map(k => caches.delete(k)));
       }
-      // Save version *before* reload so it sticks
       localStorage.setItem("appVersion", appVersion);
     
-      // Only reload once per new version using sessionStorage
       if (!sessionStorage.getItem("reloadDone")) {
         sessionStorage.setItem("reloadDone", "true");
         console.log("Reloading once to apply new version...");
         window.location.reload();
-        return; // Stop execution here
+        return;
       }
     }
-    // Clear the one-time flag if the versions match
     sessionStorage.removeItem("reloadDone");
     // ✅ End of cache-busting block
 
@@ -174,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const config = localStorage.getItem(UI.LS.CFG);
     if (config) {
       console.log("Config found, initializing Firebase...");
-      if (await DB.initFirebase()) { // Make sure initFirebase is awaited
+      if (await DB.initFirebase()) { 
         Auth.onAuthReady();
       } else {
         console.log("Config invalid, showing setup.");

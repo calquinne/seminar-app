@@ -1,21 +1,21 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v8: Final cache-busting and CORS-safe version
+/* v9: Stricter auth bypass and new cache version
 /* ========================================================================== */
 
 // ✅ BUMPED: Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v8";
+const CACHE_NAME = "seminar-cloud-cache-v9";
 
 // ✅ UPDATED: All local assets are versioned
 const ASSETS_TO_CACHE = [
   "./",
-  "./index.html?v=8",
-  "./scripts/main.js?v=8",
-  "./scripts/ui.js?v=8",
-  "./scripts/auth.js?v=8",
-  "./scripts/firestore.js?v=8",
-  "./scripts/record.js?v=8",
-  "./manifest.json?v=8",
+  "./index.html?v=9",
+  "./scripts/main.js?v=9",
+  "./scripts/ui.js?v=9",
+  "./scripts/auth.js?v=9",
+  "./scripts/firestore.js?v=9",
+  "./scripts/record.js?v=9",
+  "./manifest.json?v=9",
   "https://cdn.tailwindcss.com",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
 ];
@@ -46,10 +46,7 @@ self.addEventListener("install", (event) => {
         
         return Promise.all(cachePromises);
       })
-      .then(() => {
-        console.log("[SW] Precache complete, skipping waiting...");
-        return self.skipWaiting();
-      })
+      .then(() => self.skipWaiting())
       .catch((err) => console.error("[SW] Install error:", err))
   );
 });
@@ -67,10 +64,7 @@ self.addEventListener("activate", (event) => {
           return caches.delete(k);
         })
       ))
-      .then(() => {
-        console.log("[SW] Old caches removed, claiming clients...");
-        return self.clients.claim();
-      })
+      .then(() => self.clients.claim())
   );
 });
 
@@ -80,18 +74,19 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // 🚫 Skip Firebase Auth and Google identity endpoints
+  // ✅ UPDATED: Stricter rules from the new analysis
   if (
     url.pathname.startsWith("/__/auth/") ||
+    url.pathname.startsWith("/__/firebase/init.js") || // Added this
     url.hostname.includes("accounts.google.com") ||
     url.hostname.includes("googleapis.com") ||
     url.hostname.includes("securetoken.googleapis.com")
   ) {
     console.log("[SW] Skipping auth request (network only):", url.href);
-    return;
+    return; // Let the browser handle it
   }
 
-  // ✅ Cache-first strategy for static assets
+  // Cache-first strategy
   event.respondWith(
     caches.match(event.request).then(async (cachedResponse) => {
       if (cachedResponse) return cachedResponse;
@@ -110,8 +105,7 @@ self.addEventListener("fetch", (event) => {
         return networkResponse;
       } catch (err) {
         if (event.request.mode === "navigate") {
-          // ✅ UPDATED: Fallback to the versioned index.html
-          return caches.match("./index.html?v=8"); 
+          return caches.match("./index.html?v=9");
         }
       }
     })

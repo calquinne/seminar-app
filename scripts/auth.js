@@ -6,8 +6,8 @@
 // Firebase SDK Imports
 import {
   onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
-  signInWithRedirect, getRedirectResult
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+  // Removed redirect imports
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   doc, getDoc, setDoc, onSnapshot, serverTimestamp
@@ -22,17 +22,11 @@ import { flushOfflineQueue } from './firestore.js';
 /* Auth State Management
 /* ========================================================================== */
 
-// ✅ ADDED: Keep track of the snapshot listener
 let unsubscribeUserSnap = null;
 
-/**
- * A shared function to handle all the logic when a user is found.
- * This sets up their profile, loads their data, and shows the main app.
- */
 async function handleUserFound(user) {
   console.log("handleUserFound: User found", user.uid);
   
-  // ✅ ADDED: Unsubscribe from any previous user's listener
   if (unsubscribeUserSnap) {
     console.log("Unsubscribing from old user snapshot.");
     unsubscribeUserSnap();
@@ -40,7 +34,6 @@ async function handleUserFound(user) {
 
   const ref = doc(UI.db, `artifacts/${UI.getAppId()}/users/${user.uid}`);
   
-  // ✅ ADDED: Store the new unsubscribe function
   unsubscribeUserSnap = onSnapshot(ref, async (snap) => {
     let profileData;
     if (snap.exists()) {
@@ -58,7 +51,7 @@ async function handleUserFound(user) {
         instructorName: user.email || "Instructor"
       };
       try {
-        await setDoc(ref, profileData, { merge: true }); // Use merge for safety
+        await setDoc(ref, profileData, { merge: true });
       } catch (e) {
         console.error("Failed to create profile doc:", e);
         UI.toast("Failed to create user profile.", "error");
@@ -68,13 +61,11 @@ async function handleUserFound(user) {
     UI.updateUIAfterAuth(user, profileData);
     UI.showScreen("main-app");
     
-    // Find the "Manage" tab button and simulate a click to set it as default
     const manageTabButton = UI.$(".app-tab[data-tab='tab-manage']");
     if (manageTabButton) {
         manageTabButton.click();
     }
 
-    // Flush offline queue *after* auth is confirmed
     flushOfflineQueue();
     
   }, (error) => {
@@ -85,38 +76,19 @@ async function handleUserFound(user) {
 }
 
 /**
- * This is the main auth entry point, called when the app boots.
- * It checks for the redirect *first*, then sets up the listener.
+ * This is the main auth entry point.
+ * It now *only* sets up the listener.
  */
 export async function onAuthReady() {
   console.log("Auth initializing...");
 
-  // 1️⃣ Small delay to ensure Firebase + SW fully loaded
-  await new Promise(res => setTimeout(res, 300));
-
-  // 2️⃣ Finish any pending redirect first
-  try {
-    const result = await getRedirectResult(UI.auth);
-    if (result?.user) {
-      console.log("Redirect sign-in completed:", result.user.uid);
-      UI.toast("Signed in with Google!", "success");
-      // handleUserFound() will run automatically via onAuthStateChanged
-    }
-  } catch (e) {
-    console.error("Google redirect error:", e);
-    UI.toast(e.message, "error");
-  }
-
-  // 3️⃣ Now attach the auth state listener
+  // Set up the auth state listener
   onAuthStateChanged(UI.auth, async (user) => {
     if (user) {
-      // A user is signed in (either from redirect or session).
       console.log("onAuthStateChanged: User is signed in:", user.uid);
       await handleUserFound(user);
     } else {
-      // No user is signed in.
       console.log("onAuthStateChanged: No user signed in.");
-      // ✅ ADDED: Unsubscribe listener on sign out
       if (unsubscribeUserSnap) {
         console.log("User signed out, unsubscribing from snapshot.");
         unsubscribeUserSnap();
@@ -141,11 +113,9 @@ export async function handleAuthFormSubmit(e) {
   try {
     if (isSignUp) {
       await createUserWithEmailAndPassword(UI.auth, email, password);
-      // Listener will catch this
       UI.toast("Account created! Signing in...", "success");
     } else {
       await signInWithEmailAndPassword(UI.auth, email, password);
-      // Listener will catch this
       UI.toast("Signed in!", "success");
     }
   } catch (e) {
@@ -154,31 +124,24 @@ export async function handleAuthFormSubmit(e) {
   }
 }
 
+// ✅ UPDATED: Reverted to signInWithPopup
 export async function handleGoogleSignIn() {
   const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" }); // Good for UX
-
   try {
-    if (location.hostname === "localhost" || location.protocol === "file:") {
-      // 🧩 Use popup locally (redirect often fails in dev)
-      const result = await signInWithPopup(UI.auth, provider);
-      if (result?.user) {
-        UI.toast("Signed in with Google!", "success");
-      }
-    } else {
-      // 🌐 Use redirect in production (for GitHub Pages)
-      UI.toast("Redirecting to Google...", "info");
-      await signInWithRedirect(UI.auth, provider);
+    const result = await signInWithPopup(UI.auth, provider);
+    if (result?.user) {
+      UI.toast("Signed in with Google!", "success");
+      // The onAuthStateChanged listener will handle the rest.
     }
   } catch (e) {
     console.error("Google sign-in error:", e);
-    UI.toast(e.message, "error");
+    // This will show the "auth/popup-blocked-by-browser" error if it happens
+    UI.toast(`Error: ${e.code}`, "error");
   }
 }
 
 export function handleSignOut() {
     if (UI.auth) {
         signOut(UI.auth).catch(e => console.error("Sign out error", e));
-        // The onAuthStateChanged listener will handle cleanup
     }
 }
