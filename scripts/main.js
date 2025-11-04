@@ -33,6 +33,7 @@ function setupEventListeners() {
       localStorage.setItem(UI.LS.APP, UI.$("#app-id-input").value || "seminar-cloud");
       UI.setStorageChoice(UI.$("input[name='storageChoice']:checked").value);
       
+
       if (DB.initFirebase()) {
         Auth.onAuthReady();
       } else {
@@ -146,11 +147,29 @@ document.addEventListener('DOMContentLoaded', () => {
   
   (async () => {
     UI.showScreen("loading-screen");
+
+    // ✅ Cache-busting: ensures old SW caches are cleared whenever version changes
+// Must match CACHE_NAME in sca-sw.js (e.g. seminar-cloud-cache-v6)
+
+    const appVersion = "v6"; // This must match your service worker
+    const storedVersion = localStorage.getItem("appVersion");
+
+    if (storedVersion !== appVersion) {
+      console.log(`Cache mismatch. Stored: ${storedVersion}, New: ${appVersion}. Clearing cache…`);
+      if (window.caches) {
+        await caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key))));
+      }
+      localStorage.setItem("appVersion", appVersion);
+      window.location.reload();
+      return;
+    }
+    // ✅ End of cache-busting block
+
     
     const config = localStorage.getItem(UI.LS.CFG);
     if (config) {
       console.log("Config found, initializing Firebase...");
-      if (DB.initFirebase()) {
+      if (await DB.initFirebase()) { 
         Auth.onAuthReady();
       } else {
         console.log("Config invalid, showing setup.");

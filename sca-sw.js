@@ -1,29 +1,30 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v5: Forces full cache refresh + fixes auth loop (CORS-safe)
+/* v6: Forces full cache refresh + fixes auth loop (CORS-safe)
 /* ========================================================================== */
 
 // ✅ BUMPED: Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v5";
+const CACHE_NAME = "seminar-cloud-cache-v6";
 
 const ASSETS_TO_CACHE = [
   "./",
-  "./index.html",
-  "./scripts/main.js",
-  "./scripts/ui.js",
-  "./scripts/auth.js",
-  "./scripts/firestore.js",
-  "./scripts/record.js",
-  "./manifest.json",
+  "./index.html?v=6",
+  "./scripts/main.js?v=6",
+  "./scripts/ui.js?v=6",
+  "./scripts/auth.js?v=6",
+  "./scripts/firestore.js?v=6",
+  "./scripts/record.js?v=6",
+  "./manifest.json?v=6",
   "https://cdn.tailwindcss.com",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
 ];
+
 
 /* -------------------------------------------------------------------------- */
 /* INSTALL – Pre-cache core app shell
 /* -------------------------------------------------------------------------- */
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installing and caching app shell (v5)...");
+  console.log("[SW] Installing and caching app shell (v6)...");
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
