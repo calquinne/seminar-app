@@ -149,9 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
     UI.showScreen("loading-screen");
 
     // ✅ Cache-busting: ensures old SW caches are cleared whenever version changes
-// Must match CACHE_NAME in sca-sw.js (e.g. seminar-cloud-cache-v6)
+// Must match CACHE_NAME in sca-sw.js (e.g. seminar-cloud-cache-v7)
 
-    const appVersion = "v6"; // This must match your service worker
+    const appVersion = "v7"; // This must match your service worker
     const storedVersion = localStorage.getItem("appVersion");
 
     if (storedVersion !== appVersion) {

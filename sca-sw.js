@@ -1,50 +1,53 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v6: Forces full cache refresh + fixes auth loop (CORS-safe)
+/* v7: Corrects CORS cache. This is the final version.
 /* ========================================================================== */
 
 // ✅ BUMPED: Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v6";
+const CACHE_NAME = "seminar-cloud-cache-v7";
 
 const ASSETS_TO_CACHE = [
   "./",
-  "./index.html?v=6",
-  "./scripts/main.js?v=6",
-  "./scripts/ui.js?v=6",
-  "./scripts/auth.js?v=6",
-  "./scripts/firestore.js?v=6",
-  "./scripts/record.js?v=6",
-  "./manifest.json?v=6",
+  "./index.html?v=7",
+  "./scripts/main.js?v=7",
+  "./scripts/ui.js?v=7",
+  "./scripts/auth.js?v=7",
+  "./scripts/firestore.js?v=7",
+  "./scripts/record.js?v=7",
+  "./manifest.json?v=7",
   "https://cdn.tailwindcss.com",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
 ];
-
 
 /* -------------------------------------------------------------------------- */
 /* INSTALL – Pre-cache core app shell
 /* -------------------------------------------------------------------------- */
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installing and caching app shell (v6)...");
+  console.log(`[SW] Installing and caching app shell (${CACHE_NAME})...`);
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log("[SW] Caching assets...");
-
-        // ✅ Safer caching of local + cross-origin assets
-        const cachePromises = ASSETS_TO_CACHE.map(asset => {
-          if (asset.startsWith('http')) {
-            // For cross-origin assets, use 'no-cors'
-            return cache.add(new Request(asset, { mode: 'no-cors' })).catch(err => {
-              console.warn(`[SW] Failed to cache (CORS) ${asset}:`, err);
-            });
+        
+        const cachePromises = ASSETS_TO_CACHE.map(assetUrl => {
+          if (assetUrl.startsWith('http')) {
+            // ✅ UPDATED: Manually fetch and cache cross-origin requests
+            // This is the correct way to cache 'no-cors' requests
+            return fetch(new Request(assetUrl, { mode: 'no-cors' }))
+              .then(response => {
+                return cache.put(assetUrl, response);
+              })
+              .catch(err => {
+                console.warn(`[SW] Failed to cache (CORS) ${assetUrl}:`, err);
+              });
           } else {
-            // For local assets, cache normally
-            return cache.add(asset).catch(err => {
-              console.warn(`[SW] Failed to cache (local) ${asset}:`, err);
+            // Local asset
+            return cache.add(assetUrl).catch(err => {
+              console.warn(`[SW] Failed to cache (local) ${assetUrl}:`, err);
             });
           }
         });
-
+        
         return Promise.all(cachePromises);
       })
       .then(() => {
@@ -111,7 +114,7 @@ self.addEventListener("fetch", (event) => {
         return networkResponse;
       } catch (err) {
         if (event.request.mode === "navigate") {
-          return caches.match("./index.html");
+          return caches.match("./index.html?v=7"); // Make sure to match the cached version
         }
       }
     })
