@@ -75,7 +75,7 @@ async function handleUserFound(user) {
 
 /**
  * This is the main auth entry point, called when the app boots.
- * It sets up the *listener* first, then checks for a redirect.
+ * It checks for the redirect *first*, then sets up the listener.
  */
 export async function onAuthReady() {
   console.log("Auth initializing...");

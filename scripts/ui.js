@@ -127,19 +127,24 @@ export function updateRecordingUI(state) {
   }
 }
 
+export function hasAccess() {
+  return userDoc.activeSubscription || userDoc.role === "admin" || userDoc.role === "tester";
+}
+
 export function updateUIAfterAuth(u, docData) {
   setCurrentUser(u);
   setUserDoc(docData);
 
   $("#signout-btn").classList.toggle("hidden", !u);
   
-  const hasAccess = userDoc.activeSubscription || userDoc.role === "admin" || userDoc.role === "tester";
-  $("#paywall-banner").classList.toggle("hidden", hasAccess);
+  const access = hasAccess();
+  $("#paywall-banner").classList.toggle("hidden", access);
 
   $$("#tab-record, #tab-library, #tab-analytics, #save-class-btn, #archive-class-btn, #save-new-rubric-btn").forEach(el => {
     if(el) {
-      el.disabled = !hasAccess;
-      el.classList.toggle("opacity-50", !hasAccess);
+      el.disabled = !access;
+      el.classList.toggle("opacity-50", !access);
+      el.classList.toggle("cursor-not-allowed", !access);
     }
   });
 
@@ -204,6 +209,13 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
   if (!btn) return;
 
   const tabId = btn.dataset.tab;
+  
+  // Paywall check for restricted tabs
+  if (!hasAccess() && (tabId === 'tab-record' || tabId === 'tab-library' || tabId === 'tab-analytics')) {
+    toast("This feature requires an active subscription.", "error");
+    return; // Stop navigation
+  }
+
   $$(".app-tab-content").forEach(el => {
     if(el) el.classList.add("hidden");
   });
@@ -216,7 +228,6 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
   
   console.log(`Switched to tab: ${tabId}`);
   
-  // Reset upload progress bar when leaving record tab
   if (tabId !== 'tab-record') {
     const progressEl = $("#upload-progress");
     if (progressEl) progressEl.style.width = '0%';
@@ -263,18 +274,10 @@ export function handleAddRubricRow() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* NEW: Reusable Confirmation Modal
+/* Reusable Confirmation Modal
 /* -------------------------------------------------------------------------- */
-// Store the promise resolver to be accessed by event listeners
 let confirmPromiseResolver = null;
 
-/**
- * Shows a custom confirmation modal.
- * @param {string} message - The question to ask the user.
- * @param {string} title - The title for the modal.
- * @param {string} confirmText - The text for the "Yes" button (e.g., "Delete").
- * @returns {Promise<boolean>} - Resolves true if "Yes" was clicked, false if "Cancel".
- */
 export function showConfirm(message, title = "Are you sure?", confirmText = "OK") {
   const modal = $("#confirm-modal");
   const msgEl = $("#confirm-message");
@@ -282,12 +285,10 @@ export function showConfirm(message, title = "Are you sure?", confirmText = "OK"
   const yesBtn = $("#confirm-btn-yes");
   const noBtn = $("#confirm-btn-no");
 
-  // Set content
   msgEl.textContent = message;
   titleEl.textContent = title;
   yesBtn.textContent = confirmText;
 
-  // Apply danger styling if needed
   if (confirmText.toLowerCase() === 'delete' || confirmText.toLowerCase() === 'discard') {
     yesBtn.classList.remove('bg-primary-600', 'hover:bg-primary-500');
     yesBtn.classList.add('bg-red-600', 'hover:bg-red-500');
@@ -299,10 +300,8 @@ export function showConfirm(message, title = "Are you sure?", confirmText = "OK"
   modal.showModal();
 
   return new Promise((resolve) => {
-    // Store the resolver so the button clicks can access it
     confirmPromiseResolver = resolve;
 
-    // We only need to add listeners once
     if (!yesBtn.dataset.listener) {
       yesBtn.dataset.listener = "true";
       noBtn.dataset.listener = "true";
@@ -323,7 +322,6 @@ export function showConfirm(message, title = "Are you sure?", confirmText = "OK"
         }
       });
       
-      // Also resolve false if the dialog is closed by pressing Escape
       modal.addEventListener('close', () => {
         if (confirmPromiseResolver) {
           confirmPromiseResolver(false);
@@ -343,14 +341,13 @@ export function setupGlobalErrorHandlers() {
     console.error("Global Error:", error);
     $("#error-display").textContent = `Error: ${error.message || m}\nAt: ${s}:${l}:${c}`;
     $("#error-display").classList.remove("hidden");
-    showScreen("loading-screen");
+    // Don't switch screen, just show error
   };
   window.onunhandledrejection = (event) => {
     console.error("Unhandled Rejection:", event.reason);
     $("#error-display").textContent = `Error: ${event.reason?.message || event.reason}`;
     $("#error-display").classList.remove("hidden");
   };
-  // Warn before leaving if recording
   window.addEventListener('beforeunload', e => {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       e.preventDefault(); 
@@ -375,13 +372,77 @@ export function uploadToDrivePlaceholder(file, meta){
 /* -------------------------------------------------------------------------- */
 /* PWA Service Worker
 /* -------------------------------------------------------------------------- */
+// ✅ UPDATED: This is the final, polished "top-slide + glow" version
 export async function registerSW(){
   if(!("serviceWorker" in navigator)) return;
   
-  // ✅ UPDATED: Register the static file
   try {
-    await navigator.serviceWorker.register('./sca-sw.js', { scope: './' });
+    const reg = await navigator.serviceWorker.register('./sca-sw.js', { scope: './' });
     console.log("✅ Service Worker registered successfully.");
+
+    // 🎬 Inject animation CSS once
+    if (!document.getElementById("update-banner-style")) {
+      const style = document.createElement("style");
+      style.id = "update-banner-style";
+      style.textContent = `
+        @keyframes slideDownFade {
+          0% { opacity: 0; transform: translate(-50%, -30px); }
+          100% { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes slideUpFadeOut {
+          0% { opacity: 1; transform: translate(-50%, 0); }
+          100% { opacity: 0; transform: translate(-50%, -30px); }
+        }
+        @keyframes pingGlow {
+          0% { box-shadow: 0 0 0 0 rgba(14,116,144,0.6); }
+          70% { box-shadow: 0 0 0 12px rgba(14,116,144,0); }
+          100% { box-shadow: 0 0 0 0 rgba(14,116,144,0); }
+        }
+        #update-banner {
+          animation: slideDownFade 0.5s ease-out forwards, pingGlow 1.4s ease-out 0.3s;
+        }
+        #update-banner.fade-out {
+          animation: slideUpFadeOut 0.5s ease-in forwards;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // 🔔 Detect new service worker
+    reg.onupdatefound = () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+
+      newWorker.onstatechange = () => {
+        if (newWorker.state === "installed" && navigator.service.controller) {
+          // 🎨 Top glassy banner (Seminar Cloud blue)
+          const banner = document.createElement("div");
+          banner.id = "update-banner";
+          banner.className = `
+            fixed top-4 left-1/2 -translate-x-1/2 z-50
+            bg-[#0e7490]/90 backdrop-blur-md text-white text-sm
+            px-5 py-2.5 rounded-2xl shadow-lg border border-white/10
+            cursor-pointer transition hover:bg-[#0e7490]/100
+          `;
+          banner.textContent = "🔄 A new update is available — click to refresh";
+
+          banner.onclick = () => {
+            newWorker.postMessage({ type: "SKIP_WAITING" });
+            banner.textContent = "⏳ Updating…";
+            banner.classList.add("opacity-80");
+            setTimeout(() => window.location.reload(), 1000);
+          };
+
+          document.body.appendChild(banner);
+
+          // 🕐 Auto fade-out if ignored after 20s
+          setTimeout(() => {
+            banner.classList.add("fade-out");
+            setTimeout(() => banner.remove(), 600);
+          }, 20000);
+        }
+      };
+    };
   } catch (e) {
     console.error("❌ Service Worker registration failed:", e);
   }
