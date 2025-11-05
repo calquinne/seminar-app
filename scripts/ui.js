@@ -65,15 +65,19 @@ export function toast(msg, type = "info") {
 }
 
 export function showScreen(id) {
-  ["loading-screen", "setup-screen", "auth-screen", "main-app"].forEach(s => {
-    const el = $(`#${s}`);
-    if (el) el.classList.toggle("hidden", s !== id);
-    else console.warn(`Screen element not found: #${s}`);
-  });
-  // This function should NOT handle modals, only main screens.
-  if (id !== 'metadata-screen') {
-    const metaScreen = $("#metadata-screen");
-    if (metaScreen && metaScreen.open) metaScreen.close();
+  const known = ["loading-screen","setup-screen","auth-screen","main-app"];
+  if (known.includes(id)) {
+    known.forEach(s => {
+      const el = $(`#${s}`);
+      if (el) el.classList.toggle("hidden", s !== id);
+    });
+  }
+  
+  if (id === 'metadata-screen') {
+    $("#metadata-screen").showModal();
+  } else {
+    const meta = $("#metadata-screen");
+    if (meta && meta.open) meta.close();
   }
 }
 
@@ -136,7 +140,6 @@ export function updateUIAfterAuth(u, docData) {
   const access = hasAccess();
   $("#paywall-banner").classList.toggle("hidden", access);
 
-  // Disable buttons, but not tabs (tabs are handled by handleTabClick)
   $$("#save-class-btn, #archive-class-btn, #save-new-rubric-btn").forEach(el => {
     if(el) {
       el.disabled = !access;
@@ -366,6 +369,7 @@ export function uploadToDrivePlaceholder(file, meta){
 /* -------------------------------------------------------------------------- */
 /* PWA Service Worker
 /* -------------------------------------------------------------------------- */
+// ✅ UPDATED: This is the final, polished "top-slide + glow" version
 export async function registerSW(){
   if(!("serviceWorker" in navigator)) return;
   
@@ -393,7 +397,6 @@ export async function registerSW(){
         }
         #update-banner {
           animation: slideDownFade 0.5s ease-out forwards, pingGlow 1.4s ease-out 0.3s;
-          /* ✅ ADDED: Text shadow for legibility */
           text-shadow: 0 0 4px rgba(0,0,0,0.5);
         }
         #update-banner.fade-out {
@@ -431,8 +434,7 @@ export async function registerSW(){
               newWorker.postMessage({ type: "SKIP_WAITING" });
               banner.textContent = "⏳ Updating…";
               banner.classList.add("opacity-80");
-              // ✅ UPDATED: Shorter 500ms delay
-              setTimeout(() => window.location.reload(), 500);
+              setTimeout(() => window.location.reload(), 500); // Shorter delay
             };
 
             document.body.appendChild(banner);

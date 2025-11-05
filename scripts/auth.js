@@ -82,23 +82,35 @@ async function handleUserFound(user) {
 export async function onAuthReady() {
   console.log("Auth initializing...");
 
-  // Set up the auth state listener
-  onAuthStateChanged(UI.auth, async (user) => {
-    if (user) {
-      console.log("onAuthStateChanged: User is signed in:", user.uid);
-      await handleUserFound(user);
-    } else {
-      console.log("onAuthStateChanged: No user signed in.");
-      if (unsubscribeUserSnap) {
-        console.log("User signed out, unsubscribing from snapshot.");
-        unsubscribeUserSnap();
-        unsubscribeUserSnap = null;
-      }
-      UI.updateUIAfterAuth(null, { role: "user", activeSubscription: false, storageUsedBytes: 0, planStorageLimit: 1 });
-      UI.showScreen("auth-screen");
+ // Set up the auth state listener
+onAuthStateChanged(UI.auth, async (user) => {
+  if (user) {
+    console.log("onAuthStateChanged: User is signed in:", user.uid);
+
+    // ✅ Show toast with user name or email
+    UI.toast(`Signed in as ${user.displayName || user.email}`, "success");
+
+    await handleUserFound(user);
+  } else {
+    console.log("onAuthStateChanged: No user signed in.");
+
+    if (unsubscribeUserSnap) {
+      console.log("User signed out, unsubscribing from snapshot.");
+      unsubscribeUserSnap();
+      unsubscribeUserSnap = null;
     }
-  });
+
+    UI.updateUIAfterAuth(null, { 
+      role: "user", 
+      activeSubscription: false, 
+      storageUsedBytes: 0, 
+      planStorageLimit: 1 
+    });
+    UI.showScreen("auth-screen");
+  }
+});
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* Auth UI Handlers

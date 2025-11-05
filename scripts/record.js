@@ -323,19 +323,22 @@ export async function handleMetadataSubmit(e) {
     return;
   }
 
-  const metadata = {
-    organization: UI.$("#meta-org").value,
-    instructor: UI.$("#meta-instructor").value,
-    classEventId: UI.$("#meta-class").value,
-    classEventTitle: UI.$("#meta-class").options[UI.$("#meta-class").selectedIndex]?.text || "N/A",
-    participant: UI.$("#meta-participant").value,
-    recordingType: UI.$("#meta-type").value,
-    group: UI.$("#meta-group").value.trim() || null,
-    notes: UI.$("#meta-notes").value.trim() || null,
-    fileSize: UI.currentRecordingBlob.size,
-    duration: UI.secondsElapsed,
-    recordedAt: new Date().toISOString() // ✅ ADDED: Timestamp
-  };
+ const metadata = {
+  organization: UI.$("#meta-org").value,
+  instructor: UI.$("#meta-instructor").value,
+  classEventId: UI.$("#meta-class").value,
+  classEventTitle: UI.$("#meta-class").options[UI.$("#meta-class").selectedIndex]?.text || "N/A",
+  participant: UI.$("#meta-participant").value,
+  recordingType: UI.$("#meta-type").value,
+  group: UI.$("#meta-group").value.trim() || null,
+  notes: UI.$("#meta-notes").value.trim() || null,
+  fileSize: UI.currentRecordingBlob.size,
+  duration: UI.secondsElapsed,
+  recordedAt: new Date().toISOString(), // ✅ Added timestamp
+  tags: UI.currentTags || [] // ✅ Added tag array
+};
+UI.currentTags = []; // ✅ Reset tags after upload
+
   
   if (!metadata.classEventId || metadata.participant === "--ADD_NEW--" || !metadata.participant) {
     UI.toast("Please select a class and a valid participant.", "error");
@@ -354,3 +357,37 @@ export async function handleMetadataSubmit(e) {
   UI.setSecondsElapsed(0);
   UI.$("#rec-timer").textContent = "00:00";
 }
+/* -------------------------------------------------------------------------- */
+/* Event Bindings – Recorder Controls
+/* -------------------------------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("🎥 Recorder control bindings attached.");
+
+  // Recording Control Buttons
+  UI.$("#start-rec-btn")?.addEventListener("click", startRecording);
+  UI.$("#stop-rec-btn")?.addEventListener("click", stopRecording);
+  UI.$("#pause-rec-btn")?.addEventListener("click", pauseOrResumeRecording);
+  UI.$("#discard-rec-btn")?.addEventListener("click", discardRecording);
+  UI.$("#toggle-camera-btn")?.addEventListener("click", toggleCamera);
+
+  // Tag Button (adds a quick marker for reference)
+  UI.$("#tag-btn")?.addEventListener("click", () => {
+    if (!UI.mediaRecorder || UI.mediaRecorder.state !== "recording") {
+      UI.toast("Cannot tag — not currently recording.", "warn");
+      return;
+    }
+    const time = UI.secondsElapsed;
+    console.log(`🎯 Tag added at ${time}s`);
+    UI.toast(`Tag at ${time}s`, "info");
+
+    // Optional: store tags in memory for later use
+    if (!UI.currentTags) UI.currentTags = [];
+    UI.currentTags.push({ time, note: `Tag at ${time}s` });
+  });
+
+  // Metadata Form Events
+  UI.$("#meta-class")?.addEventListener("change", handleMetadataClassChange);
+  UI.$("#meta-participant")?.addEventListener("change", handleMetadataParticipantChange);
+  UI.$("#add-participant-btn")?.addEventListener("click", handleAddNewParticipant);
+  UI.$("#metadata-form")?.addEventListener("submit", handleMetadataSubmit);
+});

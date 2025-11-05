@@ -1,21 +1,21 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v9: Stricter auth bypass and new cache version
+/* v8: Stricter auth bypass and new cache version
 /* ========================================================================== */
 
 // ✅ BUMPED: Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v9";
+const CACHE_NAME = "seminar-cloud-cache-v8";
 
 // ✅ UPDATED: All local assets are versioned
 const ASSETS_TO_CACHE = [
   "./",
-  "./index.html?v=9",
-  "./scripts/main.js?v=9",
-  "./scripts/ui.js?v=9",
-  "./scripts/auth.js?v=9",
-  "./scripts/firestore.js?v=9",
-  "./scripts/record.js?v=9",
-  "./manifest.json?v=9",
+  "./index.html?v=8",
+  "./scripts/main.js?v=8",
+  "./scripts/ui.js?v=8",
+  "./scripts/auth.js?v=8",
+  "./scripts/firestore.js?v=8",
+  "./scripts/record.js?v=8",
+  "./manifest.json?v=8",
   "https://cdn.tailwindcss.com",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
 ];
@@ -46,7 +46,10 @@ self.addEventListener("install", (event) => {
         
         return Promise.all(cachePromises);
       })
-      .then(() => self.skipWaiting())
+      .then(() => {
+        console.log("[SW] Precache complete, skipping waiting...");
+        return self.skipWaiting();
+      })
       .catch((err) => console.error("[SW] Install error:", err))
   );
 });
@@ -64,7 +67,10 @@ self.addEventListener("activate", (event) => {
           return caches.delete(k);
         })
       ))
-      .then(() => self.clients.claim())
+      .then(() => {
+        console.log("[SW] Old caches removed, claiming clients...");
+        return self.clients.claim();
+      })
   );
 });
 
@@ -105,7 +111,7 @@ self.addEventListener("fetch", (event) => {
         return networkResponse;
       } catch (err) {
         if (event.request.mode === "navigate") {
-          return caches.match("./index.html?v=9");
+          return caches.match("./index.html?v=8"); // Match versioned index
         }
       }
     })

@@ -1,567 +1,613 @@
-<!DOCTYPE html>
-<html lang="en" class="dark">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Seminar Cloud App – PWA</title>
+/* ========================================================================== */
+/* MODULE: firestore.js
+/* Exports all Firebase and IndexedDB logic.
+/* ========================================================================== */
 
-  <meta name="theme-color" content="#0891b2">
-  <meta name="description" content="Record, score, and analyze presentations.">
-  <link rel="icon" href="https://placehold.co/64x64/0e7490/ffffff?text=S">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="https://placehold.co/192x192/0e7490/ffffff?text=SCA">
-  <meta name="msapplication-TileColor" content="#0891b2">
-  <meta name="msapplication-TileImage" content="https://placehold.co/144x144/0e7490/ffffff?text=SCA">
+// Firebase SDK Imports
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+// ✅ UPDATED: Import persistence functions
+import { 
+  getAuth, setPersistence, browserLocalPersistence 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc,
+  collection, addDoc, query, getDocs, orderBy, serverTimestamp,
+  deleteDoc, increment
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import {
+  getStorage, ref as sRef, uploadBytesResumable, getDownloadURL,
+  deleteObject
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-  <link rel="manifest" href="./manifest.json?v=9"> <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
-          colors: {
-            primary: {
-              50:'#ecfeff',100:'#cffafe',200:'#a5f3fc',300:'#67e8f9',
-              400:'#22d3ee',500:'#06b6d4',600:'#0891b2',
-              700:'#0e7490',800:'#155e75',900:'#164e63'
-            }
-          }
-        }
-      },
-      darkMode:'class'
+// Import UI module for state and utils
+import * as UI from './ui.js';
+
+/* -------------------------------------------------------------------------- */
+/* Firebase Initialization
+/* -------------------------------------------------------------------------- */
+// ✅ UPDATED: Made initFirebase async to handle persistence
+export async function initFirebase() {
+  try {
+    if (getApps().length) {
+      console.log("Firebase already initialized, reusing app.");
+      const app = getApps()[0];
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      const storage = getStorage(app);
+      UI.setFirebase(app, auth, db, storage);
+      
+      // ✅ ADDED: Ensure persistence is set on re-init
+      await setPersistence(auth, browserLocalPersistence);
+      return true;
+    }
+
+    const cfgStr = localStorage.getItem(UI.LS.CFG);
+    if (!cfgStr) {
+      console.warn("⚠️ No Firebase config found in localStorage.");
+      return false;
+    }
+
+    const cfg = JSON.parse(cfgStr);
+    const app = initializeApp(cfg);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    
+    UI.setFirebase(app, auth, db, storage);
+
+    // ✅ ADDED: Set persistence on first init
+    await setPersistence(auth, browserLocalPersistence);
+    console.log("✅ Firebase persistence set to browserLocalPersistence");
+
+    console.log("✅ Firebase initialized successfully.");
+    return true;
+  } catch (e) {
+    console.error("❌ Firebase init error:", e);
+    UI.toast("Firebase init failed: " + e.message, "error");
+    return false;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* IndexedDB Offline Queue
+/* -------------------------------------------------------------------------- */
+export function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(UI.IDB_NAME, 1);
+    r.onupgradeneeded = () => {
+      if (!r.result.objectStoreNames.contains(UI.IDB_STORE))
+        r.result.createObjectStore(UI.IDB_STORE, { keyPath: "id", autoIncrement: true });
     };
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
 
-  <style>
-    :root{color-scheme:dark}
-    body { font-family: 'Inter', sans-serif; }
-    ::-webkit-scrollbar{width:10px;height:10px}
-    ::-webkit-scrollbar-thumb{background:#374151;border-radius:8px}
-    ::-webkit-scrollbar-track{background:#111827}
-    .fade-enter{opacity:0;transform:translateY(4px)}
-    .fade-enter-active{opacity:1;transform:none;transition:all .2s ease}
-    dialog::backdrop{background:rgba(0,0,0,.6)}
+export async function cacheOffline(blob, meta) {
+  try {
+    const dbx = await idbOpen();
+    await new Promise((res, rej) => {
+      const tx = dbx.transaction(UI.IDB_STORE, "readwrite");
+      tx.objectStore(UI.IDB_STORE).add({ blob, meta, createdAt: Date.now() });
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+    });
+    UI.toast("Saved offline. Will upload when back online.", "info");
+  } catch (e) {
+    console.error("Failed to cache offline", e);
+    UI.toast("Failed to save offline. Storage may be full.", "error");
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Quota Management
+/* -------------------------------------------------------------------------- */
+export async function updateUserStorageQuota(deltaBytes) {
+  if (!UI.db || !UI.currentUser || deltaBytes === 0) return;
+  
+  try {
+    const ref = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}`);
+    await updateDoc(ref, { 
+      storageUsedBytes: increment(deltaBytes) 
+    });
+    console.log(`Quota updated by ${deltaBytes} bytes.`);
+  } catch (e) {
+    console.warn("User quota update failed:", e);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Class / Event Management (Firestore)
+/* -------------------------------------------------------------------------- */
+export async function refreshClassesList() {
+  if (!UI.db || !UI.currentUser) return;
+  const col = collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`);
+  const q = query(col, orderBy("createdAt", "desc"));
+  
+  const classListSelect = UI.$("#classes-list");
+  const metaClassSelect = UI.$("#meta-class");
+  classListSelect.innerHTML = '<option value="">-- Select class to edit --</option>';
+  metaClassSelect.innerHTML = '<option value="">-- Select a Class / Event --</option>';
+  
+  let newClassData = {};
+
+  try {
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      console.log("No classes found in Firestore.");
+      UI.setClassData({});
+      return;
+    }
     
-    .app-tab[aria-selected="true"] {
-        background-color: rgba(255, 255, 255, 0.1);
-        font-weight: 600;
-        color: #FFFFFF;
+    let firstClassId = null;
+    snap.forEach(d => {
+      const classDoc = { id: d.id, ...d.data() };
+      newClassData[d.id] = classDoc;
+      
+      const o = document.createElement("option");
+      o.value = d.id;
+      o.textContent = classDoc.title || "Untitled";
+      
+      if(classDoc.archived) {
+        o.textContent += " (Archived)";
+      } else {
+        const metaOpt = o.cloneNode(true);
+        metaClassSelect.appendChild(metaOpt);
+      }
+      
+      classListSelect.appendChild(o);
+      
+      if (!firstClassId) firstClassId = d.id;
+    });
+    
+    UI.setClassData(newClassData);
+    
+    if (firstClassId) {
+      classListSelect.value = firstClassId;
+      UI.loadClassIntoEditor(firstClassId);
     }
-    .app-tab {
-        color: #9ca3af;
-    }
-    .sub-tab[aria-selected="true"] {
-      border-color: #06b6d4;
-      color: #67e8f9;
-    }
-    .sub-tab {
-      border-color: transparent;
-      color: #9ca3af;
+
+  } catch (e) {
+    console.error("Error refreshing classes:", e);
+    UI.toast("Could not load classes.", "error");
+  }
+}
+
+export async function handleSaveClass() {
+  if (!UI.db || !UI.currentUser) {
+    UI.toast("Not signed in.", "error");
+    return;
+  }
+  
+  if (!UI.hasAccess()) {
+    UI.toast("Saving classes requires an active subscription.", "error");
+    return;
+  }
+
+  const title = UI.$("#class-title").value.trim();
+  if (!title) {
+    UI.toast("Class Title is required.", "error");
+    return;
+  }
+  
+  const participants = UI.$("#class-roster").value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const archiveDate = UI.$("#class-archive-date").value || null;
+  const deleteDate = UI.$("#class-delete-date").value || null;
+  const selectedClassId = UI.$("#classes-list").value;
+
+  const payload = {
+    title,
+    participants,
+    archiveDate,
+    deleteDate,
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    let newDocId = null;
+    if (selectedClassId) {
+      const docRef = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`, selectedClassId);
+      await updateDoc(docRef, payload);
+      UI.toast("Class updated!", "success");
+      newDocId = selectedClassId;
+    } else {
+      payload.createdAt = serverTimestamp();
+      payload.archived = false;
+      const newDoc = await addDoc(collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`), payload);
+      newDocId = newDoc.id;
+      UI.toast("Class created!", "success");
     }
     
-    video#video-preview {
-      background-color: #000;
-      width: 100%;
-      height: auto;
-      aspect-ratio: 16 / 9;
-      object-fit: cover;
+    await refreshClassesList();
+    UI.$("#classes-list").value = newDocId; 
+    
+  } catch (e) {
+    console.error("Error saving class:", e);
+    UI.toast(`Failed to save class: ${e.message}`, "error");
+  }
+}
+
+export async function handleArchiveClass() {
+  const id = UI.$("#classes-list").value;
+  if (!id) {
+    UI.toast("Select a class to archive first.", "error");
+    return;
+  }
+  
+  if (!UI.hasAccess()) {
+    UI.toast("Archiving requires an active subscription.", "error");
+    return;
+  }
+
+  let doExport = false;
+  if (UI.getStorageChoice() === 'firebase') {
+    doExport = await UI.showConfirm(
+      "Archiving will hide this class. Videos remain accessible. Do you want to export videos now? (Recommended before potential deletion).",
+      "Archive Class?",
+      "Export & Archive"
+    );
+  } else {
+    const proceed = await UI.showConfirm(
+      "Archiving will hide this class from active lists. Videos remain accessible until auto-deletion.",
+      "Archive Class?",
+      "Archive"
+    );
+    if (!proceed) return;
+  }
+
+  if (doExport) {
+    console.log("Triggering export for class:", id);
+    UI.toast("Exporting... (This feature is under construction)", "info");
+  }
+
+  try {
+    const appId = UI.getAppId();
+    await updateDoc(doc(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/classes`, id), {
+      archived: true,
+      updatedAt: serverTimestamp()
+    });
+    UI.toast("Class archived.", "success");
+    await refreshClassesList();
+    UI.clearClassEditor();
+  } catch (e) {
+    console.error("Error archiving class:", e);
+    UI.toast(`Failed to archive class: ${e.message}`, "error");
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Rubric Management (Firestore + Storage)
+/* -------------------------------------------------------------------------- */
+export async function handleSaveNewRubric() {
+  if (!UI.db || !UI.currentUser || !UI.storage) {
+    UI.toast("Not signed in or storage not ready.", "error");
+    return;
+  }
+  
+  if (!UI.hasAccess()) {
+    UI.toast("Saving rubrics requires an active subscription.", "error");
+    return;
+  }
+
+  const title = UI.$("#new-rubric-title").value.trim();
+  const file = UI.$("#new-rubric-file").files[0];
+  const componentNames = UI.$$(".new-rubric-row")
+    .map(input => input.value.trim())
+    .filter(name => name);
+    
+  if (!title || !file || componentNames.length === 0) {
+    UI.toast("Title, file, and at least one scoring row are required.", "error");
+    return;
+  }
+  
+  const btn = UI.$("#save-new-rubric-btn");
+  btn.disabled = true;
+  btn.textContent = "Uploading file...";
+
+  try {
+    const fileRef = sRef(UI.storage, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/rubric-files/${Date.now()}_${file.name}`);
+    
+    const uploadTask = uploadBytesResumable(fileRef, file);
+    uploadTask.on('state_changed', snapshot => {
+      const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+      btn.textContent = `Uploading... ${pct}%`;
+    });
+    await uploadTask;
+
+    const fileURL = await getDownloadURL(uploadTask.ref);
+    btn.textContent = "Saving to database...";
+
+    const payload = {
+      title: title,
+      referenceFilePath: fileURL,
+      componentNames: componentNames,
+      createdAt: serverTimestamp()
+    };
+    
+    await addDoc(collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/rubrics`), payload);
+    
+    UI.toast("Rubric saved successfully!", "success");
+    
+    UI.$("#new-rubric-title").value = "";
+    UI.$("#new-rubric-file").value = "";
+    UI.$("#new-rubric-rows-container").innerHTML = `
+      <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Row 1: e.g., Context">
+      <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Row 2: e.g., Argument">
+    `;
+    
+    await refreshMyRubrics();
+
+  } catch (e) {
+    console.error("Failed to save rubric:", e);
+    UI.toast(`Error saving rubric: ${e.message}`, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save New Rubric";
+  }
+}
+
+export async function refreshMyRubrics() {
+  if (!UI.db || !UI.currentUser) return;
+  
+  const listEl = UI.$("#my-rubrics-list");
+  listEl.innerHTML = '<p class="text-sm text-gray-400">Loading rubrics...</p>';
+  
+  try {
+    const col = collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/rubrics`);
+    const q = query(col, orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    
+    if (snap.empty) {
+      listEl.innerHTML = '<p class="text-sm text-gray-400">No rubrics saved yet.</p>';
+      return;
     }
-  </style>
-</head>
-
-<body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
-<header class="sticky top-0 z-40 backdrop-blur bg-gray-900/70 border-b border-white/10">
-  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
-         class="w-6 h-6 text-primary-400"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 9V7h-2v7h5v-2h-3z"/></svg>
-    <h1 class="text-lg font-semibold">Seminar Cloud App</h1>
-    <span id="low-storage-banner"
-          class="hidden ml-auto text-sm px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-      Low storage – delete / export / upgrade
-    </span>
-    <div class="ml-auto flex items-center gap-2">
-      <button id="nav-help" class="px-3 py-1.5 text-sm rounded-lg bg-white/5 hover:bg-white/10">Help</button>
-      <button id="nav-account" class="px-3 py-1.5 text-sm rounded-lg bg-white/5 hover:bg-white/10">Account</button>
-      <button id="signout-btn"
-              class="hidden px-3 py-1.5 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Sign out</button>
-    </div>
-  </div>
-</header>
-
-<main class="max-w-6xl mx-auto px-4 pb-24">
-  <div id="error-display"
-       class="hidden mt-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm whitespace-pre-line"></div>
-  <div id="toast-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 space-y-2"></div>
-
-  <section id="loading-screen" class="grid place-items-center h-[70vh]">
-    <div class="flex flex-col items-center gap-3">
-      <div class="h-10 w-10 border-4 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
-      <p class="text-sm text-gray-300">Loading…</p>
-    </div>
-  </section>
-
-  <section id="setup-screen" class="hidden mt-6 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
-     <h2 class="text-2xl font-bold text-center mb-4">Welcome to Seminar Cloud</h2>
-     <p class="text-sm text-gray-300 mb-4">
-       This app requires a Firebase project to save data. Please paste your Firebase config JSON below to get started.
-     </p>
-     <div class="space-y-4">
-       <div>
-         <label for="app-id-input" class="block text-sm font-medium text-gray-300 mb-1">App ID (Namespace)</label>
-         <input id="app-id-input" type="text" value="seminar-cloud" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-         <p class="text-xs text-gray-500 mt-1">A unique ID for your app's data.</p>
-       </div>
-       <div>
-         <label for="firebase-config-json" class="block text-sm font-medium text-gray-300 mb-1">Firebase Config JSON</label>
-         <textarea id="firebase-config-json" rows="8" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm font-mono" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "appId": "..." }'></textarea>
-       </div>
-       <div>
-         <label class="block text-sm font-medium text-gray-300 mb-2">Default Storage</label>
-         <div class="flex gap-4">
-           <label class="flex items-center gap-2">
-             <input type="radio" name="storageChoice" value="firebase" class="bg-black/30" checked>
-             <span>App Storage (Firebase)</span>
-           </label>
-           <label class="flex items-center gap-2">
-             <input type="radio" name="storageChoice" value="gdrive" class="bg-black/30">
-             <span>Google Drive (personal)</span>
-           </label>
-         </div>
-       </div>
-       <div class="flex gap-3">
-         <button id="setup-save" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Save Config & Start</button>
-         <button id="setup-offline" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Test Offline (No Firebase)</button>
-       </div>
-     </div>
-  </section>
-
-  <section id="auth-screen" class="hidden mt-10 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
-    <h2 class="text-2xl font-bold text-center mb-4">Sign In / Sign Up</h2>
-    <form id="auth-form" class="space-y-4">
-      <div>
-        <label for="auth-email" class="block text-sm font-medium text-gray-300 mb-1">Email</label>
-        <input id="auth-email" type="email" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-      </div>
-      <div>
-        <label for="auth-password" class="block text-sm font-medium text-gray-300 mb-1">Password (Min. 6 characters)</label>
-        <input id="auth-password" type="password" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-      </div>
-      <div class="flex gap-3">
-        <button type="submit" id="auth-login-btn" class="flex-1 px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Sign In</button>
-        <button type="submit" id="auth-signup-btn" class="flex-1 px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Sign Up</button>
-      </div>
-    </form>
-    <div class="my-4 text-center text-sm text-gray-400">or</div>
-    <button id="auth-google-btn" class="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center gap-2">
-      <svg class="w-5 h-5" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 36.49 44 30.803 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
-      Sign in with Google
-    </button>
-  </section>
-
-  <section id="main-app" class="hidden mt-6">
-    <div id="paywall-banner"
-         class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm mb-4">
-      No active subscription – recording and scoring disabled.
-      <button id="subscribe-btn" class="underline ml-1">Subscribe</button>
-    </div>
-
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-      <button data-tab="tab-manage" class="app-tab px-3 py-1.5 rounded-lg">Class / Event</button>
-      <button data-tab="tab-rubrics" class="app-tab px-3 py-1.5 rounded-lg">Rubrics</button>
-      <button data-tab="tab-record" class="app-tab px-3 py-1.5 rounded-lg">Record</button>
-      <button data-tab="tab-library" class="app-tab px-3 py-1.5 rounded-lg">Library</button>
-      <button data-tab="tab-analytics" class="app-tab px-3 py-1.5 rounded-lg">Analytics</button>
-      <span id="account-pill" class="ml-auto text-xs text-gray-400">Role: — • Storage: —</span>
-    </div>
-
-    <div class="app-tab-content" id="tab-manage">
-      <div class="grid md:grid-cols-2 gap-6">
-        <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-          <div class="flex items-center gap-2 mb-3">
-            <h3 class="font-semibold text-lg">Class / Event Manager</h3>
-            <button id="new-class-btn"
-                    class="ml-auto text-sm px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500">New</button>
-          </div>
-          <div class="space-y-3">
-            <div class="flex items-center gap-2">
-              <label class="text-sm text-gray-300">Existing:</label>
-              <select id="classes-list" class="w-full mt-1 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
-            </div>
-            
-            <hr class="border-white/10 my-2"/>
-
-            <h4 class="font-semibold text-md">Edit Selected Class / Event</h4>
-            <div class="grid grid-cols-2 gap-2">
-              <input id="class-title"
-                     class="col-span-2 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
-                     placeholder="Title (e.g., Public Speaking 101)"/>
-              <label class="text-xs text-gray-300">
-                Auto-Archive Date
-                <input id="class-archive-date" type="date"
-                       class="w-full mt-1 rounded bg-black/30 border border-white/10 p-1.5 text-sm"/>
-              </label>
-              <label class="text-xs text-gray-300">
-                Auto-Delete Date
-                <input id="class-delete-date" type="date"
-                       class="w-full mt-1 rounded bg-black/30 border border-white/10 p-1.5 text-sm"/>
-              </label>
-            </div>
-
-            <label class="block text-sm text-gray-300">Participant Roster (One name per line)</label>
-            <textarea id="class-roster"
-                      class="w-full h-28 rounded-xl bg-black/30 border border-white/10 p-2 text-sm"
-                      placeholder="Jane Smith..."></textarea>
-
-            <div class="flex gap-2">
-              <button id="save-class-btn"
-                      class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20">Save / Update</button>
-              <button id="archive-class-btn"
-                      class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20">Manual Archive</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-          <h3 class="font-semibold text-lg mb-3">Account & Storage</h3>
-          <div class="space-y-3 text-sm">
-            <div>Storage used: <span id="storage-used">0</span> / <span id="storage-limit">—</span></div>
-            <div class="w-full h-2 rounded bg-white/5 overflow-hidden">
-              <div id="storage-progress" class="h-full w-0 bg-primary-600"></div>
-            </div>
-            <div class="text-xs text-gray-400">
-              Grace period after subscription ends; data is deleted by backend policy.
-            </div>
-            <div class="pt-2">
-              <label class="block text-sm text-gray-300">Storage Provider</label>
-              <select id="storage-provider"
-                      class="rounded bg-black/30 border border-white/10 p-2 text-sm">
-                <option value="firebase">Firebase (App storage)</option>
-                <option value="gdrive">Google Drive (personal)</option>
-              </select>
-              <p class="text-xs text-gray-400 mt-1">
-                Changing provider may orphan old data. Export before switching.
-              </p>
-            </div>
-            <div class="pt-2">
-              <button id="export-data-btn"
-                      class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20">Export (Firebase only)</button>
-              <button id="upgrade-plan-btn"
-                      class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500">Upgrade Plan</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="tab-rubrics" class="hidden app-tab-content">
-      <div class="flex items-center gap-2 mb-3">
-        <h2 class="text-xl font-semibold">Rubric Reference Manager</h2>
-      </div>
-      <div class="flex border-b border-white/10 mb-4">
-        <button data-subtab="rubric-tab-my" class="sub-tab border-b-2 px-4 py-2 text-sm font-medium">My Rubrics</button>
-        <button data-subtab="rubric-tab-public" class="sub-tab border-b-2 px-4 py-2 text-sm font-medium">Public Library</button>
-      </div>
-      <div id="rubric-tab-my" class="rubric-sub-tab-content grid md:grid-cols-2 gap-6">
-        <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-          <h3 class="font-semibold text-lg mb-3">Create New Rubric Reference</h3>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm text-gray-300 mb-1">Rubric Title</label>
-              <input id="new-rubric-title" type="text" placeholder="e.g., AP Seminar IMP Rubric"
-                     class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"/>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-300 mb-1">Rubric Reference File (PDF or Image)</label>
-              <input id="new-rubric-file" type="file" accept=".pdf,image/*"
-                     class="w-full text-sm text-gray-300 file:mr-3 file:py-1.5 file:px-3
-                            file:rounded-lg file:border-0 file:bg-white/10 file:text-gray-200
-                            hover:file:bg-white/20"/>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-300 mb-1">Scoring Rows (for Analytics)</label>
-              <p class="text-xs text-gray-400 mb-2">Define the component names so the app can track scores for each.</p>
-              <div id="new-rubric-rows-container" class="space-y-2">
-                <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Row 1: e.g., Context">
-                <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Row 2: e.g., Argument">
-              </div>
-              <button id="add-rubric-row-btn" class="mt-2 text-sm px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10">+ Add Row</button>
-            </div>
-            <button id="save-new-rubric-btn" class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500">Save New Rubric</button>
-          </div>
-        </div>
-        <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-          <h3 class="font-semibold text-lg mb-3">My Saved Rubrics</h3>
-          <div id="my-rubrics-list" class="space-y-2">
-            <p class="text-sm text-gray-400">No rubrics saved yet.</p>
-          </div>
-          <div class="mt-4">
-             <label class="text-sm text-gray-300">Helpful Links (External)</label>
-             <div class="flex gap-4 mt-1 text-sm text-primary-400">
-               <a href="https://rubistar.4teachers.org/" target="_blank" class="hover:underline">RubiStar</a>
-               <a href="https://www.irubric.com/" target="_blank" class="hover:underline">iRubric</a>
-             </div>
-             <p class="text-xs text-gray-400 mt-1">Build externally, save as PDF/Image, then upload here.</p>
-          </div>
-        </div>
-      </div>
-      <div id="rubric-tab-public" class="hidden rubric-sub-tab-content">
-        <h3 class="font-semibold text-lg mb-3">Public Rubric Library</h3>
-        <p class="text-gray-400">Browse rubrics shared by the community and admins. (Coming soon)</p>
-        <div id="public-rubrics-list" class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        </div>
-      </div>
-    </div>
-    <div id="tab-record" class="hidden app-tab-content max-w-2xl mx-auto">
-      <h2 class="text-xl font-semibold mb-4">Record Presentation</h2>
-      <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-        <video id="video-preview" class="w-full rounded-lg shadow aspect-video mb-4" playsinline muted autoplay></video>
-
-        <div class="flex justify-between items-center mb-4">
-          <div class="text-lg">
-            Status: <span id="rec-status" class="font-semibold text-gray-300">Idle</span>
-          </div>
-          <div class="text-lg">
-            Timer: <span id="rec-timer" class="font-semibold text-gray-300">00:00</span>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <button id="start-rec-btn" class="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold col-span-2">
-            Start Recording
-          </button>
-          <button id="pause-rec-btn" class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50" disabled>
-            Pause
-          </button>
-          <button id="toggle-camera-btn" class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20">
-            Switch Camera
-          </button>
-          
-          <button id="stop-rec-btn" class="hidden px-4 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold col-span-2">
-            Stop & Tag Video
-          </button>
-          <button id="discard-rec-btn" class="hidden px-4 py-3 rounded-lg bg-red-800 hover:bg-red-700 text-white col-span-2">
-            Discard & Restart
-          </button>
-        </div>
-        <p class="text-xs text-gray-500 mt-3 text-center">Note: Recording happens on your device. You will tag and upload after stopping.</p>
-        
-        <div class="w-full h-1 mt-4 bg-white/10 rounded-full overflow-hidden">
-          <div id="upload-progress" class="h-1 bg-primary-500 w-0 transition-all duration-300"></div>
-        </div>
-      </div>
-    </div>
-    <div id="tab-library" class="hidden app-tab-content">
-      <h2 class="text-xl font-semibold mb-4">Video Library</h2>
-      <div id="library-list" class="space-y-3">
-        <p class="text-sm text-gray-400">Loading library...</p>
-      </div>
-    </div>
-    <div id="tab-analytics" class="hidden app-tab-content">
-       <h2 class="text-xl font-semibold">Analytics Dashboard</h2>
-       <p class="text-gray-400">This section is under construction.</p>
-    </div>
-  </section>
-
-  <dialog id="metadata-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-md border border-white/10 p-0">
-    <form id="metadata-form">
-      <h2 class="text-xl font-bold p-5 border-b border-white/10">Tag Your Recording</h2>
-      <div class="p-5 space-y-4">
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-gray-400">Organization</label>
-            <input id="meta-org" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-400">Instructor</label>
-            <input id="meta-instructor" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
-          </div>
-        </div>
-        
+    
+    listEl.innerHTML = "";
+    snap.forEach(d => {
+      const rubric = d.data();
+      const el = document.createElement("div");
+      el.className = "p-3 bg-gray-800 rounded-lg flex justify-between items-center";
+      el.innerHTML = `
         <div>
-          <label for="meta-class" class="block text-sm font-medium text-gray-300 mb-1">Class / Event</label>
-          <select id="meta-class" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
+          <span class="font-medium">${rubric.title}</span>
+          <span class="text-xs text-gray-400 ml-2">(${rubric.componentNames?.length || 0} rows)</span>
         </div>
-        <div>
-          <label for="meta-participant" class="block text-sm font-medium text-gray-300 mb-1">Participant</label>
-          <select id="meta-participant" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" disabled>
-            <option value="">Select a class/event first...</option>
-          </select>
-          <div id="add-participant-container" class="hidden flex gap-2 mt-2">
-            <input id="new-participant-name" type="text" class="flex-1 rounded-lg bg-black/40 border border-white/10 p-2 text-sm" placeholder="New Participant Name...">
-            <button id="add-participant-btn" type="button" class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-sm">Add</button>
-          </div>
+        <div class="flex gap-2">
+          <button class="share-rubric-btn text-xs text-primary-400 hover:underline" data-id="${d.id}">Share</button>
+          <button class="delete-rubric-btn text-xs text-red-400 hover:underline" data-id="${d.id}">Delete</button>
         </div>
+      `;
+      listEl.appendChild(el);
+    });
+    
+  } catch (e) {
+    console.error("Failed to refresh rubrics:", e);
+    UI.toast("Could not load rubrics.", "error");
+    listEl.innerHTML = '<p class="text-sm text-red-400">Error loading rubrics.</p>';
+  }
+}
 
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label for="meta-type" class="block text-sm font-medium text-gray-300 mb-1">Recording Type</label>
-            <select id="meta-type" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-              <option value="mock">mock</option>
-              <option value="tmp">tmp</option>
-              <option value="imp">imp</option>
-              <option value="rehearsal">rehearsal</option>
-              <option value="final">final</option>
-              <option value="other">other</option>
-            </select>
-          </div>
-          <div>
-            <label for="meta-group" class="block text-sm font-medium text-gray-300 mb-1">Group / Tag</label>
-            <input id="meta-group" type="text" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="e.g., Group 1">
-          </div>
-        </div>
-        
-        <div>
-          <label for="meta-notes" class="block text-sm font-medium text-gray-300 mb-1">General Notes</label>
-          <textarea id="meta-notes" rows="3" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Optional notes..."></textarea>
-        </div>
+export async function handleShareRubric(e) {
+  if (!e.target.classList.contains('share-rubric-btn')) return;
+  const rubricId = e.target.dataset.id;
+  console.log("Share rubric clicked:", rubricId);
+  
+  if (await UI.showConfirm("Share this rubric to the Public Library? You confirm you have the rights to share this content.", "Share Rubric?", "Share")) {
+    UI.toast("Submitting rubric for review... (placeholder)", "info");
+  }
+}
 
-      </div>
-      <div class="p-5 border-t border-white/10 flex justify-between items-center">
-        <div>
-          <span class="text-sm">File Size: <span id="meta-file-size" class="font-medium text-gray-300">0 MB</span></span>
-        </div>
-        <div>
-          <button id="cancel-upload-btn" type="reset" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
-          <button id="save-upload-btn" type="submit" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 ml-2">Save & Upload</button>
-        </div>
-      </div>
-    </form>
-  </dialog>
+export async function handleDeleteRubric(e) {
+  if (!e.target.classList.contains('delete-rubric-btn')) return;
+  const rubricId = e.target.dataset.id;
+  console.log("Delete rubric clicked:", rubricId);
+  
+  if (await UI.showConfirm("Are you sure you want to delete this rubric? This cannot be undone.", "Delete Rubric?", "Delete")) {
+    UI.toast("Deleting rubric... (placeholder)", "info");
+  }
+}
 
+/* -------------------------------------------------------------------------- */
+/* Video Upload & Library (Firestore + Storage)
+/* -------------------------------------------------------------------------- */
+export async function uploadFile(blob, meta) {
+  if (!UI.storage || !UI.db || !UI.currentUser) {
+    UI.toast("Storage/auth not ready.", "error"); 
+    await cacheOffline(blob, meta);
+    return;
+  }
+  const appId = UI.getAppId();
+  const ts = Date.now();
+  const safe = (s) => String(s || "unk").replace(/[^a-z0-9_\-\.]/gi, "_");
+  const fileName = `${ts}_${safe(meta.participant)}.webm`;
+  const path = `artifacts/${appId}/users/${UI.currentUser.uid}/videos/${meta.classEventId}/${fileName}`;
+  const progressEl = UI.$("#upload-progress");
 
-  <dialog id="help-faq-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-2xl border border-white/10 p-0">
-    <form method="dialog">
-      <button class="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
-    </form>
-    <h2 class="text-xl font-bold p-5 border-b border-white/10">Help & FAQ</h2>
-    <div class="p-5 max-h-[70vh] overflow-y-auto space-y-6">
+  try {
+    if (!navigator.onLine) {
+      throw new Error("Offline. Caching file.");
+    }
+    
+    UI.toast(`Uploading ${meta.participant}'s video...`, "info");
+    const fileRef = sRef(UI.storage, path);
+    const uploadTask = uploadBytesResumable(fileRef, blob);
+
+    uploadTask.on('state_changed', snapshot => {
+      const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+      if (progressEl) {
+        progressEl.style.width = `${pct}%`;
+      }
+    });
+
+    await uploadTask;
+    
+    const url = await getDownloadURL(uploadTask.ref);
+
+    const docRef = await addDoc(
+      collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
+      {
+        ...meta,
+        storagePath: path,
+        downloadURL: url,
+        createdAt: serverTimestamp(),
+        archived: false
+      }
+    );
+
+    UI.toast("Upload complete!", "success");
+    
+    await updateUserStorageQuota(meta.fileSize); 
+    
+    if (progressEl) progressEl.style.width = '0%';
+    return { id: docRef.id, url };
+
+  } catch (e) {
+    await cacheOffline(blob, meta);
+    console.error("Upload failed, caching locally:", e);
+    UI.toast("Offline or failed—queued for later.", "info");
+    if (progressEl) progressEl.style.width = '0%';
+  }
+}
+
+export async function flushOfflineQueue() {
+  if (!navigator.onLine) return;
+  
+  let dbx;
+  try {
+    dbx = await idbOpen();
+  } catch (e) {
+    console.error("Failed to open IDB for flushing:", e);
+    return;
+  }
+
+  let all;
+  try {
+    all = await new Promise((res, rej) => {
+      const tx = dbx.transaction(UI.IDB_STORE, "readonly");
+      const store = tx.objectStore(UI.IDB_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  } catch (e) {
+    console.error("Failed to read from IDB queue:", e);
+    return;
+  }
+
+  if (!all.length) {
+    console.log("Offline queue is empty.");
+    return;
+  }
+
+  UI.toast(`Uploading ${all.length} queued file(s)...`, "info");
+
+  for (const item of all) {
+    try {
+      if (!UI.storage || !UI.db || !UI.currentUser) {
+         console.warn("Auth not ready, skipping queue flush.");
+         break;
+      }
       
-      <details class="space-y-2" open>
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">How do I install this app on my phone? (Add to Home Screen)</summary>
-        <p class="text-gray-300">This is a Progressive Web App (PWA). You can install it from your browser for a full-screen, app-like experience.</p>
-        <div class="ml-4">
-          <h4 class="font-semibold text-gray-100">On iOS (iPhone/iPad - Safari):</h4>
-          <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
-            <li>Open the app's website in the **Safari** browser.</li>
-            <li>Tap the **"Share"** icon (a box with an arrow pointing up).</li>
-            <li>Scroll down and tap on **"Add to Home Screen"**.</li>
-            <li>Confirm the name and tap **"Add"**.</li>
-          </ol>
-        </div>
-        <div class="ml-4 mt-2">
-          <h4 class="font-semibold text-gray-100">On Android (Chrome):</h4>
-          <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
-            <li>Open the app's website in the **Chrome** browser.</li>
-            <li>Tap the **three-dot menu** (⋮) in the top-right corner.</li>
-            <li>Tap on **"Install app"** (or "Add to Home screen").</li>
-            <li>Follow the prompts to confirm.</li>
-          </ol>
-        </div>
-      </details>
+      await uploadFile(item.blob, item.meta);
 
-      <details class="space-y-2">
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">What are the requirements for iOS (iPhone/iPad)?</summary>
-        <p class="text-gray-300">The app works best on newer operating systems.</p>
-        <ul class="list-disc list-outside ml-5 space-y-2">
-          <li>
-            <strong class="text-gray-100">Recommended: iOS 17 / iPadOS 17 (or newer)</strong><br>
-            <span class="text-gray-300">Provides full support. You can "Add to Home Screen" and **offline recording is fully supported.**</span>
-          </li>
-          <li>
-            <strong class="text-gray-100">Older iOS (Version 16.x and below)</strong><br>
-            <span class="text-gray-300">**Online-Only.** The app will still run in Safari, but you must have an active internet connection. Offline recording is not available.</span>
-          </li>
-        </ul>
-      </details>
-
-      <details class="space-y-2">
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Storage & Data Management</summary>
-        <div class="ml-4 space-y-3">
-          <div>
-            <h4 class="font-semibold text-gray-100">What do I do about the "Low Storage" warning?</h4>
-            <p class="text-gray-300">This warning appears when you use ~90% of your subscription's storage limit. To continue uploading, you have three options:</p>
-            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
-              <li>**Upgrade Your Plan:** Go to the "Account" section to purchase a plan with more storage.</li>
-              <li>**Export & Delete (Firebase Storage):** Use the "Export (Firebase only)" button in the Account section to download a .zip file of a class's videos, save it to your computer, and then safely delete the recordings from the app.</li>
-              <li>**Manually Delete:** Go to the "Library" tab, find old videos you no longer need, and delete them.</li>
-            </ol>
-          </div>
-          <div>
-            <h4 class="font-semibold text-gray-100">Firebase Storage vs. Google Drive</h4>
-            <p class="text-gray-300">**Firebase Storage** (Recommended) saves your videos privately to the app's storage. This is required for features like `Export as Zip` and is managed by your app subscription's storage limit.</p>
-            <p class="text-gray-300 mt-1">**Google Drive** saves videos to your *personal* Google Drive account. This uses your personal Google storage quota and does not count against your app limit. However, if you move or rename these files in your Google Drive, the app will lose access to them.</p>
-          </div>
-          <div>
-            <h4 class="font-semibold text-gray-100">What if I switch storage providers?</h4>
-            <p class="text-gray-300">You can switch providers in the "Account" section, but **this only affects *new* uploads.** The app will lose access to all videos saved in the previous location. This is not reversible and is only recommended for a "fresh start" (e.g., a new school year).</p>
-          </div>
-        </div>
-      </details>
+      await new Promise((res, rej) => {
+        const deleteTx = dbx.transaction(UI.IDB_STORE, "readwrite");
+        deleteTx.objectStore(UI.IDB_STORE).delete(item.id);
+        deleteTx.oncomplete = res;
+        deleteTx.onerror = () => rej(deleteTx.error);
+      });
       
-      <details class="space-y-2">
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Class Lifecycle (Archiving & Deletion)</summary>
-        <div class="ml-4 space-y-3">
-          <div>
-            <h4 class="font-semibold text-gray-100">Archiving vs. Deleting</h4>
-            <p class="text-gray-300">**Archiving** a class simply hides it from your active lists (like the "Class / Event" dropdown during recording). You can still view archived videos in the "Library" tab. This is the recommended action for finished classes.</p>
-            <p class="text-gray-300 mt-1">**Deleting** is permanent. When a class is deleted (either by you or by the auto-delete policy), all associated videos and scores are permanently erased from the system.</p>
-          </div>
-          <div>
-            <h4 class="font-semibold text-gray-100">How does Auto-Delete work?</h4>
-            <p class="text-gray-300">You can set an `Auto-Delete Date` for each class. This is useful for meeting data retention requirements. For example, if you must keep videos for 1 year after a class ends, set the `Auto-Archive Date` to the class end date, and the `Auto-Delete Date` to one year after that.</p>
-            <p class="text-gray-300 mt-1">**Fallback Policy:** For users on the **Firebase Storage** option, a system-wide rule will permanently delete any video file that is older than **18 months** (based on its creation date) as a safety net to manage storage costs, regardless of your in-app settings.</p>
+      UI.toast("Queued file uploaded!", "success");
+
+    } catch (e) {
+      console.error("Failed to flush item, will retry later:", item.id, e);
+    }
+  }
+}
+
+export async function loadLibrary() {
+  if (!UI.db || !UI.currentUser) return;
+  const appId = UI.getAppId();
+  const listEl = UI.$("#library-list");
+  listEl.innerHTML = '<p class="text-sm text-gray-400">Loading library...</p>';
+
+  try {
+    const qRef = query(
+      collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
+      orderBy("createdAt", "desc")
+    );
+    const snap = await getDocs(qRef);
+    
+    if (snap.empty) {
+      listEl.innerHTML = '<p class="text-sm text-gray-400">No videos saved yet.</p>';
+      return;
+    }
+    
+    listEl.innerHTML = "";
+    snap.forEach(d => {
+      const v = d.data();
+      
+      const created = v.createdAt?.seconds
+        ? new Date(v.createdAt.seconds * 1000)
+        : (v.createdAt?.toDate ? v.createdAt.toDate() : null);
+      const dateStr = created ? created.toLocaleDateString() : '—';
+      
+      const li = document.createElement("div");
+      li.className = "p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center";
+      li.innerHTML = `
+        <div class="text-sm overflow-hidden mr-2">
+          <div class="font-medium truncate">${v.classEventTitle || "Untitled"} — ${v.participant}</div>
+          <div class="text-xs text-gray-400">
+            ${(v.fileSize/1048576).toFixed(1)} MB • ${dateStr}
           </div>
         </div>
-      </details>
+        <div class="flex gap-2 flex-shrink-0">
+          <a href="${v.downloadURL}" target="_blank" class="text-primary-300 text-sm hover:underline">Open</a>
+          <button class="text-sm text-red-400 hover:underline" data-del="${d.id}">Delete</button>
+        </div>`;
+      listEl.appendChild(li);
+    });
+  } catch(e) {
+    console.error("Error loading library:", e);
+    listEl.innerHTML = '<p class="text-sm text-red-400">Error loading library.</p>';
+  }
+}
 
-      <details class="space-y-2">
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Common Workflows</summary>
-        <div class="ml-4 space-y-3">
-          <div>
-            <h4 class="font-semibold text-gray-100">How do I add my participant roster?</h4>
-            <p class="text-gray-300">Go to the "Class / Event" tab, select your class (or create a new one), and go to the "Participant Roster" text box. You can copy your list of names from any source (Google Classroom, Sheets, Word) and paste them in. **Ensure names are listed one per line.**</p>
-          </div>
-          <div>
-            <h4 class="font-semibold text-gray-100">How do I use videos from Zoom or Google Meet?</h4>
-            <p class="text-gray-300">You cannot record *from* Zoom/Meet directly. Instead:</p>
-            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
-              <li>Record the presentation using the record feature *inside* Zoom or Meet.</li>
-              <li>Download the video file (e.g., `.mp4`) from Zoom/Meet to your device.</li>
-              <li>In this app, go to the "Library" tab and find the **"Upload Existing Video File"** button (this feature is coming soon).</li>
-              <li>Select the file you downloaded, and tag it with metadata just like a normal recording.</li>
-            </ol>
-          </div>
-        </div>
-      </details>
+export async function handleDeleteVideo(docId) {
+  if (!UI.db || !UI.storage || !UI.currentUser) return;
+  
+  const confirmed = await UI.showConfirm("Are you sure you want to permanently delete this video?", "Delete Video?", "Delete");
+  if (!confirmed) return;
 
-    </div>
-    <div class="p-5 border-t border-white/10 text-right">
-      <form method="dialog">
-        <button class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Close</button>
-      </form>
-    </div>
-  </dialog>
+  const appId = UI.getAppId();
+  const docRef = doc(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`, docId);
 
-  <dialog id="confirm-modal" class="backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-sm border border-white/10 p-0">
-    <div class="p-5">
-      <h3 id="confirm-title" class="text-lg font-semibold text-white mb-2">Are you sure?</h3>
-      <p id="confirm-message" class="text-sm text-gray-300 mb-4">This action cannot be undone.</p>
-    </div>
-    <div class="p-4 bg-white/5 border-t border-white/10 flex justify-end gap-2">
-      <button id="confirm-btn-no" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
-      <button id="confirm-btn-yes" class="px-4 py-2 text-sm rounded-lg">Confirm</button>
-    </div>
-  </dialog>
+  try {
+    const videoDoc = await getDoc(docRef);
+    if (!videoDoc.exists()) {
+      UI.toast("Document already deleted.", "warn");
+      return;
+    }
 
-</main>
+    const storagePath = videoDoc.data().storagePath;
+    const fileSize = videoDoc.data().fileSize || 0;
+    
+    if (storagePath) {
+      const fileRef = sRef(UI.storage, storagePath);
+      await deleteObject(fileRef);
+    } else {
+      console.warn("No storagePath found on doc, skipping file deletion.");
+    }
 
+    await deleteDoc(docRef);
+    
+    await updateUserStorageQuota(-fileSize);
 
-<script type="module" src="./scripts/main.js?v=9"></script>
+    UI.toast("Video deleted.", "success");
+    loadLibrary(); // Refresh the list
 
-</body>
-</html>
+  } catch (e) {
+    console.error("Error deleting video:", e);
+    UI.toast(`Delete failed: ${e.message}`, "error");
+  }
+}
