@@ -1,24 +1,27 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v8: Stricter auth bypass and new cache version
+/* v9: cache version alignment */
 /* ========================================================================== */
 
-// ✅ BUMPED: Version your cache so updates invalidate old content
-const CACHE_NAME = "seminar-cloud-cache-v8";
+// Sync with main.js version manually
+const APP_VERSION = "v9";
+const CACHE_NAME = `seminar-cloud-cache-${APP_VERSION}`;
 
 // ✅ UPDATED: All local assets are versioned
 const ASSETS_TO_CACHE = [
   "./",
-  "./index.html?v=8",
-  "./scripts/main.js?v=8",
-  "./scripts/ui.js?v=8",
-  "./scripts/auth.js?v=8",
-  "./scripts/firestore.js?v=8",
-  "./scripts/record.js?v=8",
-  "./manifest.json?v=8",
+  `./index.html?v=${APP_VERSION}`,
+  `./scripts/main.js?v=${APP_VERSION}`,
+  `./scripts/ui.js?v=${APP_VERSION}`,
+  `./scripts/auth.js?v=${APP_VERSION}`,
+  `./scripts/firestore.js?v=${APP_VERSION}`,
+  `./scripts/record.js?v=${APP_VERSION}`,
+  `./manifest.json?v=${APP_VERSION}`,
   "https://cdn.tailwindcss.com",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
 ];
+
+
 
 /* -------------------------------------------------------------------------- */
 /* INSTALL – Pre-cache core app shell

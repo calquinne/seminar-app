@@ -2,6 +2,7 @@
 /* MODULE: ui.js 
 /* Exports shared state, constants, and UI helper functions.
 /* ========================================================================== */
+import { APP_VERSION } from './main.js';
 
 /* -------------------------------------------------------------------------- */
 /* Constants
@@ -453,4 +454,21 @@ export async function registerSW(){
   } catch (e) {
     console.error("❌ Service Worker registration failed:", e);
   }
+}
+/* -------------------------------------------------------------------------- */
+/* ✅ Tag State Helpers (for record.js ESM safety) */
+/* -------------------------------------------------------------------------- */
+export let currentTags = [];
+
+export function setCurrentTags(t = []) {
+  currentTags = Array.isArray(t) ? t : [];
+}
+
+export function addTag(tag) {
+  if (!currentTags) currentTags = [];
+  currentTags.push(tag);
+}
+
+export function getCurrentTags() {
+  return currentTags || [];
 }

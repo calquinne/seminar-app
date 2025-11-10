@@ -8,6 +8,8 @@ import * as UI from './ui.js';
 import * as Auth from './auth.js';
 import * as DB from './firestore.js';
 import * as Record from './record.js';
+// Global app version (used for cache-busting and SW sync)
+export const APP_VERSION = "v9";
 
 /* -------------------------------------------------------------------------- */
 /* Event Listeners Setup

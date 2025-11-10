@@ -81,8 +81,11 @@ export async function startRecording() {
   
   console.log("Attempting to start recording...");
   UI.updateRecordingUI('recording');
-  UI.setRecordedChunks([]);
-  UI.setCurrentRecordingBlob(null);
+ UI.setRecordedChunks([]);
+UI.setCurrentRecordingBlob(null);
+UI.setCurrentTags([]); // ✅ reset tag state safely
+clearTagList(); // clear timeline UI
+
   
   try {
     UI.mediaStream.getAudioTracks().forEach(track => track.enabled = true);
@@ -168,10 +171,13 @@ export function pauseOrResumeRecording() {
 export function stopRecording() {
   if (UI.mediaRecorder && (UI.mediaRecorder.state === 'recording' || UI.mediaRecorder.state === 'paused')) {
     UI.mediaRecorder.stop();
-    if(UI.timerInterval) clearInterval(UI.timerInterval);
+    if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.updateRecordingUI('stopped');
+    UI.setCurrentTags([]); // ✅ reset tags
+    clearTagList();        // clear timeline UI
   }
 }
+
 
 export async function discardRecording() {
   if (UI.mediaRecorder && (UI.mediaRecorder.state === 'recording' || UI.mediaRecorder.state === 'paused')) {
@@ -194,14 +200,17 @@ export async function discardRecording() {
     UI.setMediaStream(null);
   }
   UI.$("#video-preview").srcObject = null;
-  UI.setRecordedChunks([]);
-  UI.setCurrentRecordingBlob(null);
-  if(UI.timerInterval) clearInterval(UI.timerInterval);
-  UI.setSecondsElapsed(0);
-  UI.$("#rec-timer").textContent = "00:00";
-  UI.updateRecordingUI('idle');
-  
-  startPreview();
+UI.setRecordedChunks([]);
+UI.setCurrentRecordingBlob(null);
+if (UI.timerInterval) clearInterval(UI.timerInterval);
+UI.setSecondsElapsed(0);
+UI.$("#rec-timer").textContent = "00:00";
+UI.updateRecordingUI('idle');
+UI.setCurrentTags([]); // ✅ reset tag state safely
+clearTagList();        // clear timeline UI
+
+startPreview();
+
 }
 
 export async function toggleCamera() {
@@ -222,8 +231,18 @@ function openMetadataScreen() {
     return;
   }
   
+ function openMetadataScreen() {
+  if (!UI.currentRecordingBlob) {
+    UI.toast("No recording to tag.", "error");
+    return;
+  }
+
+  // ✅ Move reset to the top
+  UI.$("#metadata-form").reset();
+
   UI.$("#meta-org").value = UI.userDoc.organizationName || "Default Org"; 
-  UI.$("#meta-instructor").value = UI.userDoc.instructorName || (UI.currentUser ? UI.currentUser.email : "Instructor"); 
+  UI.$("#meta-instructor").value = UI.userDoc.instructorName || 
+    (UI.currentUser ? UI.currentUser.email : "Instructor"); 
   
   UI.refreshMetadataClassList();
   UI.$("#meta-class").value = "";
@@ -231,13 +250,12 @@ function openMetadataScreen() {
   UI.$("#meta-participant").disabled = true;
   UI.$("#add-participant-container").classList.add("hidden");
   
-  UI.$("#metadata-form").reset();
-  
   UI.$("#meta-file-size").textContent = `${(UI.currentRecordingBlob.size / 1024 / 1024).toFixed(2)} MB`;
-  
-  // ✅ FIXED: Call showModal() directly, do not call UI.showScreen()
+
+  // ✅ Show modal directly
   UI.$("#metadata-screen").showModal();
 }
+
 
 export function handleMetadataClassChange(e) {
   const classId = e.target.value;
