@@ -147,8 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
   UI.registerSW(); // Register the static service worker
   
   (async () => {
-    // ✅ Cache-busting: v9
-    const appVersion = "v9"; // This must match your service worker
+    // ✅ Cache-busting: v10
+    const appVersion = "v10"; // This must match your service worker
     const storedVersion = localStorage.getItem("appVersion");
 
     if (storedVersion !== appVersion) {

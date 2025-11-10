@@ -1,6 +1,6 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v9: cache version alignment */
+/* v10: cache version alignment */
 /* ========================================================================== */
 
 // Sync with main.js version manually
