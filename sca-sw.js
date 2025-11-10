@@ -4,7 +4,7 @@
 /* ========================================================================== */
 
 // Sync with main.js version manually
-const APP_VERSION = "v9";
+const APP_VERSION = "v10";
 const CACHE_NAME = `seminar-cloud-cache-${APP_VERSION}`;
 
 // ✅ UPDATED: All local assets are versioned
