@@ -10,7 +10,7 @@ import * as DB from './firestore.js';
 import * as Record from './record.js';
 // Global app version (used for cache-busting and SW sync)
 // main.js
-export const APP_VERSION = "v10";
+export const APP_VERSION = "v11";
 
 
 /* -------------------------------------------------------------------------- */
@@ -147,8 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
   UI.registerSW(); // Register the static service worker
   
   (async () => {
-    // ✅ Cache-busting: v10
-    const appVersion = "v10"; // This must match your service worker
+    // ✅ Cache-busting: v11
+    const appVersion = "v11"; // This must match your service worker
     const storedVersion = localStorage.getItem("appVersion");
 
     if (storedVersion !== appVersion) {
