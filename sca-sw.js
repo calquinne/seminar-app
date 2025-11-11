@@ -1,10 +1,10 @@
 /* ========================================================================== */
 /* Seminar Cloud App – Service Worker (sca-sw.js)
-/* v11: cache version alignment */
+/*v13: cache version alignment */
 /* ========================================================================== */
 
 // Sync with main.js version manually
-const APP_VERSION = "v11";
+const APP_VERSION = "v13";
 const CACHE_NAME = `seminar-cloud-cache-${APP_VERSION}`;
 
 // ✅ UPDATED: All local assets are versioned

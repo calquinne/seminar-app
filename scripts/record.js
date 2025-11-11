@@ -225,11 +225,6 @@ export async function toggleCamera() {
 /* -------------------------------------------------------------------------- */
 /* Metadata Tagging Flow (Internal helpers)
 /* -------------------------------------------------------------------------- */
-function openMetadataScreen() {
-  if (!UI.currentRecordingBlob) {
-    UI.toast("No recording to tag.", "error");
-    return;
-  }
   
  function openMetadataScreen() {
   if (!UI.currentRecordingBlob) {

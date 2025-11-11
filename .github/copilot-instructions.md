@@ -102,7 +102,7 @@ Supports front/back camera switching via `currentFacingMode` variable. Cannot sw
 
 ## Critical Dependencies
 
-- Firebase v11.6.1 (imported via CDN)
+- Firebasev13.6.1 (imported via CDN)
 - Tailwind CSS (CDN)
 - MediaRecorder API (requires HTTPS for camera access)
 - IndexedDB (for offline caching)
