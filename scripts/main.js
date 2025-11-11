@@ -186,3 +186,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })();
 });
+// ============================
+// 🔄 AUTH SCREEN TOGGLE LOGIC
+// ============================
+document.addEventListener("DOMContentLoaded", () => {
+  const loginScreen = document.getElementById("auth-screen");
+  const signupScreen = document.getElementById("signup-screen");
+  const signupBtn = document.getElementById("auth-signup-btn");
+  const backToLoginLink = document.getElementById("back-to-login-link");
+
+  function toggleScreens(showSignup = false) {
+    if (showSignup) {
+      loginScreen.classList.add("hidden");
+      signupScreen.classList.remove("hidden");
+    } else {
+      signupScreen.classList.add("hidden");
+      loginScreen.classList.remove("hidden");
+    }
+  }
+
+  if (signupBtn) {
+    signupBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleScreens(true);
+    });
+  }
+
+  if (backToLoginLink) {
+    backToLoginLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleScreens(false);
+    });
+  }
+});
+/* ========================================================================== */
