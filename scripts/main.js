@@ -220,7 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 // ===============================
-// 🔐 FORGOT PASSWORD FLOW
+// 🔐 FORGOT PASSWORD FLOW (Fixed)
 // ===============================
 document.addEventListener("DOMContentLoaded", () => {
   const forgotLink = document.getElementById("forgot-password-link");
@@ -229,7 +229,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const cancelBtn = document.getElementById("reset-cancel-btn");
   const resetEmail = document.getElementById("reset-email");
 
+  // Guard: elements must exist
   if (!forgotLink || !resetContainer) return;
+
+  // 🧩 Prevent double event binding if script reinitializes
+  if (forgotLink.dataset.bound === "true") return;
+  forgotLink.dataset.bound = "true";
 
   // Show the reset form
   forgotLink.addEventListener("click", () => {
@@ -244,25 +249,24 @@ document.addEventListener("DOMContentLoaded", () => {
     forgotLink.classList.remove("hidden");
   });
 
-    // Send reset email
-    sendBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      
-      const email = resetEmail.value.trim();
-      if (!email) {
-        UI.toast("Please enter your email address", "error");
-        return;
-      }
-      
-      try {
-        // Call Auth module's password reset function
-        await Auth.sendPasswordReset(email);
-        UI.toast("Password reset email sent! Check your inbox.", "success");
-        resetContainer.classList.add("hidden");
-        forgotLink.classList.remove("hidden");
-        resetEmail.value = "";
-      } catch (error) {
-        UI.toast("Error sending reset email: " + error.message, "error");
-      }
-    });
+  // Send reset email
+  sendBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    const email = resetEmail.value.trim();
+    if (!email) {
+      UI.toast("Please enter your email address", "error");
+      return;
+    }
+
+    try {
+      await Auth.sendPasswordReset(email);
+      UI.toast("Password reset email sent! Check your inbox (or spam folder).", "success");
+      resetContainer.classList.add("hidden");
+      forgotLink.classList.remove("hidden");
+      resetEmail.value = "";
+    } catch (error) {
+      UI.toast("Error sending reset email: " + error.message, "error");
+    }
   });
+});
