@@ -219,4 +219,47 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+// ===============================
+// 🔐 FORGOT PASSWORD FLOW
+// ===============================
+document.addEventListener("DOMContentLoaded", () => {
+  const forgotLink = document.getElementById("forgot-password-link");
+  const resetContainer = document.getElementById("reset-container");
+  const sendBtn = document.getElementById("reset-send-btn");
+  const cancelBtn = document.getElementById("reset-cancel-btn");
+  const resetEmail = document.getElementById("reset-email");
+
+  if (!forgotLink || !resetContainer) return;
+
+  // Show the reset form
+  forgotLink.addEventListener("click", () => {
+    resetContainer.classList.remove("hidden");
+    forgotLink.classList.add("hidden");
+  });
+
+  // Cancel reset
+  cancelBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    resetContainer.classList.add("hidden");
+    forgotLink.classList.remove("hidden");
+  });
+
+  // Send password reset
+  sendBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const email = resetEmail.value.trim();
+    if (!email) return alert("Please enter your email.");
+
+    try {
+      await firebase.auth().sendPasswordResetEmail(email);
+      alert("Password reset email sent! Check your inbox.");
+      resetContainer.classList.add("hidden");
+      forgotLink.classList.remove("hidden");
+      resetEmail.value = "";
+    } catch (err) {
+      console.error("Reset error:", err);
+      alert("Error: " + err.message);
+    }
+  });
+});
 /* ========================================================================== */

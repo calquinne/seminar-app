@@ -165,6 +165,20 @@
     <div class="text-right text-xs text-primary-400 hover:text-primary-300 cursor-pointer" id="forgot-password-link">
       Forgot Password?
     </div>
+<!-- 🔐 Password Reset Prompt -->
+<div id="reset-container" class="hidden mt-4 p-3 rounded-lg bg-black/30 border border-white/10">
+  <label for="reset-email" class="block text-sm text-gray-300 mb-1">Enter your email to reset password</label>
+  <input id="reset-email" type="email" placeholder="you@example.com"
+         class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm mb-2">
+  <div class="flex gap-2">
+    <button id="reset-send-btn" class="flex-1 px-3 py-1 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">
+      Send Reset Email
+    </button>
+    <button id="reset-cancel-btn" class="flex-1 px-3 py-1 text-sm rounded-lg bg-white/10 hover:bg-white/20">
+      Cancel
+    </button>
+  </div>
+</div>
 
     <div class="flex gap-3">
       <button type="submit" id="auth-login-btn" class="flex-1 px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">
