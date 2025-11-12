@@ -6,7 +6,8 @@
 // Firebase SDK Imports
 import {
   onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+  sendPasswordResetEmail
   // Removed redirect imports
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
@@ -136,34 +137,15 @@ export async function handleAuthFormSubmit(e) {
   }
 }
 
-// ✅ UPDATED: Reverted to signInWithPopup
-export async function handleGoogleSignIn() {
-  const provider = new GoogleAuthProvider();
-  try {
-    const result = await signInWithPopup(UI.auth, provider);
-    if (result?.user) {
-      UI.toast("Signed in with Google!", "success");
-      // The onAuthStateChanged listener will handle the rest.
-    }
-  } catch (e) {
-    console.error("Google sign-in error:", e);
-    // This will show the "auth/popup-blocked-by-browser" error if it happens
-    UI.toast(`Error: ${e.code}`, "error");
-  }
-}
-
-export function handleSignOut() {
-  if (UI.auth) {
-    signOut(UI.auth).catch(e => console.error("Sign out error", e));
-  }
-}
-
-// ===============================
-// 🔐 SEND PASSWORD RESET EMAIL
-// ===============================
+/**
+ * Sends a password reset email to the specified address using Firebase Auth.
+ * @param {string} email - The email address to send the password reset link to.
+ * @returns {Promise<boolean>} Resolves to true if the email was sent successfully.
+ * @throws Will throw an error if sending the password reset email fails (for UI.toast display).
+ */
 export async function sendPasswordReset(email) {
   try {
-    // Import Firebase Auth (v11.6.1)
+    // ✅ Import Firebase Auth functions dynamically (v11.6.1)
     const { getAuth, sendPasswordResetEmail } = await import(
       "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"
     );
@@ -178,8 +160,3 @@ export async function sendPasswordReset(email) {
     throw error; // rethrow so UI.toast in main.js can display error message
   }
 }
-/* ========================================================================== */
-
-/* =============================== */
-/* SERVICE WORKER: sca-sw.js
-/* =============================== */
