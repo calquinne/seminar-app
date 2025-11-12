@@ -5,19 +5,28 @@
 
 // Firebase SDK Imports
 import {
-  onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
-  sendPasswordResetEmail
-  // Removed redirect imports
+  onAuthStateChanged,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
 import {
-  doc, getDoc, setDoc, onSnapshot, serverTimestamp
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Import UI module for state and utils
 import * as UI from './ui.js';
+
 // Import Firestore module for db operations
 import { flushOfflineQueue } from './firestore.js';
+
 
 /* -------------------------------------------------------------------------- */
 /* Auth State Management
