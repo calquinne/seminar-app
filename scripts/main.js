@@ -244,22 +244,25 @@ document.addEventListener("DOMContentLoaded", () => {
     forgotLink.classList.remove("hidden");
   });
 
-  // Send password reset
-  sendBtn.addEventListener("click", async (e) => {
-    e.preventDefault();
-    const email = resetEmail.value.trim();
-    if (!email) return alert("Please enter your email.");
-
-    try {
-      await firebase.auth().sendPasswordResetEmail(email);
-      alert("Password reset email sent! Check your inbox.");
-      resetContainer.classList.add("hidden");
-      forgotLink.classList.remove("hidden");
-      resetEmail.value = "";
-    } catch (err) {
-      console.error("Reset error:", err);
-      alert("Error: " + err.message);
-    }
+    // Send reset email
+    sendBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      
+      const email = resetEmail.value.trim();
+      if (!email) {
+        UI.toast("Please enter your email address", "error");
+        return;
+      }
+      
+      try {
+        // Call Auth module's password reset function
+        await Auth.sendPasswordReset(email);
+        UI.toast("Password reset email sent! Check your inbox.", "success");
+        resetContainer.classList.add("hidden");
+        forgotLink.classList.remove("hidden");
+        resetEmail.value = "";
+      } catch (error) {
+        UI.toast("Error sending reset email: " + error.message, "error");
+      }
+    });
   });
-});
-/* ========================================================================== */

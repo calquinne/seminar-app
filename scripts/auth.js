@@ -153,7 +153,33 @@ export async function handleGoogleSignIn() {
 }
 
 export function handleSignOut() {
-    if (UI.auth) {
-        signOut(UI.auth).catch(e => console.error("Sign out error", e));
-    }
+  if (UI.auth) {
+    signOut(UI.auth).catch(e => console.error("Sign out error", e));
+  }
 }
+
+// ===============================
+// 🔐 SEND PASSWORD RESET EMAIL
+// ===============================
+export async function sendPasswordReset(email) {
+  try {
+    // Import Firebase Auth (v11.6.1)
+    const { getAuth, sendPasswordResetEmail } = await import(
+      "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"
+    );
+
+    const auth = getAuth();
+    await sendPasswordResetEmail(auth, email);
+
+    console.log(`Password reset email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending password reset:", error);
+    throw error; // rethrow so UI.toast in main.js can display error message
+  }
+}
+/* ========================================================================== */
+
+/* =============================== */
+/* SERVICE WORKER: sca-sw.js
+/* =============================== */
