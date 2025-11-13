@@ -114,7 +114,7 @@ self.addEventListener("fetch", (event) => {
         return networkResponse;
       } catch (err) {
         if (event.request.mode === "navigate") {
-          return caches.match("./index.html?v=8"); // Match versioned index
+          return caches.match(`./index.html?v=${APP_VERSION}`); // Match versioned index
         }
       }
     })

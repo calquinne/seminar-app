@@ -2,7 +2,8 @@
 /* MODULE: ui.js 
 /* Exports shared state, constants, and UI helper functions.
 /* ========================================================================== */
-import { APP_VERSION } from './main.js';
+
+// ❗ Removed APP_VERSION import to avoid circular dependency with main.js
 
 /* -------------------------------------------------------------------------- */
 /* Constants
