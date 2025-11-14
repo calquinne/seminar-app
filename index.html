@@ -5,17 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Seminar Cloud App – PWA</title>
 
+  <!-- PWA Metadata -->
   <meta name="theme-color" content="#0891b2">
   <meta name="description" content="Record, score, and analyze presentations.">
   <link rel="icon" href="https://placehold.co/64x64/0e7490/ffffff?text=S">
+
+  <!-- iOS PWA -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="https://placehold.co/192x192/0e7490/ffffff?text=SCA">
+
+  <!-- Windows Tiles -->
   <meta name="msapplication-TileColor" content="#0891b2">
   <meta name="msapplication-TileImage" content="https://placehold.co/144x144/0e7490/ffffff?text=SCA">
 
-  <link rel="manifest" href="./manifest.json?v=13"> <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Manifest (no ?v= versioning anymore) -->
+  <link rel="manifest" href="./manifest.json">
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -33,43 +42,51 @@
       darkMode:'class'
     };
   </script>
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
+  <!-- Styles -->
   <style>
-    :root{color-scheme:dark}
+    :root { color-scheme: dark; }
     body { font-family: 'Inter', sans-serif; }
-    ::-webkit-scrollbar{width:10px;height:10px}
-    ::-webkit-scrollbar-thumb{background:#374151;border-radius:8px}
-    ::-webkit-scrollbar-track{background:#111827}
-    .fade-enter{opacity:0;transform:translateY(4px)}
-    .fade-enter-active{opacity:1;transform:none;transition:all .2s ease}
-    dialog::backdrop{background:rgba(0,0,0,.6)}
-    
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width:10px; height:10px }
+    ::-webkit-scrollbar-thumb { background:#374151; border-radius:8px }
+    ::-webkit-scrollbar-track { background:#111827 }
+
+    /* Animations */
+    .fade { transition: opacity .3s ease; }
+    .fade.hidden { opacity:0; pointer-events:none; }
+    .fade:not(.hidden) { opacity:1; }
+
+    dialog::backdrop { background:rgba(0,0,0,.6); }
+
     .app-tab[aria-selected="true"] {
-        background-color: rgba(255, 255, 255, 0.1);
-        font-weight: 600;
-        color: #FFFFFF;
+      background-color: rgba(255, 255, 255, 0.1);
+      font-weight: 600;
+      color: #FFFFFF;
     }
-    .app-tab {
-        color: #9ca3af;
-    }
+    .app-tab { color:#9ca3af; }
+
     .sub-tab[aria-selected="true"] {
-      border-color: #06b6d4;
-      color: #67e8f9;
+      border-color:#06b6d4;
+      color:#67e8f9;
     }
     .sub-tab {
-      border-color: transparent;
-      color: #9ca3af;
+      border-color:transparent;
+      color:#9ca3af;
     }
-    
+
     video#video-preview {
       background-color: #000;
-      width: 100%;
-      height: auto;
-      aspect-ratio: 16 / 9;
-      object-fit: cover;
+      width:100%;
+      height:auto;
+      aspect-ratio:16/9;
+      object-fit:cover;
     }
   </style>
 </head>
@@ -77,27 +94,42 @@
 <body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
 <header class="sticky top-0 z-40 backdrop-blur bg-gray-900/70 border-b border-white/10">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+
     <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
-         class="w-6 h-6 text-primary-400"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 9V7h-2v7h5v-2h-3z"/></svg>
+         class="w-6 h-6 text-primary-400">
+      <path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 9V7h-2v7h5v-2h-3z"/>
+    </svg>
+
     <h1 class="text-lg font-semibold">Seminar Cloud App</h1>
+
     <span id="low-storage-banner"
           class="hidden ml-auto text-sm px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
       Low storage – delete / export / upgrade
     </span>
+
     <div class="ml-auto flex items-center gap-2">
-      <button id="nav-help" class="px-3 py-1.5 text-sm rounded-lg bg-white/5 hover:bg-white/10">Help</button>
-      <button id="nav-account" class="px-3 py-1.5 text-sm rounded-lg bg-white/5 hover:bg-white/10">Account</button>
-      <button id="signout-btn"
+      <button id="nav-help" type="button"
+              class="px-3 py-1.5 text-sm rounded-lg bg-white/5 hover:bg-white/10">Help</button>
+
+      <button id="nav-account" type="button"
+              class="px-3 py-1.5 text-sm rounded-lg bg-white/5 hover:bg-white/10">Account</button>
+
+      <button id="signout-btn" type="button"
               class="hidden px-3 py-1.5 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Sign out</button>
     </div>
   </div>
 </header>
 
 <main class="max-w-6xl mx-auto px-4 pb-24">
+
+  <!-- Error -->
   <div id="error-display"
        class="hidden mt-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm whitespace-pre-line"></div>
+
+  <!-- Toasts -->
   <div id="toast-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 space-y-2"></div>
 
+  <!-- Loading -->
   <section id="loading-screen" class="grid place-items-center h-[70vh]">
     <div class="flex flex-col items-center gap-3">
       <div class="h-10 w-10 border-4 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
@@ -105,221 +137,219 @@
     </div>
   </section>
 
+  <!-- Setup Screen -->
   <section id="setup-screen" class="hidden mt-6 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
-     <h2 class="text-2xl font-bold text-center mb-4">Welcome to Seminar Cloud</h2>
-     <p class="text-sm text-gray-300 mb-4">
-       This app requires a Firebase project to save data. Please paste your Firebase config JSON below to get started.
-     </p>
-     <div class="space-y-4">
-       <div>
-         <label for="app-id-input" class="block text-sm font-medium text-gray-300 mb-1">App ID (Namespace)</label>
-         <input id="app-id-input" type="text" value="seminar-cloud" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-         <p class="text-xs text-gray-500 mt-1">A unique ID for your app's data.</p>
-       </div>
-       <div>
-         <label for="firebase-config-json" class="block text-sm font-medium text-gray-300 mb-1">Firebase Config JSON</label>
-         <textarea id="firebase-config-json" rows="8" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm font-mono" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "appId": "..." }'></textarea>
-       </div>
-       <div>
-         <label class="block text-sm font-medium text-gray-300 mb-2">Default Storage</label>
-         <div class="flex gap-4">
-           <label class="flex items-center gap-2">
-             <input type="radio" name="storageChoice" value="firebase" class="bg-black/30" checked>
-             <span>App Storage (Firebase)</span>
-           </label>
-           <label class="flex items-center gap-2">
-             <input type="radio" name="storageChoice" value="gdrive" class="bg-black/30">
-             <span>Google Drive (personal)</span>
-           </label>
-         </div>
-       </div>
-       <div class="flex gap-3">
-         <button id="setup-save" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Save Config & Start</button>
-         <button id="setup-offline" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Test Offline (No Firebase)</button>
-       </div>
-     </div>
+    <h2 class="text-2xl font-bold text-center mb-4">Welcome to Seminar Cloud</h2>
+    <p class="text-sm text-gray-300 mb-4">
+      This app requires a Firebase project to save data. Paste your config below to begin.
+    </p>
+
+    <div class="space-y-4">
+      <div>
+        <label for="app-id-input" class="block text-sm font-medium text-gray-300 mb-1">App ID</label>
+        <input id="app-id-input" type="text" value="seminar-cloud"
+               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+      </div>
+
+      <div>
+        <label for="firebase-config-json" class="block text-sm font-medium text-gray-300 mb-1">
+          Firebase Config JSON
+        </label>
+        <textarea id="firebase-config-json" rows="8"
+                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm font-mono"
+                  placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "appId": "..." }'></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-2">Default Storage</label>
+
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2">
+            <input type="radio" name="storageChoice" value="firebase" checked>
+            <span>Firebase (App Storage)</span>
+          </label>
+
+          <label class="flex items-center gap-2">
+            <input type="radio" name="storageChoice" value="gdrive">
+            <span>Google Drive (Personal)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button id="setup-save" type="button"
+                class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Save & Start</button>
+
+        <button id="setup-offline" type="button"
+                class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Test Offline</button>
+      </div>
+    </div>
   </section>
 
- 
-<!-- =============================== -->
-<!-- 🔐 AUTH & SIGNUP SECTIONS -->
-<!-- =============================== -->
+  <!-- Auth Screen -->
+  <section id="auth-screen" class="fade mt-10 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
 
-<!-- ✅ LOGIN SCREEN -->
-<section id="auth-screen" class="fade mt-10 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
-  <h2 class="text-2xl font-bold text-center mb-4">Sign In / Sign Up</h2>
+    <h2 class="text-2xl font-bold text-center mb-4">Sign In</h2>
 
-  <form id="auth-form" class="space-y-4">
-    <div>
-      <label for="auth-email" class="block text-sm font-medium text-gray-300 mb-1">Email</label>
-      <input id="auth-email" type="email" autocomplete="username" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-    </div>
+    <form id="auth-form" class="space-y-4">
 
-    <div>
-      <label for="auth-password" class="block text-sm font-medium text-gray-300 mb-1">
-        Password (Min. 6 characters)
-      </label>
-      <input id="auth-password" type="password" autocomplete="current-password" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-    </div>
+      <div>
+        <label for="auth-email" class="block text-sm text-gray-300 mb-1">Email</label>
+        <input id="auth-email" type="email" autocomplete="username" required
+               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+      </div>
 
-    <!-- Forgot Password Link -->
-<div 
-  id="forgot-password-link"
-  class="text-right text-xs text-primary-400 hover:text-primary-300 cursor-pointer mt-1"
->
-  Forgot Password?
-</div>
+      <div>
+        <label for="auth-password" class="block text-sm text-gray-300 mb-1">Password</label>
+        <input id="auth-password" type="password" autocomplete="current-password" required
+               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+      </div>
 
-<!-- 🔐 Password Reset Container -->
-<div 
-  id="reset-container" 
-  class="hidden mt-4 p-4 rounded-lg bg-black/30 border border-white/10 transition-all duration-300 ease-in-out"
->
-  <label 
-    for="reset-email" 
-    class="block text-sm text-gray-300 mb-1"
-  >
-    Enter your email to reset your password
-  </label>
-  
-  <input 
-    id="reset-email" 
-    type="email" 
-    placeholder="you@example.com"
-    class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-primary-500"
-  />
+      <div class="text-right">
+        <a id="forgot-password-link"
+           class="text-xs text-primary-400 hover:text-primary-300 cursor-pointer">Forgot Password?</a>
+      </div>
 
-  <div class="flex gap-2">
-    <button 
-      id="reset-send-btn" 
-      class="flex-1 px-3 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 transition-colors duration-200"
-    >
-      Send Reset Email
-    </button>
-    <button 
-      id="reset-cancel-btn" 
-      class="flex-1 px-3 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20 transition-colors duration-200"
-    >
-      Cancel
-    </button>
-  </div>
-</div>
+      <!-- Reset -->
+      <div id="reset-container" class="hidden space-y-2 pt-2 border-t border-white/10">
+        <label class="text-sm text-gray-300">Enter your email to send a reset link:</label>
+        <input id="reset-email" type="email"
+               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
 
+        <div class="flex gap-2">
+          <button id="reset-send-btn" type="button"
+                  class="px-3 py-1.5 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Send</button>
 
-    <div class="flex gap-3">
-      <button type="submit" id="auth-login-btn" class="flex-1 px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">
-        Sign In
+          <button id="reset-cancel-btn" type="button"
+                  class="px-3 py-1.5 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button id="auth-login-btn" type="submit"
+                class="flex-1 px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Sign In</button>
+
+        <button id="auth-signup-btn" type="button"
+                class="flex-1 px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Create Account</button>
+      </div>
+
+      <div class="my-4 text-center text-sm text-gray-400">or</div>
+
+      <button id="auth-google-btn" type="button"
+              class="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center gap-2">
+
+        <svg class="w-5 h-5" viewBox="0 0 48 48">
+          <path fill="#FFC107"
+                d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
+          <path fill="#FF3D00"
+                d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
+          <path fill="#4CAF50"
+                d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+          <path fill="#1976D2"
+                d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 36.49 44 30.803 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+        </svg>
+
+        Sign in with Google
       </button>
-      <button id="auth-signup-btn" class="flex-1 px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">
-        Sign Up
-      </button>
-    </div>
+    </form>
+  </section>
 
-    <div class="my-4 text-center text-sm text-gray-400">or</div>
-    <button id="auth-google-btn" class="w-full px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center gap-2">
-      <svg class="w-5 h-5" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
-        <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
-        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 36.49 44 30.803 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-      </svg>
-      Sign in with Google
-    </button>
-  </form>
-</section>
+  <!-- Sign Up Screen -->
+  <section id="signup-screen" class="fade hidden mt-10 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
 
-<!-- ✅ SIGNUP SCREEN -->
-<section id="signup-screen" class="fade hidden mt-10 max-w-md mx-auto p-5 rounded-2xl bg-white/5 border border-white/10">
-  <h2 class="text-2xl font-bold text-center mb-4">Create Account</h2>
+    <h2 class="text-2xl font-bold text-center mb-4">Create Account</h2>
 
-  <form id="signup-form" class="space-y-4">
-    <div>
-      <label for="signup-email" class="block text-sm font-medium text-gray-300 mb-1">Email</label>
-      <input id="signup-email" type="email" autocomplete="username" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-    </div>
+    <form id="signup-form" class="space-y-4">
 
-    <div>
-      <label for="signup-password" class="block text-sm font-medium text-gray-300 mb-1">
-        Password (Min. 6 characters)
-      </label>
-      <input id="signup-password" type="password" autocomplete="new-password" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-    </div>
+      <div>
+        <label class="text-sm font-medium text-gray-300 mb-1">Email</label>
+        <input id="signup-email" type="email" required autocomplete="username"
+               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+      </div>
 
-    <div>
-      <label for="signup-confirm" class="block text-sm font-medium text-gray-300 mb-1">
-        Confirm Password
-      </label>
-      <input id="signup-confirm" type="password" autocomplete="new-password" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-    </div>
+      <div>
+        <label class="text-sm font-medium text-gray-300 mb-1">Password (Min. 6 characters)</label>
+        <input id="signup-password" type="password" required autocomplete="new-password"
+               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+      </div>
 
-    <div class="flex justify-between items-center">
-      <button type="submit" id="signup-submit-btn" class="flex-1 px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">
+      <div>
+        <label class="text-sm font-medium text-gray-300 mb-1">Confirm Password</label>
+        <input id="signup-confirm" type="password" required autocomplete="new-password"
+               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+      </div>
+
+      <button id="signup-submit-btn" type="submit"
+              class="w-full px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">
         Create Account
       </button>
-      <span id="back-to-login-link" class="ml-4 text-xs text-primary-400 hover:text-primary-300 cursor-pointer">
-        Back to Login
-      </span>
+    </form>
+
+    <div class="text-center mt-4">
+      <a id="back-to-login-link" class="text-xs text-primary-400 hover:text-primary-300 cursor-pointer">
+        Already have an account? Sign In
+      </a>
     </div>
-  </form>
-</section>
+  </section>
 
-<!-- ✅ Fade animation -->
-<style>
-  .fade {
-    transition: opacity 0.3s ease;
-  }
-  .hidden.fade {
-    opacity: 0;
-    pointer-events: none;
-  }
-  .fade:not(.hidden) {
-    opacity: 1;
-  }
-</style>
-
-
+  <!-- MAIN APP -->
   <section id="main-app" class="hidden mt-6">
+
     <div id="paywall-banner"
          class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm mb-4">
       No active subscription – recording and scoring disabled.
-      <button id="subscribe-btn" class="underline ml-1">Subscribe</button>
+      <button id="subscribe-btn" type="button" class="underline ml-1">Subscribe</button>
     </div>
 
+    <!-- Tabs -->
     <div class="flex flex-wrap items-center gap-2 mb-4">
-      <button data-tab="tab-manage" class="app-tab px-3 py-1.5 rounded-lg">Class / Event</button>
-      <button data-tab="tab-rubrics" class="app-tab px-3 py-1.5 rounded-lg">Rubrics</button>
-      <button data-tab="tab-record" class="app-tab px-3 py-1.5 rounded-lg">Record</button>
-      <button data-tab="tab-library" class="app-tab px-3 py-1.5 rounded-lg">Library</button>
-      <button data-tab="tab-analytics" class="app-tab px-3 py-1.5 rounded-lg">Analytics</button>
+      <button data-tab="tab-manage" type="button" class="app-tab px-3 py-1.5 rounded-lg">Class / Event</button>
+      <button data-tab="tab-rubrics" type="button" class="app-tab px-3 py-1.5 rounded-lg">Rubrics</button>
+      <button data-tab="tab-record" type="button" class="app-tab px-3 py-1.5 rounded-lg">Record</button>
+      <button data-tab="tab-library" type="button" class="app-tab px-3 py-1.5 rounded-lg">Library</button>
+      <button data-tab="tab-analytics" type="button" class="app-tab px-3 py-1.5 rounded-lg">Analytics</button>
+
       <span id="account-pill" class="ml-auto text-xs text-gray-400">Role: — • Storage: —</span>
     </div>
 
-    <div class="app-tab-content" id="tab-manage">
+    <!-- TAB: CLASS / EVENT MANAGER -->
+    <div id="tab-manage" class="app-tab-content">
       <div class="grid md:grid-cols-2 gap-6">
+
+        <!-- Left Pane -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
+
           <div class="flex items-center gap-2 mb-3">
             <h3 class="font-semibold text-lg">Class / Event Manager</h3>
-            <button id="new-class-btn"
-                    class="ml-auto text-sm px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500">New</button>
+
+            <button id="new-class-btn" type="button"
+                    class="ml-auto text-sm px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500">
+              New
+            </button>
           </div>
+
           <div class="space-y-3">
+
             <div class="flex items-center gap-2">
               <label class="text-sm text-gray-300">Existing:</label>
-              <select id="classes-list" class="w-full mt-1 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
+              <select id="classes-list"
+                      class="w-full mt-1 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
             </div>
-            
+
             <hr class="border-white/10 my-2"/>
 
             <h4 class="font-semibold text-md">Edit Selected Class / Event</h4>
+
             <div class="grid grid-cols-2 gap-2">
-              <input id="class-title"
-                     class="col-span-2 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
+              <input id="class-title" class="col-span-2 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
                      placeholder="Title (e.g., Public Speaking 101)"/>
+
               <label class="text-xs text-gray-300">
                 Auto-Archive Date
                 <input id="class-archive-date" type="date"
                        class="w-full mt-1 rounded bg-black/30 border border-white/10 p-1.5 text-sm"/>
               </label>
+
               <label class="text-xs text-gray-300">
                 Auto-Delete Date
                 <input id="class-delete-date" type="date"
@@ -333,39 +363,51 @@
                       placeholder="Jane Smith..."></textarea>
 
             <div class="flex gap-2">
-              <button id="save-class-btn"
+              <button id="save-class-btn" type="button"
                       class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20">Save / Update</button>
-              <button id="archive-class-btn"
+
+              <button id="archive-class-btn" type="button"
                       class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20">Manual Archive</button>
             </div>
           </div>
         </div>
 
+        <!-- Right Pane -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
+
           <h3 class="font-semibold text-lg mb-3">Account & Storage</h3>
+
           <div class="space-y-3 text-sm">
+
             <div>Storage used: <span id="storage-used">0</span> / <span id="storage-limit">—</span></div>
+
             <div class="w-full h-2 rounded bg-white/5 overflow-hidden">
               <div id="storage-progress" class="h-full w-0 bg-primary-600"></div>
             </div>
+
             <div class="text-xs text-gray-400">
               Grace period after subscription ends; data is deleted by backend policy.
             </div>
+
             <div class="pt-2">
               <label class="block text-sm text-gray-300">Storage Provider</label>
+
               <select id="storage-provider"
                       class="rounded bg-black/30 border border-white/10 p-2 text-sm">
                 <option value="firebase">Firebase (App storage)</option>
                 <option value="gdrive">Google Drive (personal)</option>
               </select>
+
               <p class="text-xs text-gray-400 mt-1">
                 Changing provider may orphan old data. Export before switching.
               </p>
             </div>
+
             <div class="pt-2">
-              <button id="export-data-btn"
+              <button id="export-data-btn" type="button"
                       class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20">Export (Firebase only)</button>
-              <button id="upgrade-plan-btn"
+
+              <button id="upgrade-plan-btn" type="button"
                       class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500">Upgrade Plan</button>
             </div>
           </div>
@@ -373,68 +415,114 @@
       </div>
     </div>
 
+    <!-- TAB: RUBRICS -->
     <div id="tab-rubrics" class="hidden app-tab-content">
+
       <div class="flex items-center gap-2 mb-3">
         <h2 class="text-xl font-semibold">Rubric Reference Manager</h2>
       </div>
+
       <div class="flex border-b border-white/10 mb-4">
-        <button data-subtab="rubric-tab-my" class="sub-tab border-b-2 px-4 py-2 text-sm font-medium">My Rubrics</button>
-        <button data-subtab="rubric-tab-public" class="sub-tab border-b-2 px-4 py-2 text-sm font-medium">Public Library</button>
+        <button data-subtab="rubric-tab-my" type="button"
+                class="sub-tab border-b-2 px-4 py-2 text-sm font-medium">My Rubrics</button>
+
+        <button data-subtab="rubric-tab-public" type="button"
+                class="sub-tab border-b-2 px-4 py-2 text-sm font-medium">Public Library</button>
       </div>
+
+      <!-- MY RUBRICS -->
       <div id="rubric-tab-my" class="rubric-sub-tab-content grid md:grid-cols-2 gap-6">
+
+        <!-- Create Rubric -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
           <h3 class="font-semibold text-lg mb-3">Create New Rubric Reference</h3>
+
           <div class="space-y-3">
+
             <div>
               <label class="block text-sm text-gray-300 mb-1">Rubric Title</label>
-              <input id="new-rubric-title" type="text" placeholder="e.g., AP Seminar IMP Rubric"
+              <input id="new-rubric-title" type="text"
+                     placeholder="e.g., AP Seminar IMP Rubric"
                      class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"/>
             </div>
+
             <div>
               <label class="block text-sm text-gray-300 mb-1">Rubric Reference File (PDF or Image)</label>
               <input id="new-rubric-file" type="file" accept=".pdf,image/*"
                      class="w-full text-sm text-gray-300 file:mr-3 file:py-1.5 file:px-3
-                            file:rounded-lg file:border-0 file:bg-white/10 file:text-gray-200
-                            hover:file:bg-white/20"/>
+                     file:rounded-lg file:border-0 file:bg-white/10 file:text-gray-200
+                     hover:file:bg-white/20"/>
             </div>
+
             <div>
-              <label class="block text-sm text-gray-300 mb-1">Scoring Rows (for Analytics)</label>
-              <p class="text-xs text-gray-400 mb-2">Define the component names so the app can track scores for each.</p>
+              <label class="block text-sm text-gray-300 mb-1">Scoring Rows (Analytics)</label>
+              <p class="text-xs text-gray-400 mb-2">
+                Define the component names so the app can track scores for each.
+              </p>
+
               <div id="new-rubric-rows-container" class="space-y-2">
-                <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Row 1: e.g., Context">
-                <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Row 2: e.g., Argument">
+                <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
+                       placeholder="Row 1: e.g., Context">
+
+                <input type="text" class="new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
+                       placeholder="Row 2: e.g., Argument">
               </div>
-              <button id="add-rubric-row-btn" class="mt-2 text-sm px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10">+ Add Row</button>
+
+              <button id="add-rubric-row-btn" type="button"
+                      class="mt-2 text-sm px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10">
+                + Add Row
+              </button>
             </div>
-            <button id="save-new-rubric-btn" class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500">Save New Rubric</button>
+
+            <button id="save-new-rubric-btn" type="button"
+                    class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500">
+              Save New Rubric
+            </button>
           </div>
         </div>
+
+        <!-- Saved Rubrics -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
           <h3 class="font-semibold text-lg mb-3">My Saved Rubrics</h3>
+
           <div id="my-rubrics-list" class="space-y-2">
             <p class="text-sm text-gray-400">No rubrics saved yet.</p>
           </div>
+
           <div class="mt-4">
-             <label class="text-sm text-gray-300">Helpful Links (External)</label>
-             <div class="flex gap-4 mt-1 text-sm text-primary-400">
-               <a href="https://rubistar.4teachers.org/" target="_blank" class="hover:underline">RubiStar</a>
-               <a href="https://www.irubric.com/" target="_blank" class="hover:underline">iRubric</a>
-             </div>
-             <p class="text-xs text-gray-400 mt-1">Build externally, save as PDF/Image, then upload here.</p>
+            <label class="text-sm text-gray-300">Helpful Links (External)</label>
+
+            <div class="flex gap-4 mt-1 text-sm text-primary-400">
+              <a href="https://rubistar.4teachers.org/" target="_blank" class="hover:underline">RubiStar</a>
+              <a href="https://www.irubric.com/" target="_blank" class="hover:underline">iRubric</a>
+            </div>
+
+            <p class="text-xs text-gray-400 mt-1">
+              Build externally, save as PDF/Image, then upload here.
+            </p>
           </div>
         </div>
       </div>
+
+      <!-- PUBLIC LIBRARY -->
       <div id="rubric-tab-public" class="hidden rubric-sub-tab-content">
         <h3 class="font-semibold text-lg mb-3">Public Rubric Library</h3>
-        <p class="text-gray-400">Browse rubrics shared by the community and admins. (Coming soon)</p>
-        <div id="public-rubrics-list" class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        </div>
+        <p class="text-gray-400">Browse rubrics shared by the community. (Coming soon)</p>
+
+        <div id="public-rubrics-list"
+             class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
       </div>
     </div>
+
+    <!-- TAB: RECORD -->
     <div id="tab-record" class="hidden app-tab-content max-w-2xl mx-auto">
       <h2 class="text-xl font-semibold mb-4">Record Presentation</h2>
+
       <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-        <video id="video-preview" class="w-full rounded-lg shadow aspect-video mb-4" playsinline muted autoplay></video>
+
+        <video id="video-preview"
+               class="w-full rounded-lg shadow aspect-video mb-4"
+               playsinline muted autoplay></video>
 
         <div class="flex justify-between items-center mb-4">
           <div class="text-lg">
@@ -446,76 +534,124 @@
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <button id="start-rec-btn" class="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold col-span-2">
+
+          <button id="start-rec-btn" type="button"
+                  class="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold col-span-2">
             Start Recording
           </button>
-          <button id="pause-rec-btn" class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50" disabled>
+
+          <button id="pause-rec-btn" type="button" disabled
+                  class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50">
             Pause
           </button>
-          <button id="toggle-camera-btn" class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20">
+
+          <button id="tag-btn" type="button"
+                  class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20">
+            Tag
+          </button>
+
+          <button id="toggle-camera-btn" type="button"
+                  class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20">
             Switch Camera
           </button>
-          
-          <button id="stop-rec-btn" class="hidden px-4 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold col-span-2">
+
+          <button id="stop-rec-btn" type="button"
+                  class="hidden px-4 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold col-span-2">
             Stop & Tag Video
           </button>
-          <button id="discard-rec-btn" class="hidden px-4 py-3 rounded-lg bg-red-800 hover:bg-red-700 text-white col-span-2">
+
+          <button id="discard-rec-btn" type="button"
+                  class="hidden px-4 py-3 rounded-lg bg-red-800 hover:bg-red-700 text-white col-span-2">
             Discard & Restart
           </button>
         </div>
-        <p class="text-xs text-gray-500 mt-3 text-center">Note: Recording happens on your device. You will tag and upload after stopping.</p>
-        
+
+        <p class="text-xs text-gray-500 mt-3 text-center">
+          Note: Recording happens on your device. Tags and uploads occur after stopping.
+        </p>
+
+        <div id="tag-timeline" class="mt-4 space-y-1"></div>
+
         <div class="w-full h-1 mt-4 bg-white/10 rounded-full overflow-hidden">
-          <div id="upload-progress" class="h-1 bg-primary-500 w-0 transition-all duration-300"></div>
+          <div id="upload-progress"
+               class="h-1 bg-primary-500 w-0 transition-all duration-300"></div>
         </div>
+
       </div>
     </div>
+
+    <!-- TAB: LIBRARY -->
     <div id="tab-library" class="hidden app-tab-content">
       <h2 class="text-xl font-semibold mb-4">Video Library</h2>
+
       <div id="library-list" class="space-y-3">
         <p class="text-sm text-gray-400">Loading library...</p>
       </div>
     </div>
+
+    <!-- TAB: ANALYTICS -->
     <div id="tab-analytics" class="hidden app-tab-content">
-       <h2 class="text-xl font-semibold">Analytics Dashboard</h2>
-       <p class="text-gray-400">This section is under construction.</p>
+      <h2 class="text-xl font-semibold">Analytics Dashboard</h2>
+      <p class="text-gray-400">This section is under construction.</p>
     </div>
+
   </section>
 
-  <dialog id="metadata-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-md border border-white/10 p-0">
+
+  <!-- METADATA DIALOG -->
+  <dialog id="metadata-screen"
+          class="backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-md border border-white/10 p-0">
     <form id="metadata-form">
+
       <h2 class="text-xl font-bold p-5 border-b border-white/10">Tag Your Recording</h2>
+
       <div class="p-5 space-y-4">
+
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-medium text-gray-400">Organization</label>
-            <input id="meta-org" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
+            <label class="block text-xs text-gray-400">Organization</label>
+            <input id="meta-org" type="text" readonly
+                   class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm">
           </div>
+
           <div>
-            <label class="block text-xs font-medium text-gray-400">Instructor</label>
-            <input id="meta-instructor" type="text" class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm" readonly>
+            <label class="block text-xs text-gray-400">Instructor</label>
+            <input id="meta-instructor" type="text" readonly
+                   class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm">
           </div>
         </div>
-        
+
         <div>
-          <label for="meta-class" class="block text-sm font-medium text-gray-300 mb-1">Class / Event</label>
-          <select id="meta-class" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
+          <label class="block text-sm text-gray-300 mb-1">Class / Event</label>
+          <select id="meta-class" required
+                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
         </div>
+
         <div>
-          <label for="meta-participant" class="block text-sm font-medium text-gray-300 mb-1">Participant</label>
-          <select id="meta-participant" required class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" disabled>
+          <label class="block text-sm text-gray-300 mb-1">Participant</label>
+          <select id="meta-participant" required disabled
+                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
             <option value="">Select a class/event first...</option>
           </select>
+
           <div id="add-participant-container" class="hidden flex gap-2 mt-2">
-            <input id="new-participant-name" type="text" class="flex-1 rounded-lg bg-black/40 border border-white/10 p-2 text-sm" placeholder="New Participant Name...">
-            <button id="add-participant-btn" type="button" class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-sm">Add</button>
+            <input id="new-participant-name" type="text"
+                   class="flex-1 rounded-lg bg-black/40 border border-white/10 p-2 text-sm"
+                   placeholder="New Participant Name...">
+
+            <button id="add-participant-btn" type="button"
+                    class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-sm">
+              Add
+            </button>
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
+
           <div>
-            <label for="meta-type" class="block text-sm font-medium text-gray-300 mb-1">Recording Type</label>
-            <select id="meta-type" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+            <label class="block text-sm text-gray-300 mb-1">Recording Type</label>
+            <select id="meta-type"
+                    class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
               <option value="mock">mock</option>
               <option value="tmp">tmp</option>
               <option value="imp">imp</option>
@@ -524,137 +660,129 @@
               <option value="other">other</option>
             </select>
           </div>
+
           <div>
-            <label for="meta-group" class="block text-sm font-medium text-gray-300 mb-1">Group / Tag</label>
-            <input id="meta-group" type="text" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="e.g., Group 1">
+            <label class="block text-sm text-gray-300 mb-1">Group / Tag</label>
+            <input id="meta-group" type="text"
+                   class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
+                   placeholder="e.g., Group 1">
           </div>
         </div>
-        
+
         <div>
-          <label for="meta-notes" class="block text-sm font-medium text-gray-300 mb-1">General Notes</label>
-          <textarea id="meta-notes" rows="3" class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm" placeholder="Optional notes..."></textarea>
+          <label class="block text-sm text-gray-300 mb-1">General Notes</label>
+          <textarea id="meta-notes" rows="3"
+                    class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
+                    placeholder="Optional notes..."></textarea>
         </div>
 
       </div>
+
       <div class="p-5 border-t border-white/10 flex justify-between items-center">
+        <span class="text-sm">
+          File Size: <span id="meta-file-size" class="font-medium text-gray-300">0 MB</span>
+        </span>
+
         <div>
-          <span class="text-sm">File Size: <span id="meta-file-size" class="font-medium text-gray-300">0 MB</span></span>
-        </div>
-        <div>
-          <button id="cancel-upload-btn" type="reset" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
-          <button id="save-upload-btn" type="submit" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 ml-2">Save & Upload</button>
+          <button id="cancel-upload-btn" type="reset"
+                  class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
+
+          <button id="save-upload-btn" type="submit"
+                  class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 ml-2">
+            Save & Upload
+          </button>
         </div>
       </div>
+
     </form>
   </dialog>
 
+  <!-- HELP & FAQ -->
+  <dialog id="help-faq-screen"
+          class="backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-2xl border border-white/10 p-0">
 
-  <dialog id="help-faq-screen" class="hidden backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-2xl border border-white/10 p-0">
     <form method="dialog">
       <button class="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
     </form>
+
     <h2 class="text-xl font-bold p-5 border-b border-white/10">Help & FAQ</h2>
+
     <div class="p-5 max-h-[70vh] overflow-y-auto space-y-6">
-      
+
       <details class="space-y-2" open>
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">How do I install this app on my phone? (Add to Home Screen)</summary>
-        <p class="text-gray-300">This is a Progressive Web App (PWA). You can install it from your browser for a full-screen, app-like experience.</p>
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">
+          How do I install this app on my phone?
+        </summary>
+
+        <p class="text-gray-300">
+          This is a PWA. Install it from your browser for a full-screen experience.
+        </p>
+
         <div class="ml-4">
-          <h4 class="font-semibold text-gray-100">On iOS (iPhone/iPad - Safari):</h4>
-          <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
-            <li>Open the app's website in the **Safari** browser.</li>
-            <li>Tap the **"Share"** icon (a box with an arrow pointing up).</li>
-            <li>Scroll down and tap on **"Add to Home Screen"**.</li>
-            <li>Confirm the name and tap **"Add"**.</li>
+          <h4 class="font-semibold">On iOS (Safari):</h4>
+          <ol class="list-decimal ml-5 text-gray-300 space-y-1">
+            <li>Open in Safari</li>
+            <li>Tap Share</li>
+            <li>Tap “Add to Home Screen”</li>
           </ol>
         </div>
+
         <div class="ml-4 mt-2">
-          <h4 class="font-semibold text-gray-100">On Android (Chrome):</h4>
-          <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1">
-            <li>Open the app's website in the **Chrome** browser.</li>
-            <li>Tap the **three-dot menu** (⋮) in the top-right corner.</li>
-            <li>Tap on **"Install app"** (or "Add to Home screen").</li>
-            <li>Follow the prompts to confirm.</li>
+          <h4 class="font-semibold">On Android (Chrome):</h4>
+          <ol class="list-decimal ml-5 text-gray-300 space-y-1">
+            <li>Open in Chrome</li>
+            <li>Tap menu (⋮)</li>
+            <li>Select “Install App”</li>
           </ol>
         </div>
       </details>
 
       <details class="space-y-2">
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">What are the requirements for iOS (iPhone/iPad)?</summary>
-        <p class="text-gray-300">The app works best on newer operating systems.</p>
-        <ul class="list-disc list-outside ml-5 space-y-2">
-          <li>
-            <strong class="text-gray-100">Recommended: iOS 17 / iPadOS 17 (or newer)</strong><br>
-            <span class="text-gray-300">Provides full support. You can "Add to Home Screen" and **offline recording is fully supported.**</span>
-          </li>
-          <li>
-            <strong class="text-gray-100">Older iOS (Version 16.x and below)</strong><br>
-            <span class="text-gray-300">**Online-Only.** The app will still run in Safari, but you must have an active internet connection. Offline recording is not available.</span>
-          </li>
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">
+          What are the requirements for iOS?
+        </summary>
+
+        <ul class="list-disc ml-5 space-y-2">
+          <li><strong>iOS 17+</strong>: Full support</li>
+          <li><strong>Older iOS</strong>: Online-only mode</li>
         </ul>
       </details>
 
       <details class="space-y-2">
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Storage & Data Management</summary>
-        <div class="ml-4 space-y-3">
-          <div>
-            <h4 class="font-semibold text-gray-100">What do I do about the "Low Storage" warning?</h4>
-            <p class="text-gray-300">This warning appears when you use ~90% of your subscription's storage limit. To continue uploading, you have three options:</p>
-            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
-              <li>**Upgrade Your Plan:** Go to the "Account" section to purchase a plan with more storage.</li>
-              <li>**Export & Delete (Firebase Storage):** Use the "Export (Firebase only)" button in the Account section to download a .zip file of a class's videos, save it to your computer, and then safely delete the recordings from the app.</li>
-              <li>**Manually Delete:** Go to the "Library" tab, find old videos you no longer need, and delete them.</li>
-            </ol>
-          </div>
-          <div>
-            <h4 class="font-semibold text-gray-100">Firebase Storage vs. Google Drive</h4>
-            <p class="text-gray-300">**Firebase Storage** (Recommended) saves your videos privately to the app's storage. This is required for features like `Export as Zip` and is managed by your app subscription's storage limit.</p>
-            <p class="text-gray-300 mt-1">**Google Drive** saves videos to your *personal* Google Drive account. This uses your personal Google storage quota and does not count against your app limit. However, if you move or rename these files in your Google Drive, the app will lose access to them.</p>
-          </div>
-          <div>
-            <h4 class="font-semibold text-gray-100">What if I switch storage providers?</h4>
-            <p class="text-gray-300">You can switch providers in the "Account" section, but **this only affects *new* uploads.** The app will lose access to all videos saved in the previous location. This is not reversible and is only recommended for a "fresh start" (e.g., a new school year).</p>
-          </div>
-        </div>
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Storage & Data</summary>
+
+        <p class="text-gray-300">Low storage means you’re near your quota.</p>
+
+        <ol class="list-decimal ml-5 text-gray-300 space-y-1">
+          <li>Upgrade plan</li>
+          <li>Export & delete</li>
+          <li>Manually delete videos</li>
+        </ol>
       </details>
-      
+
       <details class="space-y-2">
-        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Class Lifecycle (Archiving & Deletion)</summary>
-        <div class="ml-4 space-y-3">
-          <div>
-            <h4 class="font-semibold text-gray-100">Archiving vs. Deleting</h4>
-            <p class="text-gray-300">**Archiving** a class simply hides it from your active lists (like the "Class / Event" dropdown during recording). You can still view archived videos in the "Library" tab. This is the recommended action for finished classes.</p>
-            <p class="text-gray-300 mt-1">**Deleting** is permanent. When a class is deleted (either by you or by the auto-delete policy), all associated videos and scores are permanently erased from the system.</p>
-          </div>
-          <div>
-            <h4 class="font-semibold text-gray-100">How does Auto-Delete work?</h4>
-            <p class="text-gray-300">You can set an `Auto-Delete Date` for each class. This is useful for meeting data retention requirements. For example, if you must keep videos for 1 year after a class ends, set the `Auto-Archive Date` to the class end date, and the `Auto-Delete Date` to one year after that.</p>
-            <p class="text-gray-300 mt-1">**Fallback Policy:** For users on the **Firebase Storage** option, a system-wide rule will permanently delete any video file that is older than **18 months** (based on its creation date) as a safety net to manage storage costs, regardless of your in-app settings.</p>
-          </div>
-        </div>
+        <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Class Lifecycle</summary>
+
+        <h4 class="font-semibold">Archiving vs Deleting</h4>
+
+        <p class="text-gray-300">Archiving hides; deleting is permanent.</p>
+
+        <h4 class="font-semibold">Auto-Delete</h4>
+        <p class="text-gray-300">
+          Videos older than 18 months (Firebase) may be removed automatically.
+        </p>
       </details>
 
       <details class="space-y-2">
         <summary class="text-lg font-semibold text-primary-300 cursor-pointer">Common Workflows</summary>
-        <div class="ml-4 space-y-3">
-          <div>
-            <h4 class="font-semibold text-gray-100">How do I add my participant roster?</h4>
-            <p class="text-gray-300">Go to the "Class / Event" tab, select your class (or create a new one), and go to the "Participant Roster" text box. You can copy your list of names from any source (Google Classroom, Sheets, Word) and paste them in. **Ensure names are listed one per line.**</p>
-          </div>
-          <div>
-            <h4 class="font-semibold text-gray-100">How do I use videos from Zoom or Google Meet?</h4>
-            <p class="text-gray-300">You cannot record *from* Zoom/Meet directly. Instead:</p>
-            <ol class="list-decimal list-outside ml-5 text-gray-300 space-y-1 mt-1">
-              <li>Record the presentation using the record feature *inside* Zoom or Meet.</li>
-              <li>Download the video file (e.g., `.mp4`) from Zoom/Meet to your device.</li>
-              <li>In this app, go to the "Library" tab and find the **"Upload Existing Video File"** button (this feature is coming soon).</li>
-              <li>Select the file you downloaded, and tag it with metadata just like a normal recording.</li>
-            </ol>
-          </div>
-        </div>
+
+        <h4 class="font-semibold">Adding a Participant Roster</h4>
+        <p class="text-gray-300">Paste one name per line in the roster field.</p>
+
       </details>
 
     </div>
+
     <div class="p-5 border-t border-white/10 text-right">
       <form method="dialog">
         <button class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Close</button>
@@ -662,21 +790,33 @@
     </div>
   </dialog>
 
-  <dialog id="confirm-modal" class="backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-sm border border-white/10 p-0">
+
+  <!-- CONFIRM DIALOG -->
+  <dialog id="confirm-modal"
+          class="backdrop:bg-black/60 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-sm border border-white/10 p-0">
+
     <div class="p-5">
-      <h3 id="confirm-title" class="text-lg font-semibold text-white mb-2">Are you sure?</h3>
-      <p id="confirm-message" class="text-sm text-gray-300 mb-4">This action cannot be undone.</p>
+      <h3 id="confirm-title" class="text-lg font-semibold mb-2">Are you sure?</h3>
+      <p id="confirm-message" class="text-sm text-gray-300 mb-4">
+        This action cannot be undone.
+      </p>
     </div>
+
     <div class="p-4 bg-white/5 border-t border-white/10 flex justify-end gap-2">
-      <button id="confirm-btn-no" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
-      <button id="confirm-btn-yes" class="px-4 py-2 text-sm rounded-lg">Confirm</button>
+
+      <button id="confirm-btn-no" type="button"
+              class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
+
+      <button id="confirm-btn-yes" type="button"
+              class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500">Confirm</button>
+
     </div>
   </dialog>
 
 </main>
 
-
-<script type="module" src="./scripts/main.js?v=13"></script>
+<!-- ENTRY POINT -->
+<script type="module" src="./scripts/main.js"></script>
 
 </body>
 </html>
