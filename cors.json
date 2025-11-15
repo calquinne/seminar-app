@@ -6,7 +6,11 @@
       "http://localhost:3000"
     ],
     "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
-    "responseHeader": ["Content-Type", "x-goog-meta-filename"],
+    "responseHeader": [
+      "Content-Type",
+      "x-goog-meta-filename",
+      "Authorization"
+    ],
     "maxAgeSeconds": 3600
   }
 ]
