@@ -1,8 +1,12 @@
 [
   {
-    "maxAgeSeconds": 3600,
-    "method": ["GET", "PUT", "POST", "HEAD", "DELETE", "OPTIONS"],
-    "origin": ["*"],
-    "responseHeader": ["Content-Type", "Authorization", "x-goog-meta-*"]
+    "origin": ["https://calquinne.github.io"],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+    "responseHeader": [
+      "Content-Type",
+      "x-goog-meta-*",
+      "x-goog-content-length-range"
+    ],
+    "maxAgeSeconds": 3600
   }
 ]
