@@ -1,12 +1,12 @@
 [
   {
-    "origin": ["https://calquinne.github.io"],
-    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
-    "responseHeader": [
-      "Content-Type",
-      "x-goog-meta-*",
-      "x-goog-content-length-range"
+    "origin": [
+      "https://calquinne.github.io",
+      "http://localhost:5000",
+      "http://localhost:3000"
     ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+    "responseHeader": ["Content-Type", "x-goog-meta-filename"],
     "maxAgeSeconds": 3600
   }
 ]
