@@ -1,29 +1,32 @@
 rules_version = '2';
 
 service firebase.storage {
-  match /b/{bucket}/o {
+  match /b/seminar-cloud-uploads/o {
 
     // --- Helpers ---
-    function isAdmin() {
-      let userDoc = firestore.get(
-        /databases/(default)/documents/artifacts/seminar-cloud/users/$(request.auth.uid)
-      );
-      // All logic must be in a single return statement.
-      // This checks if data is not null AND the role is 'admin'.
-      return userDoc.data != null && userDoc.data.role == 'admin';
-    }
-
     function isAllowedContentType() {
       return request.resource.contentType.matches('video/.*') ||
              request.resource.contentType.matches('image/.*') ||
              request.resource.contentType.matches('application/pdf');
     }
 
-    // --- User-Specific Files ---
-    
-    match /artifacts/seminar-cloud/users/{userId}/{allPaths=**} {
-      allow get, delete: if request.auth.uid == userId;
-      allow create, update: if request.auth.uid == userId && isAllowedContentType();
+    function isAdmin() {
+      let userDoc = firestore.get(
+        /databases/(default)/documents/artifacts/seminar-cloud/users/$(request.auth.uid)
+      );
+      return userDoc.data != null && userDoc.data.role == 'admin';
+    }
+
+    // --- Per-user uploads ---
+    match /artifacts/{appId}/users/{userId}/{allPaths=**} {
+      allow create, update: if request.auth != null
+                            && request.auth.uid == userId
+                            && isAllowedContentType();
+
+      allow get, delete: if request.auth != null
+                         && request.auth.uid == userId;
+
+      // Admin override
       allow get: if isAdmin();
     }
   }
