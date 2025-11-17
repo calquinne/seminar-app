@@ -30,7 +30,8 @@ export function initFirebase() {
       const app = getApps()[0];
       const auth = getAuth(app);
       const db = getFirestore(app);
-      const storage = getStorage(app);
+    const storage = getStorage(app);
+
       UI.setFirebase(app, auth, db, storage);
       return true;
     }
@@ -45,7 +46,7 @@ export function initFirebase() {
     const app = initializeApp(cfg);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const storage = getStorage(app);
+   const storage = getStorage(app);
     
     // Set shared state
     UI.setFirebase(app, auth, db, storage);

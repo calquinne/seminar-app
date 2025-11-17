@@ -1,33 +1,44 @@
 rules_version = '2';
 
 service firebase.storage {
-  match /b/seminar-cloud-uploads/o {
+  // IMPORTANT: Must match your actual Firebase bucket
+  match /b/seminar-cloud-1c100.appspot.com/o {
 
-    // --- Helpers ---
+    /* ------------------------------ */
+    /*      Allowed File Types        */
+    /* ------------------------------ */
     function isAllowedContentType() {
       return request.resource.contentType.matches('video/.*') ||
              request.resource.contentType.matches('image/.*') ||
              request.resource.contentType.matches('application/pdf');
     }
 
-    function isAdmin() {
+    /* ------------------------------ */
+    /*      Admin Role Checker        */
+    /* ------------------------------ */
+    function isAdmin(appId) {
       let userDoc = firestore.get(
-        /databases/(default)/documents/artifacts/seminar-cloud/users/$(request.auth.uid)
+        /databases/(default)/documents/artifacts/$(appId)/users/$(request.auth.uid)
       );
       return userDoc.data != null && userDoc.data.role == 'admin';
     }
 
-    // --- Per-user uploads ---
+    /* ------------------------------ */
+    /*     Main Artifact Structure    */
+    /* ------------------------------ */
     match /artifacts/{appId}/users/{userId}/{allPaths=**} {
+
+      // Users may upload/update their own files only
       allow create, update: if request.auth != null
                             && request.auth.uid == userId
                             && isAllowedContentType();
 
+      // Users may read or delete their own files
       allow get, delete: if request.auth != null
                          && request.auth.uid == userId;
 
-      // Admin override
-      allow get: if isAdmin();
+      // Admins may read all files
+      allow get: if isAdmin(appId);
     }
   }
 }
