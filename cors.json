@@ -5,8 +5,7 @@
     "responseHeader": [
       "Content-Type",
       "x-goog-meta-filename",
-      "x-goog-resumable",
-      "Authorization"
+      "x-goog-resumable"
     ],
     "maxAgeSeconds": 3600
   }
