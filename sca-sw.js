@@ -94,6 +94,11 @@ self.addEventListener("fetch", (event) => {
     console.log("[SW] Skipping auth request (network only):", url.href);
     return; // Let the browser handle it
   }
+// 🚨 NEW: Always bypass Firebase Storage uploads
+if (url.hostname.includes("firebasestorage.googleapis.com")) {
+  console.log("[SW] Skipping Firebase Storage request:", url.href);
+  return fetch(event.request);
+}
 
   // Cache-first strategy
   event.respondWith(
