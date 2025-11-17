@@ -1,10 +1,6 @@
 [
   {
-    "origin": [
-      "https://calquinne.github.io",
-      "http://localhost:5000",
-      "http://localhost:3000"
-    ],
+    "origin": ["https://calquinne.github.io"],
     "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
     "responseHeader": [
       "Content-Type",
