@@ -1,8 +1,8 @@
 rules_version = '2';
 
 service firebase.storage {
-  // IMPORTANT: Must match your actual Firebase bucket
-  match /b/seminar-cloud-1c100.appspot.com/o {
+  // MUST MATCH your real bucket
+  match /b/seminar-cloud-uploads.appspot.com/o {
 
     /* ------------------------------ */
     /*      Allowed File Types        */
@@ -33,11 +33,11 @@ service firebase.storage {
                             && request.auth.uid == userId
                             && isAllowedContentType();
 
-      // Users may read or delete their own files
+      // Users may read or delete ONLY their own files
       allow get, delete: if request.auth != null
                          && request.auth.uid == userId;
 
-      // Admins may read all files
+      // Admins may read everything
       allow get: if isAdmin(appId);
     }
   }
