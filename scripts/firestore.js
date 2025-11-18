@@ -24,18 +24,19 @@ import * as UI from './ui.js';
 /* -------------------------------------------------------------------------- */
 export function initFirebase() {
   try {
-    // ✅ Firebase init guard
+    // If Firebase already initialized, reuse existing instance
     if (getApps().length) {
       console.log("Firebase already initialized, reusing app.");
       const app = getApps()[0];
       const auth = getAuth(app);
       const db = getFirestore(app);
-    const storage = getStorage(app);
+      const storage = getStorage(app);
 
       UI.setFirebase(app, auth, db, storage);
       return true;
     }
 
+    // Load Firebase config from localStorage
     const cfgStr = localStorage.getItem(UI.LS.CFG);
     if (!cfgStr) {
       console.warn("⚠️ No Firebase config found in localStorage.");
@@ -43,16 +44,18 @@ export function initFirebase() {
     }
 
     const cfg = JSON.parse(cfgStr);
+
+    // Initialize Firebase
     const app = initializeApp(cfg);
     const auth = getAuth(app);
     const db = getFirestore(app);
-   const storage = getStorage(app);
-    
-    // Set shared state
+    const storage = getStorage(app);
+
     UI.setFirebase(app, auth, db, storage);
 
     console.log("✅ Firebase initialized successfully.");
     return true;
+
   } catch (e) {
     console.error("❌ Firebase init error:", e);
     UI.toast("Firebase init failed: " + e.message, "error");
