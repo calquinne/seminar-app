@@ -8,7 +8,7 @@ service cloud.firestore {
     // Safely get the user's role
     function getUserRole() {
       let userDoc = get(
-        /databases/$(database)/documents/artifacts/seminar-cloud-1c100/users/$(request.auth.uid)
+        /databases/$(database)/documents/artifacts/seminar-cloud/users/$(request.auth.uid)
       );
       return userDoc.data != null ? userDoc.data.role : null;
     }
@@ -19,12 +19,13 @@ service cloud.firestore {
 
     // --- User-Specific Data ---
 
-    match /artifacts/seminar-cloud-1c100/users/{userId} {
+    // ✅ FIXED: Changed 'seminar-cloud-1c100' to 'seminar-cloud' to match your DB
+    match /artifacts/seminar-cloud/users/{userId} {
       allow read, write: if request.auth.uid == userId;
       allow get: if isAdmin();
     }
 
-    match /artifacts/seminar-cloud-1c100/users/{userId}/{subcollection}/{docId} {
+    match /artifacts/seminar-cloud/users/{userId}/{subcollection}/{docId} {
       allow read, write: if request.auth.uid == userId;
       allow read: if isAdmin();
     }
