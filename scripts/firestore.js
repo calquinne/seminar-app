@@ -36,14 +36,16 @@ export function initFirebase() {
       return true;
     }
 
-    // Load Firebase config from localStorage
-    const cfgStr = localStorage.getItem(UI.LS.CFG);
-    if (!cfgStr) {
-      console.warn("⚠️ No Firebase config found in localStorage.");
-      return false;
-    }
-
-    const cfg = JSON.parse(cfgStr);
+    // ✅ Hard-coded Firebase Config
+    const cfg = {
+      apiKey: "AIzaSyDw06kFt7C4Wyiveh0A6vBmO5azb7bRi1U",
+      authDomain: "seminar-cloud-1c100.firebaseapp.com",
+      projectId: "seminar-cloud-1c100",
+      storageBucket: "seminar-cloud-1c100.firebasestorage.app",
+      messagingSenderId: "121874296023",
+      appId: "1:121874296023:web:d29beddbfc20c5708e5492",
+      measurementId: "G-2VKGZ7CRRB"
+    };
 
     // Initialize Firebase
     const app = initializeApp(cfg);
