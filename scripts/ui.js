@@ -369,20 +369,23 @@ export function uploadToDrivePlaceholder(file, meta){
 }
 
 /* -------------------------------------------------------------------------- */
-/* PWA Service Worker
+/* PWA Service Worker Registration (Final Polished Version)                   */
 /* -------------------------------------------------------------------------- */
-// ✅ UPDATED: This is the final, polished "top-slide + glow" version
-export async function registerSW(){
-  if(!("serviceWorker" in navigator)) return;
-  
+
+export async function registerSW() {
+  if (!("serviceWorker" in navigator)) return;
+
   try {
-    const reg = await navigator.serviceWorker.register('./sca-sw.js', { scope: './' });
+    const reg = await navigator.serviceWorker.register("./sca-sw.js", { scope: "./" });
     console.log("✅ Service Worker registered successfully.");
 
-    // Inject animation CSS once
+    /* ------------------------------------------------------------ */
+    /* Inject CSS animations once                                   */
+    /* ------------------------------------------------------------ */
     if (!document.getElementById("update-banner-style")) {
       const style = document.createElement("style");
       style.id = "update-banner-style";
+
       style.textContent = `
         @keyframes slideDownFade {
           0% { opacity: 0; transform: translate(-50%, -30px); }
@@ -398,64 +401,71 @@ export async function registerSW(){
           100% { box-shadow: 0 0 0 0 rgba(14,116,144,0); }
         }
         #update-banner {
-          animation: slideDownFade 0.5s ease-out forwards, pingGlow 1.4s ease-out 0.3s;
+          animation: slideDownFade 0.5s ease-out forwards,
+                     pingGlow 1.4s ease-out 0.3s;
           text-shadow: 0 0 4px rgba(0,0,0,0.5);
         }
         #update-banner.fade-out {
           animation: slideUpFadeOut 0.5s ease-in forwards;
         }
       `;
+
       document.head.appendChild(style);
     }
 
-    // 🔔 Detect new service worker
+    /* ------------------------------------------------------------ */
+    /* Listen for new service worker                                */
+    /* ------------------------------------------------------------ */
     reg.onupdatefound = () => {
       const newWorker = reg.installing;
       if (!newWorker) return;
 
       newWorker.onstatechange = () => {
-        // ✅ UPDATED: Added full defensive check
         try {
           if (
             newWorker.state === "installed" &&
             navigator.serviceWorker &&
             navigator.serviceWorker.controller
           ) {
-            // 🎨 Top glassy banner (Seminar Cloud blue)
+            // Construct banner
             const banner = document.createElement("div");
             banner.id = "update-banner";
+
             banner.className = `
               fixed top-4 left-1/2 -translate-x-1/2 z-50
               bg-[#0e7490]/90 backdrop-blur-md text-white text-sm
               px-5 py-2.5 rounded-2xl shadow-lg border border-white/10
               cursor-pointer transition hover:bg-[#0e7490]/100
             `;
+
             banner.textContent = "🔄 A new update is available — click to refresh";
 
             banner.onclick = () => {
               newWorker.postMessage({ type: "SKIP_WAITING" });
               banner.textContent = "⏳ Updating…";
               banner.classList.add("opacity-80");
-              setTimeout(() => window.location.reload(), 500); // Shorter delay
+              setTimeout(() => window.location.reload(), 500);
             };
 
             document.body.appendChild(banner);
 
-            // 🕐 Auto fade-out if ignored after 20s
+            // Auto fade-out after 20s
             setTimeout(() => {
               banner.classList.add("fade-out");
               setTimeout(() => banner.remove(), 600);
             }, 20000);
           }
         } catch (err) {
-          console.warn("[SW] Update check skipped (controller not yet ready)", err);
+          console.warn("[SW] Update check skipped (controller not ready)", err);
         }
       };
     };
+
   } catch (e) {
     console.error("❌ Service Worker registration failed:", e);
   }
 }
+
 /* -------------------------------------------------------------------------- */
 /* ✅ Tag State Helpers (for record.js ESM safety) */
 /* -------------------------------------------------------------------------- */

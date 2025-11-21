@@ -54,9 +54,11 @@ function setupEventListeners() {
     UI.toast("Testing in offline mode. Firebase is disabled.", "info");
   };
 
-  // Auth Screen
+ // Auth Screen
   UI.$("#auth-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);
   UI.$("#auth-google-btn").onclick = Auth.handleGoogleSignIn;
+  // ✅ ADD THIS LINE to make the "Create Account" button work
+  UI.$("#signup-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);Submit(e);
 
   // Main App Tabs
   UI.$$(".app-tab").forEach(
