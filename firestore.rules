@@ -5,38 +5,38 @@ service cloud.firestore {
 
     // --- Helpers ---
     
-    // Safely get the user's role in a single return statement
+    // Safely get the user's role
     function getUserRole() {
       let userDoc = get(
-        /databases/$(database)/documents/artifacts/seminar-cloud/users/$(request.auth.uid)
+        /databases/$(database)/documents/artifacts/seminar-cloud-1c100/users/$(request.auth.uid)
       );
-      // Use a ternary operator: (condition ? value_if_true : value_if_false)
       return userDoc.data != null ? userDoc.data.role : null;
     }
 
-    // This function is now safe
     function isAdmin() {
       return getUserRole() == 'admin';
     }
 
     // --- User-Specific Data ---
 
-    match /artifacts/seminar-cloud/users/{userId} {
+    match /artifacts/seminar-cloud-1c100/users/{userId} {
       allow read, write: if request.auth.uid == userId;
       allow get: if isAdmin();
     }
 
-    match /artifacts/seminar-cloud/users/{userId}/{subcollection}/{docId} {
+    match /artifacts/seminar-cloud-1c100/users/{userId}/{subcollection}/{docId} {
       allow read, write: if request.auth.uid == userId;
       allow read: if isAdmin();
     }
 
-    // --- Public/Shared Data ---
+    // --- Public Rubrics ---
 
     match /publicRubrics/{rubricId} {
       allow read: if request.auth.uid != null;
       allow write: if isAdmin();
     }
+
+    // --- Submitted Rubrics ---
 
     match /submittedRubrics/{rubricId} {
       allow create: if request.auth.uid != null;

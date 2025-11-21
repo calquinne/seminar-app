@@ -7,5 +7,3 @@
   "appId": "1:121874296023:web:d29beddbfc20c5708e5492",
   "measurementId": "G-2VKGZ7CRRB"
 }
-
-
