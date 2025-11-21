@@ -465,21 +465,3 @@ export async function registerSW() {
     console.error("❌ Service Worker registration failed:", e);
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/* ✅ Tag State Helpers (for record.js ESM safety) */
-/* -------------------------------------------------------------------------- */
-export let currentTags = [];
-
-export function setCurrentTags(t = []) {
-  currentTags = Array.isArray(t) ? t : [];
-}
-
-export function addTag(tag) {
-  if (!currentTags) currentTags = [];
-  currentTags.push(tag);
-}
-
-export function getCurrentTags() {
-  return currentTags || [];
-}
