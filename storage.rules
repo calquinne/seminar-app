@@ -1,11 +1,11 @@
 rules_version = '2';
 
 service firebase.storage {
-  // MUST MATCH your real Firebase bucket
-  match /b/seminar-cloud-1c100.firebasestorage.app/o {
+  // ✅ CHANGE: Use {bucket} to match both .appspot.com and .firebasestorage.app
+  match /b/{bucket}/o {
 
     /* ------------------------------ */
-    /*      Allowed File Types        */
+    /* Allowed File Types       */
     /* ------------------------------ */
     function isAllowedContentType() {
       return request.resource.contentType.matches('video/.*') ||
@@ -14,7 +14,7 @@ service firebase.storage {
     }
 
     /* ------------------------------ */
-    /*      Admin Role Checker        */
+    /* Admin Role Checker       */
     /* ------------------------------ */
     function isAdmin(appId) {
       let userDoc = firestore.get(
@@ -24,7 +24,7 @@ service firebase.storage {
     }
 
     /* ------------------------------ */
-    /*     Main Artifact Structure    */
+    /* Main Artifact Structure   */
     /* ------------------------------ */
     match /artifacts/{appId}/users/{userId}/{allPaths=**} {
 
