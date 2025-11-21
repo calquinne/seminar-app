@@ -54,11 +54,11 @@ function setupEventListeners() {
     UI.toast("Testing in offline mode. Firebase is disabled.", "info");
   };
 
- // Auth Screen
+  // Auth Screen
   UI.$("#auth-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);
   UI.$("#auth-google-btn").onclick = Auth.handleGoogleSignIn;
-  // ✅ ADD THIS LINE to make the "Create Account" button work
-  UI.$("#signup-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);Submit(e);
+  // ✅ Corrected line:
+  UI.$("#signup-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);
 
   // Main App Tabs
   UI.$$(".app-tab").forEach(
@@ -113,7 +113,12 @@ function setupEventListeners() {
   UI.$("#stop-rec-btn").onclick = Record.stopRecording;
   UI.$("#discard-rec-btn").onclick = Record.discardRecording;
   UI.$("#toggle-camera-btn").onclick = Record.toggleCamera;
-  UI.$("#tag-btn") && (UI.$("#tag-btn").onclick = Record.handleTagButtonClick);
+  
+  // Wire up the Tag button safely
+  const tagBtn = UI.$("#tag-btn");
+  if (tagBtn) {
+    tagBtn.onclick = Record.handleTagButtonClick;
+  }
 
   // Metadata Screen
   UI.$("#metadata-form").onsubmit = (e) => Record.handleMetadataSubmit(e);
