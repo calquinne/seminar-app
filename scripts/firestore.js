@@ -5,7 +5,8 @@
 
 // Firebase SDK Imports
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, setPersistence, browserLocalPersistence } 
+  from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc,
   collection, addDoc, query, getDocs, orderBy, serverTimestamp,
@@ -22,42 +23,36 @@ import * as UI from './ui.js';
 /* -------------------------------------------------------------------------- */
 /* Firebase Initialization
 /* -------------------------------------------------------------------------- */
-export function initFirebase() {
+export async function initFirebase() {
   try {
-    // If Firebase already initialized, reuse existing instance
     if (getApps().length) {
       console.log("Firebase already initialized, reusing app.");
       const app = getApps()[0];
       const auth = getAuth(app);
       const db = getFirestore(app);
       const storage = getStorage(app);
-
       UI.setFirebase(app, auth, db, storage);
+      await setPersistence(auth, browserLocalPersistence);
       return true;
     }
 
-    // ✅ Hard-coded Firebase Config
-    const cfg = {
-      apiKey: "AIzaSyDw06kFt7C4Wyiveh0A6vBmO5azb7bRi1U",
-      authDomain: "seminar-cloud-1c100.firebaseapp.com",
-      projectId: "seminar-cloud-1c100",
-      storageBucket: "seminar-cloud-1c100.firebasestorage.app",
-      messagingSenderId: "121874296023",
-      appId: "1:121874296023:web:d29beddbfc20c5708e5492",
-      measurementId: "G-2VKGZ7CRRB"
-    };
+    const cfgStr = localStorage.getItem(UI.LS.CFG);
+    if (!cfgStr) {
+      console.warn("⚠️ No Firebase config found in localStorage.");
+      return false;
+    }
 
-    // Initialize Firebase
+    const cfg = JSON.parse(cfgStr);
     const app = initializeApp(cfg);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const storage = getStorage(app);
-
+    
     UI.setFirebase(app, auth, db, storage);
+    await setPersistence(auth, browserLocalPersistence);
 
     console.log("✅ Firebase initialized successfully.");
     return true;
-
   } catch (e) {
     console.error("❌ Firebase init error:", e);
     UI.toast("Firebase init failed: " + e.message, "error");
@@ -114,7 +109,7 @@ export async function updateUserStorageQuota(deltaBytes) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Class / Event Management (Firestore)
+/* Class / Event Management
 /* -------------------------------------------------------------------------- */
 export async function refreshClassesList() {
   if (!UI.db || !UI.currentUser) return;
@@ -126,17 +121,16 @@ export async function refreshClassesList() {
   classListSelect.innerHTML = '<option value="">-- Select class to edit --</option>';
   metaClassSelect.innerHTML = '<option value="">-- Select a Class / Event --</option>';
   
-  let newClassData = {};
-
   try {
     const snap = await getDocs(q);
     if (snap.empty) {
-      console.log("No classes found in Firestore.");
       UI.setClassData({});
       return;
     }
     
     let firstClassId = null;
+    let newClassData = {};
+
     snap.forEach(d => {
       const classDoc = { id: d.id, ...d.data() };
       newClassData[d.id] = classDoc;
@@ -176,7 +170,6 @@ export async function handleSaveClass() {
     return;
   }
   
-  // ✅ ADDED: Paywall Check
   if (!UI.hasAccess()) {
     UI.toast("Saving classes requires an active subscription.", "error");
     return;
@@ -232,13 +225,11 @@ export async function handleArchiveClass() {
     return;
   }
   
-  // ✅ ADDED: Paywall Check
   if (!UI.hasAccess()) {
     UI.toast("Archiving requires an active subscription.", "error");
     return;
   }
 
-  // ✅ UPDATED: Use showConfirm
   let doExport = false;
   if (UI.getStorageChoice() === 'firebase') {
     doExport = await UI.showConfirm(
@@ -252,7 +243,7 @@ export async function handleArchiveClass() {
       "Archive Class?",
       "Archive"
     );
-    if (!proceed) return; // User cancelled
+    if (!proceed) return;
   }
 
   if (doExport) {
@@ -276,7 +267,7 @@ export async function handleArchiveClass() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Rubric Management (Firestore + Storage)
+/* Rubric Management
 /* -------------------------------------------------------------------------- */
 export async function handleSaveNewRubric() {
   if (!UI.db || !UI.currentUser || !UI.storage) {
@@ -284,7 +275,6 @@ export async function handleSaveNewRubric() {
     return;
   }
   
-  // ✅ ADDED: Paywall Check
   if (!UI.hasAccess()) {
     UI.toast("Saving rubrics requires an active subscription.", "error");
     return;
@@ -315,7 +305,8 @@ export async function handleSaveNewRubric() {
     });
     await uploadTask;
 
-    const fileURL = await getDownloadURL(uploadTask.ref);
+    // ✅ FIX: Use fileRef instead of uploadTask.ref
+    const fileURL = await getDownloadURL(fileRef);
     btn.textContent = "Saving to database...";
 
     const payload = {
@@ -391,9 +382,7 @@ export async function refreshMyRubrics() {
 export async function handleShareRubric(e) {
   if (!e.target.classList.contains('share-rubric-btn')) return;
   const rubricId = e.target.dataset.id;
-  console.log("Share rubric clicked:", rubricId);
   
-  // ✅ UPDATED: Use showConfirm
   if (await UI.showConfirm("Share this rubric to the Public Library? You confirm you have the rights to share this content.", "Share Rubric?", "Share")) {
     UI.toast("Submitting rubric for review... (placeholder)", "info");
   }
@@ -402,16 +391,14 @@ export async function handleShareRubric(e) {
 export async function handleDeleteRubric(e) {
   if (!e.target.classList.contains('delete-rubric-btn')) return;
   const rubricId = e.target.dataset.id;
-  console.log("Delete rubric clicked:", rubricId);
   
-  // ✅ UPDATED: Use showConfirm
   if (await UI.showConfirm("Are you sure you want to delete this rubric? This cannot be undone.", "Delete Rubric?", "Delete")) {
     UI.toast("Deleting rubric... (placeholder)", "info");
   }
 }
 
 /* -------------------------------------------------------------------------- */
-/* Video Upload & Library (Firestore + Storage)
+/* Video Upload & Library
 /* -------------------------------------------------------------------------- */
 export async function uploadFile(blob, meta) {
   if (!UI.storage || !UI.db || !UI.currentUser) {
@@ -445,7 +432,7 @@ export async function uploadFile(blob, meta) {
     await uploadTask;
     
     // ✅ FIX: Use fileRef instead of uploadTask.ref
-const url = await getDownloadURL(fileRef);
+    const url = await getDownloadURL(fileRef);
 
     const docRef = await addDoc(
       collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
@@ -473,7 +460,6 @@ const url = await getDownloadURL(fileRef);
   }
 }
 
-// ✅ UPDATED: Correct IndexedDB transaction logic
 export async function flushOfflineQueue() {
   if (!navigator.onLine) return;
   
@@ -485,7 +471,6 @@ export async function flushOfflineQueue() {
     return;
   }
 
-  // Read all in a read-only tx
   let all;
   try {
     all = await new Promise((res, rej) => {
@@ -514,7 +499,7 @@ export async function flushOfflineQueue() {
          break;
       }
       
-      // 1. Upload the file
+      // 1. Upload the file (and wait for it)
       await uploadFile(item.blob, item.meta);
 
       // 2. Delete in a *new* transaction
@@ -555,7 +540,6 @@ export async function loadLibrary() {
     snap.forEach(d => {
       const v = d.data();
       
-      // ✅ UPDATED: Robust date formatting
       const created = v.createdAt?.seconds
         ? new Date(v.createdAt.seconds * 1000)
         : (v.createdAt?.toDate ? v.createdAt.toDate() : null);
@@ -585,7 +569,6 @@ export async function loadLibrary() {
 export async function handleDeleteVideo(docId) {
   if (!UI.db || !UI.storage || !UI.currentUser) return;
   
-  // ✅ UPDATED: Use showConfirm
   const confirmed = await UI.showConfirm("Are you sure you want to permanently delete this video?", "Delete Video?", "Delete");
   if (!confirmed) return;
 

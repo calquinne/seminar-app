@@ -1,11 +1,11 @@
 rules_version = '2';
 
 service firebase.storage {
-  // ✅ CHANGE: Use {bucket} to match both .appspot.com and .firebasestorage.app
+  // Must always use {bucket}, NOT the literal bucket name
   match /b/{bucket}/o {
 
     /* ------------------------------ */
-    /* Allowed File Types       */
+    /*      Allowed File Types        */
     /* ------------------------------ */
     function isAllowedContentType() {
       return request.resource.contentType.matches('video/.*') ||
@@ -14,7 +14,7 @@ service firebase.storage {
     }
 
     /* ------------------------------ */
-    /* Admin Role Checker       */
+    /*      Admin Role Checker        */
     /* ------------------------------ */
     function isAdmin(appId) {
       let userDoc = firestore.get(
@@ -24,20 +24,20 @@ service firebase.storage {
     }
 
     /* ------------------------------ */
-    /* Main Artifact Structure   */
+    /*     Main Artifact Structure    */
     /* ------------------------------ */
     match /artifacts/{appId}/users/{userId}/{allPaths=**} {
 
-      // Users may upload/update their own files only
+      // Upload/update only your own files
       allow create, update: if request.auth != null
                             && request.auth.uid == userId
                             && isAllowedContentType();
 
-      // Users may read OR delete ONLY their own files
+      // Read/delete only your own files
       allow get, delete: if request.auth != null
                          && request.auth.uid == userId;
 
-      // Admins may read everything
+      // Admins can read everything
       allow get: if isAdmin(appId);
     }
   }
