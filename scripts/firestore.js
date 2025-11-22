@@ -444,7 +444,8 @@ export async function uploadFile(blob, meta) {
 
     await uploadTask;
     
-    const url = await getDownloadURL(uploadTask.ref);
+    // ✅ FIX: Use fileRef instead of uploadTask.ref
+const url = await getDownloadURL(fileRef);
 
     const docRef = await addDoc(
       collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
