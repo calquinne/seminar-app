@@ -369,43 +369,64 @@ export async function handleMetadataSubmit(e) {
     fileSize: UI.currentRecordingBlob.size,
     duration: UI.secondsElapsed,
     recordedAt: new Date().toISOString(),
-    tags: currentTags // ✅ Use the local state variable
+    tags: currentTags
   };
-  
-  if (!metadata.classEventId || metadata.participant === "--ADD_NEW--" || !metadata.participant) {
+
+  // Validation
+  if (
+    !metadata.classEventId ||
+    metadata.participant === "--ADD_NEW--" ||
+    !metadata.participant
+  ) {
     UI.toast("Please select a class and a valid participant.", "error");
     return;
   }
-  
-  console.log("Saving metadata and uploading file:", metadata);
-  
+
+  console.log("Processing submission...", metadata);
+
+  // Reset UI immediately
   UI.$("#metadata-form").reset();
   UI.$("#metadata-screen").close();
-  UI.updateRecordingUI('idle');
-  clearTagList(); // ✅ Reset tags after upload
+  UI.updateRecordingUI("idle");
+  clearTagList();
 
-  await uploadFile(UI.currentRecordingBlob, metadata);
-  
+  // -------------------------------
+  //      NEW STORAGE LOGIC
+  // -------------------------------
+  const storageChoice = UI.getStorageChoice(); // "firebase", "gdrive", "local"
+
+ // ✅ UPDATED: Local / USB Logic
+  if (storageChoice === "local") {
+    const filename = `${Date.now()}_${metadata.participant}.webm`;
+    const saved = await UI.saveToLocalDevice(UI.currentRecordingBlob, filename);
+    
+    if (saved) {
+      // Save metadata to DB (mark as local)
+      metadata.storagePath = 'local';
+      metadata.downloadURL = null;
+      metadata.savedAs = filename; 
+      metadata.isLocal = true;   // <-- ADD THIS LINE
+      
+      await uploadFile(null, metadata); 
+      UI.toast("Saved to device & database updated!", "success");
+    } else {
+       UI.toast("Save cancelled. Video kept in memory.", "warn");
+       return; 
+    }
+  }
+
+  // ------- GOOGLE DRIVE -------
+  else if (storageChoice === "gdrive") {
+    UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
+  }
+
+  // ------- FIREBASE -------
+  else {
+    await uploadFile(UI.currentRecordingBlob, metadata);
+  }
+
+  // Cleanup recording memory
   UI.setCurrentRecordingBlob(null);
   UI.setSecondsElapsed(0);
   UI.$("#rec-timer").textContent = "00:00";
-}
-
-/* -------------------------------------------------------------------------- */
-/* Tag Button Handler – wired from main.js
-/* -------------------------------------------------------------------------- */
-
-export function handleTagButtonClick() {
-  if (!UI.mediaRecorder || UI.mediaRecorder.state !== "recording") {
-    UI.toast("Cannot tag — not currently recording.", "warn");
-    return;
-  }
-
-  const time = UI.secondsElapsed;
-  console.log(`🎯 Tag added at ${time}s`);
-  UI.toast(`Tag at ${time}s`, "info");
-
-  // ✅ Update LOCAL state
-  currentTags.push({ time, note: `Tag at ${time}s` });
-  appendTagToTimeline(time);
 }

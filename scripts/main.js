@@ -140,8 +140,16 @@ function setupEventListeners() {
 
   // Library
   UI.$("#library-list").onclick = (e) => {
-    if (e.target.dataset.del) {
-      DB.handleDeleteVideo(e.target.dataset.del);
+    // Check for Delete button
+    const delBtn = e.target.closest('[data-del]'); // Safer check
+    if (delBtn) {
+      DB.handleDeleteVideo(delBtn.dataset.del);
+      return;
+    }
+
+    // ✅ Check for Open Local button
+    if (e.target.dataset.openLocal) {
+      DB.handleOpenLocalVideo();
     }
   };
 

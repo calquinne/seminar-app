@@ -465,3 +465,45 @@ export async function registerSW() {
     console.error("❌ Service Worker registration failed:", e);
   }
 }
+/* -------------------------------------------------------------------------- */
+/* Local / USB Storage Helper
+/* -------------------------------------------------------------------------- */
+export async function saveToLocalDevice(blob, filename) {
+  try {
+    // 1. Try modern File Picker API (Win/Mac/Linux/ChromeOS)
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [
+          {
+            description: "Video File",
+            accept: { "video/webm": [".webm"] }
+          }
+        ]
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    }
+
+    // 2. Fallback for browsers without File Picker API
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    return true;
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      console.error("Local save error:", err);
+      toast("Failed to save to device: " + err.message, "error");
+    }
+    return false;
+  }
+}

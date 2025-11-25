@@ -400,40 +400,71 @@ export async function handleDeleteRubric(e) {
 /* -------------------------------------------------------------------------- */
 /* Video Upload & Library
 /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* Video Upload & Library  — supports Local + Firebase                        */
+/* -------------------------------------------------------------------------- */
 export async function uploadFile(blob, meta) {
-  if (!UI.storage || !UI.db || !UI.currentUser) {
-    UI.toast("Storage/auth not ready.", "error"); 
-    await cacheOffline(blob, meta);
+  const isLocal = (blob === null); // If null = Local/USB save
+
+  // If Cloud upload required but Firebase not ready
+  if (!isLocal && (!UI.storage || !UI.db || !UI.currentUser)) {
+    UI.toast("Storage/auth not ready.", "error");
+    if (blob) await cacheOffline(blob, meta);
     return;
   }
+
   const appId = UI.getAppId();
-  const ts = Date.now();
-  const safe = (s) => String(s || "unk").replace(/[^a-z0-9_\-\.]/gi, "_");
-  const fileName = `${ts}_${safe(meta.participant)}.webm`;
-  const path = `artifacts/${appId}/users/${UI.currentUser.uid}/videos/${meta.classEventId}/${fileName}`;
   const progressEl = UI.$("#upload-progress");
 
   try {
-    if (!navigator.onLine) {
-      throw new Error("Offline. Caching file.");
-    }
-    
-    UI.toast(`Uploading ${meta.participant}'s video...`, "info");
-    const fileRef = sRef(UI.storage, path);
-    const uploadTask = uploadBytesResumable(fileRef, blob);
+    /* -------------------------------------------------------------- */
+    /* A) LOCAL / USB SAVE (only metadata written to Firestore)       */
+    /* -------------------------------------------------------------- */
+    if (isLocal) {
+      console.log("[uploadFile] Local save — metadata only");
 
-    uploadTask.on('state_changed', snapshot => {
+      const docRef = await addDoc(
+        collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
+        {
+          ...meta,
+          storagePath: "local",     // Mark as local
+          downloadURL: null,        // No cloud URL
+          createdAt: serverTimestamp(),
+          archived: false
+        }
+      );
+
+      UI.toast("Saved to device & Database!", "success");
+      return { id: docRef.id, url: null };
+    }
+
+    /* -------------------------------------------------------------- */
+    /* B) FIREBASE CLOUD UPLOAD                                      */
+    /* -------------------------------------------------------------- */
+    if (!navigator.onLine) throw new Error("Offline. Caching file.");
+
+    UI.toast(`Uploading ${meta.participant}'s video...`, "info");
+
+    const ts = Date.now();
+    const safe = (s) => String(s || "unk").replace(/[^a-z0-9_\-\.]/gi, "_");
+    const fileName = `${ts}_${safe(meta.participant)}.webm`;
+
+    const path = `artifacts/${appId}/users/${UI.currentUser.uid}/videos/${meta.classEventId}/${fileName}`;
+    const fileRef = sRef(UI.storage, path);
+
+    // Start upload
+    const uploadTask = uploadBytesResumable(fileRef, blob);
+    uploadTask.on("state_changed", snapshot => {
       const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-      if (progressEl) {
-        progressEl.style.width = `${pct}%`;
-      }
+      if (progressEl) progressEl.style.width = `${pct}%`;
     });
 
     await uploadTask;
-    
-    // ✅ FIX: Use fileRef instead of uploadTask.ref
+
+    // Get URL
     const url = await getDownloadURL(fileRef);
 
+    // Save metadata
     const docRef = await addDoc(
       collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
       {
@@ -446,17 +477,19 @@ export async function uploadFile(blob, meta) {
     );
 
     UI.toast("Upload complete!", "success");
-    
-    await updateUserStorageQuota(meta.fileSize); 
-    
-    if (progressEl) progressEl.style.width = '0%';
+    await updateUserStorageQuota(meta.fileSize);
+
+    if (progressEl) progressEl.style.width = "0%";
     return { id: docRef.id, url };
 
   } catch (e) {
-    await cacheOffline(blob, meta);
-    console.error("Upload failed, caching locally:", e);
-    UI.toast("Offline or failed—queued for later.", "info");
-    if (progressEl) progressEl.style.width = '0%';
+    // Only cache if cloud upload failed
+    if (!isLocal && blob) await cacheOffline(blob, meta);
+
+    console.error("Upload failed:", e);
+    UI.toast("Offline or failed — queued.", "info");
+
+    if (progressEl) progressEl.style.width = "0%";
   }
 }
 
@@ -520,9 +553,10 @@ export async function flushOfflineQueue() {
 
 export async function loadLibrary() {
   if (!UI.db || !UI.currentUser) return;
+
   const appId = UI.getAppId();
   const listEl = UI.$("#library-list");
-  listEl.innerHTML = '<p class="text-sm text-gray-400">Loading library...</p>';
+  listEl.innerHTML = '<p class="text-sm text-gray-400 py-3">Loading your videos...</p>';
 
   try {
     const qRef = query(
@@ -530,39 +564,119 @@ export async function loadLibrary() {
       orderBy("createdAt", "desc")
     );
     const snap = await getDocs(qRef);
-    
+
     if (snap.empty) {
-      listEl.innerHTML = '<p class="text-sm text-gray-400">No videos saved yet.</p>';
+      listEl.innerHTML = '<p class="text-sm text-gray-400 py-4">No videos saved yet.</p>';
       return;
     }
-    
+
     listEl.innerHTML = "";
-    snap.forEach(d => {
+
+    snap.forEach((d) => {
       const v = d.data();
-      
+
       const created = v.createdAt?.seconds
         ? new Date(v.createdAt.seconds * 1000)
         : (v.createdAt?.toDate ? v.createdAt.toDate() : null);
-      const dateStr = created ? created.toLocaleDateString() : '—';
-      
+
+      const dateStr = created ? created.toLocaleDateString() : "—";
+      const sizeStr = ((v.fileSize || 0) / 1024 / 1024).toFixed(1) + " MB";
+
+      const isLocal = v.isLocal || v.storagePath === "local" || !v.downloadURL;
+      const isDrive = v.downloadURL && v.downloadURL.includes("drive.google.com");
+
       const li = document.createElement("div");
-      li.className = "p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center";
+      li.className = "p-4 bg-white/5 border border-white/10 rounded-xl mb-3 flex flex-col gap-3";
+
+      let badge = "";
+      let action = "";
+
+      if (isLocal) {
+        badge = `
+          <span class="px-2 py-0.5 text-[10px] rounded bg-yellow-500/20 
+                 border border-yellow-500/40 text-yellow-200 uppercase tracking-wide">
+            LOCAL ONLY
+          </span>
+        `;
+
+        action = `
+          <button 
+            class="text-yellow-400 text-sm hover:text-yellow-300 hover:underline 
+                   flex items-center gap-2 transition-colors"
+            data-open-local="true"
+            title="Click to locate and play this file">
+            <span>📂</span> Open File
+          </button>
+
+          <span class="text-xs text-gray-500 ml-auto font-mono truncate max-w-[150px]"
+                title="${v.savedAs || 'unknown'}">
+            ${v.savedAs || "unknown.webm"}
+          </span>
+        `;
+      }
+
+      else if (isDrive) {
+        badge = `
+          <span class="px-2 py-0.5 text-[10px] rounded bg-green-500/20 
+                 border border-green-500/40 text-green-200 uppercase tracking-wide">
+            GOOGLE DRIVE
+          </span>
+        `;
+
+        action = `
+          <a href="${v.downloadURL}" target="_blank"
+             class="text-green-400 text-sm hover:underline flex items-center gap-1">
+            ↗ Open Drive
+          </a>
+        `;
+      }
+
+      else {
+        badge = `
+          <span class="px-2 py-0.5 text-[10px] rounded bg-blue-500/20 
+                 border border-blue-500/40 text-blue-200 uppercase tracking-wide">
+            CLOUD
+          </span>
+        `;
+
+        action = `
+          <a href="${v.downloadURL}" target="_blank"
+             class="text-primary-300 text-sm hover:underline flex items-center gap-1">
+            ▶ Play Video
+          </a>
+        `;
+      }
+
       li.innerHTML = `
-        <div class="text-sm overflow-hidden mr-2">
-          <div class="font-medium truncate">${v.classEventTitle || "Untitled"} — ${v.participant}</div>
-          <div class="text-xs text-gray-400">
-            ${(v.fileSize/1048576).toFixed(1)} MB • ${dateStr}
+        <div class="flex justify-between items-start">
+          <div class="flex flex-col">
+            <div class="font-semibold text-white text-base">
+              ${v.classEventTitle || "Untitled"} — ${v.participant}
+            </div>
+            <div class="text-xs text-gray-400 mt-1">
+              ${dateStr} • ${v.recordingType || "Presentation"} • ${sizeStr}
+            </div>
           </div>
+          ${badge}
         </div>
-        <div class="flex gap-2 flex-shrink-0">
-          <a href="${v.downloadURL}" target="_blank" class="text-primary-300 text-sm hover:underline">Open</a>
-          <button class="text-sm text-red-400 hover:underline" data-del="${d.id}">Delete</button>
-        </div>`;
+
+        <div class="flex justify-between items-center border-t border-white/10 pt-3 mt-1">
+          <div class="flex items-center gap-4 w-full mr-4">
+            ${action}
+          </div>
+
+          <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors whitespace-nowrap"
+            data-del="${d.id}">
+            🗑 Delete
+          </button>
+        </div>
+      `;
+
       listEl.appendChild(li);
     });
-  } catch(e) {
+  } catch (e) {
     console.error("Error loading library:", e);
-    listEl.innerHTML = '<p class="text-sm text-red-400">Error loading library.</p>';
+    listEl.innerHTML = '<p class="text-sm text-red-400 py-3">Error loading library.</p>';
   }
 }
 
