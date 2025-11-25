@@ -718,3 +718,23 @@ export async function handleDeleteVideo(docId) {
     UI.toast(`Delete failed: ${e.message}`, "error");
   }
 }
+
+// -------------------------------------------------------------
+// ✅ Open Local Video (file picker)
+// -------------------------------------------------------------
+export function handleOpenLocalVideo() {
+  // Create a hidden file input dynamically
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "video/*,audio/*";
+
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    window.open(url, "_blank");
+  };
+
+  input.click();
+}
