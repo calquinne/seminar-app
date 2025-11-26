@@ -138,22 +138,83 @@ function setupEventListeners() {
     }
   };
 
-  // Library
-  UI.$("#library-list").onclick = (e) => {
-    // Check for Delete button
-    const delBtn = e.target.closest('[data-del]'); // Safer check
-    if (delBtn) {
-      DB.handleDeleteVideo(delBtn.dataset.del);
-      return;
-    }
+   // ------------------------------------------------------
+// Library Click Handler (Delete / Local / Cloud playback)
+// ------------------------------------------------------
+UI.$("#library-list").onclick = (e) => {
+  const target = e.target.closest("button,a");
+  if (!target) return;
 
-    // ✅ Check for Open Local button
-    if (e.target.dataset.openLocal) {
-      DB.handleOpenLocalVideo();
-    }
+  // Delete button
+  if (target.dataset.del) {
+    DB.handleDeleteVideo(target.dataset.del);
+    return;
+  }
+
+  // Local-only: open file picker and play in mini player
+  if (target.dataset.openLocal) {
+    const title = target.dataset.title || "Local Video";
+    DB.handleOpenLocalVideo(title);
+    return;
+  }
+
+  // Cloud: Firebase or Drive URLs
+  if (target.dataset.playUrl) {
+    const url = target.dataset.playUrl;
+    const title = target.dataset.title || "Video Playback";
+    UI.openVideoPlayer(url, title);
+    return;
+  }
+};
+
+
+// ------------------------------------------------------
+// In-App Video Player Controls
+// ------------------------------------------------------
+const vpClose = UI.$("#video-player-close");
+const vpBack = UI.$("#vp-back-10");
+const vpFwd = UI.$("#vp-fwd-10");
+const vpSpeed = UI.$("#vp-speed");
+
+if (vpClose) {
+  vpClose.onclick = () => {
+    UI.closeVideoPlayer();
   };
+}
 
-  // Subscribe button
+function getPlayerVideo() {
+  return UI.$("#video-player");
+}
+
+if (vpBack) {
+  vpBack.onclick = () => {
+    const v = getPlayerVideo();
+    if (!v) return;
+    v.currentTime = Math.max(0, v.currentTime - 10);
+  };
+}
+
+if (vpFwd) {
+  vpFwd.onclick = () => {
+    const v = getPlayerVideo();
+    if (!v) return;
+    v.currentTime = Math.min(
+      v.duration || v.currentTime + 10,
+      v.currentTime + 10
+    );
+  };
+}
+
+if (vpSpeed) {
+  vpSpeed.onchange = () => {
+    const v = getPlayerVideo();
+    if (!v) return;
+    const val = parseFloat(vpSpeed.value || "1") || 1;
+    v.playbackRate = val;
+  };
+}
+
+     // Subscribe button
   UI.$("#subscribe-btn")?.addEventListener("click", UI.redirectToStripeCheckout);
 
   // Global Listeners

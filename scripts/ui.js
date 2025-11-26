@@ -507,3 +507,48 @@ export async function saveToLocalDevice(blob, filename) {
     return false;
   }
 }
+/* -------------------------------------------------------------------------- */
+/* In-App Video Player Helpers                                                */
+/* -------------------------------------------------------------------------- */
+
+export function openVideoPlayer(src, title = "Video Playback") {
+  const overlay = $("#video-player-overlay");
+  const video = $("#video-player");
+  const titleEl = $("#video-player-title");
+
+  if (!overlay || !video) {
+    console.warn("[VideoPlayer] Missing overlay or video element.");
+    return;
+  }
+
+  // Set source and start playing
+  video.src = src;
+  video.play().catch(err => {
+    console.warn("Autoplay blocked or failed:", err);
+  });
+
+  if (titleEl) {
+    titleEl.textContent = title;
+  }
+
+  overlay.classList.remove("hidden");
+}
+
+export function closeVideoPlayer() {
+  const overlay = $("#video-player-overlay");
+  const video = $("#video-player");
+
+  if (video) {
+    try {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    } catch (e) {
+      console.warn("Error stopping video:", e);
+    }
+  }
+
+  if (overlay) {
+    overlay.classList.add("hidden");
+  }
+}

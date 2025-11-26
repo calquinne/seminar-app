@@ -829,5 +829,58 @@
 <!-- ENTRY POINT -->
 <script type="module" src="./scripts/main.js"></script>
 
+<!-- ===========================
+🎥 In-App Video Player Overlay
+=========================== -->
+<div id="video-player-overlay" class="hidden fixed bottom-4 right-4 z-40 w-full max-w-md md:max-w-lg lg:max-w-xl">
+  <div class="bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
+      <div class="flex flex-col">
+        <span class="text-xs uppercase tracking-wide text-teal-300/80">Now Playing</span>
+        <span id="video-player-title" class="text-sm font-semibold text-white truncate max-w-[220px] md:max-w-[320px]">
+          Video Playback
+        </span>
+      </div>
+      <button id="video-player-close"
+        class="text-xs px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-200 border border-white/10">
+        ✕
+      </button>
+    </div>
+
+    <!-- Video Element -->
+    <div class="bg-black">
+      <video id="video-player" class="w-full max-h-[260px] md:max-h-[320px]" controls playsinline></video>
+    </div>
+
+    <!-- Controls Row -->
+    <div class="flex items-center justify-between px-3 py-2 border-t border-white/10 text-xs text-gray-200 gap-2">
+      <div class="flex items-center gap-1">
+        <button id="vp-back-10"
+          class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-white/10 text-[11px]">
+          ⏪ 10s
+        </button>
+        <button id="vp-fwd-10"
+          class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-white/10 text-[11px]">
+          10s ⏩
+        </button>
+      </div>
+
+      <div class="flex items-center gap-1">
+        <label for="vp-speed" class="text-[11px] text-gray-300">Speed</label>
+        <select id="vp-speed"
+          class="text-[11px] bg-slate-900 border border-white/10 rounded px-1 py-0.5">
+          <option value="0.5">0.5×</option>
+          <option value="0.75">0.75×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

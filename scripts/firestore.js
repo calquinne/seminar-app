@@ -718,23 +718,93 @@ export async function handleDeleteVideo(docId) {
     UI.toast(`Delete failed: ${e.message}`, "error");
   }
 }
-
-// -------------------------------------------------------------
-// ✅ Open Local Video (file picker)
-// -------------------------------------------------------------
-export function handleOpenLocalVideo() {
-  // Create a hidden file input dynamically
+// ---------------------------------------------------------------------------
+// Local video opener for "LOCAL ONLY" entries
+// ---------------------------------------------------------------------------
+export function handleOpenLocalVideo(titleFromDoc) {
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = "video/*,audio/*";
+  input.accept = "video/*";
 
   input.onchange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const url = URL.createObjectURL(file);
-    window.open(url, "_blank");
+    const title = titleFromDoc || file.name || "Local Video";
+
+    UI.openVideoPlayer(url, title);
   };
 
   input.click();
 }
+
+      // ---------------------
+      // 1. LOCAL-ONLY VIDEO (with clickable Open File)
+      // ---------------------
+      if (isLocal) {
+        badgeHtml = `
+          <span class="px-2 py-0.5 text-[10px] rounded bg-yellow-500/20 border border-yellow-500/40 text-yellow-200 uppercase tracking-wide">
+            LOCAL ONLY
+          </span>
+        `;
+
+        const titleText = `${v.classEventTitle || "Untitled"} — ${v.participant || "Unknown"}`;
+
+        actionButtonHtml = `
+          <button 
+            class="text-yellow-400 text-sm hover:text-yellow-300 hover:underline flex items-center gap-2 transition-colors" 
+            data-open-local="true"
+            data-title="${titleText.replace(/"/g, '&quot;')}"
+            title="Click to locate and play this file">
+            <span>📂</span> Open File
+          </button>
+          <span class="text-xs text-gray-500 ml-auto font-mono truncate max-w-[150px]" title="${v.savedAs || 'unknown'}">
+            ${v.savedAs || "unknown.webm"}
+          </span>
+        `;
+      }
+
+      // ---------------------
+      // 2. GOOGLE DRIVE VIDEO
+      // ---------------------
+      else if (isDrive) {
+        badgeHtml = `
+          <span class="px-2 py-0.5 text-[10px] rounded bg-green-500/20 border border-green-500/40 text-green-200 uppercase tracking-wide">
+            GOOGLE DRIVE
+          </span>
+        `;
+
+        const titleText = `${v.classEventTitle || "Untitled"} — ${v.participant || "Unknown"}`;
+
+        actionButtonHtml = `
+          <button 
+            class="text-green-400 text-sm hover:text-green-300 hover:underline flex items-center gap-1"
+            data-drive-url="${v.downloadURL}"
+            data-title="${titleText.replace(/"/g, '&quot;')}">
+            ↗ Open Drive
+          </button>
+        `;
+      }
+
+      // ---------------------
+      // 3. FIREBASE CLOUD VIDEO
+      // ---------------------
+      else {
+        badgeHtml = `
+          <span class="px-2 py-0.5 text-[10px] rounded bg-blue-500/20 border border-blue-500/40 text-blue-200 uppercase tracking-wide">
+            CLOUD
+          </span>
+        `;
+
+        const titleText = `${v.classEventTitle || "Untitled"} — ${v.participant || "Unknown"}`;
+
+        actionButtonHtml = `
+          <button 
+            class="text-primary-300 text-sm hover:text-cyan-300 hover:underline flex items-center gap-1"
+            data-play-url="${v.downloadURL}"
+            data-title="${titleText.replace(/"/g, '&quot;')}">
+            ▶ Play Video
+          </button>
+        `;
+      }
