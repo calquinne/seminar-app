@@ -607,6 +607,58 @@
     </div>
 
   </section>
+    </div> <!-- end of analytics tab -->
+</section>
+
+<!-- ================================================================== -->
+<!-- Floating Video Player (A4 Dockable Window)                         -->
+<!-- ================================================================== -->
+<div
+  id="floating-player"
+  class="hidden fixed bottom-6 right-6 z-50
+         w-80 aspect-video
+         bg-black/80 border border-white/15 rounded-xl
+         shadow-2xl backdrop-blur-sm
+         flex flex-col overflow-hidden"
+>
+  <!-- Header / Drag Handle -->
+  <div
+    class="floating-header flex items-center justify-between
+           px-3 py-1.5 text-xs text-gray-100 bg-black/70
+           border-b border-white/10 cursor-move select-none"
+  >
+    <span id="floating-player-title" class="truncate">
+      Live Preview
+    </span>
+    <button
+      id="floating-player-close"
+      type="button"
+      class="ml-2 inline-flex items-center justify-center
+             w-5 h-5 rounded-full
+             hover:bg-white/10 text-gray-300"
+      aria-label="Close floating player"
+    >
+      ✕
+    </button>
+  </div>
+
+  <!-- Video Area -->
+  <div class="relative flex-1 bg-black">
+    <video
+      id="floating-player-video"
+      class="w-full h-full object-cover"
+      playsinline
+      muted
+    ></video>
+
+    <!-- Resize handle -->
+    <div
+      class="floating-resize-handle absolute bottom-1.5 right-1.5
+             w-3.5 h-3.5 rounded-sm border border-white/40
+             bg-white/20 cursor-se-resize"
+    ></div>
+  </div>
+</div>
 
 
   <!-- METADATA DIALOG -->
