@@ -4,6 +4,7 @@
 /* ========================================================================== */
 
 import * as UI from "./ui.js";
+import { initFloatingPlayer } from "./ui.js";   // ⭐ ADDED
 import * as Auth from "./auth.js";
 import * as DB from "./firestore.js";
 import * as Record from "./record.js";
@@ -57,7 +58,6 @@ function setupEventListeners() {
   // Auth Screen
   UI.$("#auth-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);
   UI.$("#auth-google-btn").onclick = Auth.handleGoogleSignIn;
-  // ✅ Corrected line:
   UI.$("#signup-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);
 
   // Main App Tabs
@@ -107,7 +107,7 @@ function setupEventListeners() {
     DB.handleDeleteRubric(e);
   };
 
-  // Record Tab – wiring only; Record.js has no DOMContentLoaded now
+  // Record Tab – wiring only
   UI.$("#start-rec-btn").onclick = Record.startRecording;
   UI.$("#pause-rec-btn").onclick = Record.pauseOrResumeRecording;
   UI.$("#stop-rec-btn").onclick = Record.stopRecording;
@@ -138,86 +138,76 @@ function setupEventListeners() {
     }
   };
 
-   // ------------------------------------------------------
-// Library Click Handler (Delete / Local / Cloud playback)
-// ------------------------------------------------------
-UI.$("#library-list").onclick = (e) => {
-  const target = e.target.closest("button,a");
-  if (!target) return;
+  // ------------------------------------------------------
+  // Library Click Handler (Delete / Local / Cloud playback)
+  // ------------------------------------------------------
+  UI.$("#library-list").onclick = (e) => {
+    const target = e.target.closest("button,a");
+    if (!target) return;
 
-  // Delete button
-  if (target.dataset.del) {
-    DB.handleDeleteVideo(target.dataset.del);
-    return;
+    if (target.dataset.del) {
+      DB.handleDeleteVideo(target.dataset.del);
+      return;
+    }
+
+    if (target.dataset.openLocal) {
+      const title = target.dataset.title || "Local Video";
+      DB.handleOpenLocalVideo(title);
+      return;
+    }
+
+    if (target.dataset.playUrl) {
+      const url = target.dataset.playUrl;
+      const title = target.dataset.title || "Video Playback";
+      UI.openVideoPlayer(url, title);
+      return;
+    }
+  };
+
+  // ------------------------------------------------------
+  // In-App Video Player Controls
+  // ------------------------------------------------------
+  const vpClose = UI.$("#video-player-close");
+  const vpBack  = UI.$("#vp-back-10");
+  const vpFwd   = UI.$("#vp-fwd-10");
+  const vpSpeed = UI.$("#vp-speed");
+
+  if (vpClose) vpClose.onclick = UI.closeVideoPlayer;
+
+  function getPlayerVideo() {
+    return UI.$("#video-player");
   }
 
-  // Local-only: open file picker and play in mini player
-  if (target.dataset.openLocal) {
-    const title = target.dataset.title || "Local Video";
-    DB.handleOpenLocalVideo(title);
-    return;
+  if (vpBack) {
+    vpBack.onclick = () => {
+      const v = getPlayerVideo();
+      if (!v) return;
+      v.currentTime = Math.max(0, v.currentTime - 10);
+    };
   }
 
-  // Cloud: Firebase or Drive URLs
-  if (target.dataset.playUrl) {
-    const url = target.dataset.playUrl;
-    const title = target.dataset.title || "Video Playback";
-    UI.openVideoPlayer(url, title);
-    return;
+  if (vpFwd) {
+    vpFwd.onclick = () => {
+      const v = getPlayerVideo();
+      if (!v) return;
+      v.currentTime = Math.min(
+        v.duration || v.currentTime + 10,
+        v.currentTime + 10
+      );
+    };
   }
-};
 
+  if (vpSpeed) {
+    vpSpeed.onchange = () => {
+      const v = getPlayerVideo();
+      if (!v) return;
+      const val = parseFloat(vpSpeed.value || "1") || 1;
+      v.playbackRate = val;
+    };
+  }
 
-// ------------------------------------------------------
-// In-App Video Player Controls
-// ------------------------------------------------------
-const vpClose = UI.$("#video-player-close");
-const vpBack = UI.$("#vp-back-10");
-const vpFwd = UI.$("#vp-fwd-10");
-const vpSpeed = UI.$("#vp-speed");
-
-if (vpClose) {
-  vpClose.onclick = () => {
-    UI.closeVideoPlayer();
-  };
-}
-
-function getPlayerVideo() {
-  return UI.$("#video-player");
-}
-
-if (vpBack) {
-  vpBack.onclick = () => {
-    const v = getPlayerVideo();
-    if (!v) return;
-    v.currentTime = Math.max(0, v.currentTime - 10);
-  };
-}
-
-if (vpFwd) {
-  vpFwd.onclick = () => {
-    const v = getPlayerVideo();
-    if (!v) return;
-    v.currentTime = Math.min(
-      v.duration || v.currentTime + 10,
-      v.currentTime + 10
-    );
-  };
-}
-
-if (vpSpeed) {
-  vpSpeed.onchange = () => {
-    const v = getPlayerVideo();
-    if (!v) return;
-    const val = parseFloat(vpSpeed.value || "1") || 1;
-    v.playbackRate = val;
-  };
-}
-
-     // Subscribe button
   UI.$("#subscribe-btn")?.addEventListener("click", UI.redirectToStripeCheckout);
 
-  // Global Listeners
   window.addEventListener("online", () => {
     UI.toast("You're back online!", "success");
     DB.flushOfflineQueue();
@@ -228,8 +218,6 @@ if (vpSpeed) {
   });
 
   UI.setupGlobalErrorHandlers();
-
-  // Wire auth-specific UI pieces (toggle + forgot password)
   Auth.initAuthUI();
 
   console.log("Event listeners attached.");
@@ -243,6 +231,9 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("DOM loaded.");
 
   setupEventListeners();
+
+  initFloatingPlayer();   // ⭐ ADDED — initialize floating mini-player
+
   UI.registerSW();
 
   (async () => {

@@ -507,48 +507,137 @@ export async function saveToLocalDevice(blob, filename) {
     return false;
   }
 }
-/* -------------------------------------------------------------------------- */
-/* In-App Video Player Helpers                                                */
-/* -------------------------------------------------------------------------- */
 
-export function openVideoPlayer(src, title = "Video Playback") {
-  const overlay = $("#video-player-overlay");
-  const video = $("#video-player");
-  const titleEl = $("#video-player-title");
+/* ========================================================================== */
+/* UNIFIED FLOATING MINI-PLAYER (Dockable + Resizable + Stream/File Support)   */
+/* ========================================================================== */
 
-  if (!overlay || !video) {
-    console.warn("[VideoPlayer] Missing overlay or video element.");
-    return;
+// Internal state
+let fpIsDragging = false;
+let fpDragOffsetX = 0;
+let fpDragOffsetY = 0;
+
+let fpIsResizing = false;
+let fpResizeStartX = 0;
+let fpResizeStartY = 0;
+let fpStartWidth = 0;
+let fpStartHeight = 0;
+
+/* --------------------------------------------------------------------------
+   SHOW FLOATING PLAYER (Stream OR URL)
+   -------------------------------------------------------------------------- */
+export function openFloatingPlayer(source, title = "Preview") {
+  const box = document.getElementById("mini-player");
+  const video = document.getElementById("mini-player-video");
+  const titleEl = document.getElementById("mini-player-title");
+
+  if (!box || !video) return;
+
+  // Clear previous source
+  video.pause();
+  video.src = "";
+  video.srcObject = null;
+
+  // Handle live camera feed (MediaStream)
+  if (source instanceof MediaStream) {
+    video.srcObject = source;
+  } else {
+    // Handle file/URL playback
+    video.src = source;
   }
 
-  // Set source and start playing
-  video.src = src;
-  video.play().catch(err => {
-    console.warn("Autoplay blocked or failed:", err);
-  });
+  if (titleEl) titleEl.textContent = title;
 
-  if (titleEl) {
-    titleEl.textContent = title;
-  }
+  box.classList.remove("hidden");
 
-  overlay.classList.remove("hidden");
+  video.play().catch(() => {});
 }
 
-export function closeVideoPlayer() {
-  const overlay = $("#video-player-overlay");
-  const video = $("#video-player");
+/* --------------------------------------------------------------------------
+   HIDE FLOATING PLAYER
+   -------------------------------------------------------------------------- */
+export function closeFloatingPlayer() {
+  const box = document.getElementById("mini-player");
+  const video = document.getElementById("mini-player-video");
+  if (!box || !video) return;
 
-  if (video) {
-    try {
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-    } catch (e) {
-      console.warn("Error stopping video:", e);
-    }
-  }
+  video.pause();
+  video.src = "";
+  video.srcObject = null;
 
-  if (overlay) {
-    overlay.classList.add("hidden");
-  }
+  box.classList.add("hidden");
+}
+
+/* --------------------------------------------------------------------------
+   DRAGGING LOGIC
+   -------------------------------------------------------------------------- */
+function setupMiniPlayerDrag() {
+  const box = document.getElementById("mini-player");
+  const header = document.getElementById("mini-player-header");
+
+  header.addEventListener("mousedown", (e) => {
+    fpIsDragging = true;
+    fpDragOffsetX = e.clientX - box.offsetLeft;
+    fpDragOffsetY = e.clientY - box.offsetTop;
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!fpIsDragging) return;
+    box.style.left = `${e.clientX - fpDragOffsetX}px`;
+    box.style.top = `${e.clientY - fpDragOffsetY}px`;
+    box.style.right = "auto";
+    box.style.bottom = "auto";
+  });
+
+  document.addEventListener("mouseup", () => {
+    fpIsDragging = false;
+  });
+}
+
+/* --------------------------------------------------------------------------
+   RESIZING LOGIC
+   -------------------------------------------------------------------------- */
+function setupMiniPlayerResize() {
+  const box = document.getElementById("mini-player");
+  const handle = document.getElementById("mini-player-resize");
+
+  handle.addEventListener("mousedown", (e) => {
+    fpIsResizing = true;
+    fpResizeStartX = e.clientX;
+    fpResizeStartY = e.clientY;
+    fpStartWidth = box.offsetWidth;
+    fpStartHeight = box.offsetHeight;
+    e.preventDefault();
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!fpIsResizing) return;
+
+    const dx = e.clientX - fpResizeStartX;
+    const dy = e.clientY - fpResizeStartY;
+
+    box.style.width = `${fpStartWidth + dx}px`;
+    box.style.height = `${fpStartHeight + dy}px`;
+  });
+
+  document.addEventListener("mouseup", () => {
+    fpIsResizing = false;
+  });
+}
+
+/* --------------------------------------------------------------------------
+   CLOSE BUTTON
+   -------------------------------------------------------------------------- */
+function setupMiniPlayerClose() {
+  const closeBtn = document.getElementById("mini-player-close");
+  closeBtn.addEventListener("click", closeFloatingPlayer);
+}
+
+/* --------------------------------------------------------------------------
+   INITIALIZE ONCE
+   -------------------------------------------------------------------------- */
+export function initFloatingPlayer() {
+  setupMiniPlayerDrag();
+  setupMiniPlayerResize();
+  setupMiniPlayerClose();
 }

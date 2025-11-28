@@ -36,51 +36,64 @@ function appendTagToTimeline(timeSeconds) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Recording Flow
+/* Recording Flow                                                              */
 /* -------------------------------------------------------------------------- */
 export async function startPreview() {
   if (!UI.hasAccess()) {
     UI.toast("Recording disabled without an active subscription.", "error");
     return;
   }
-  
+
+  // Stop old streams
   if (UI.mediaStream) {
     UI.mediaStream.getTracks().forEach(track => track.stop());
   }
+
   console.log("Initializing camera preview...");
-  UI.updateRecordingUI('idle');
+  UI.updateRecordingUI("idle");
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
-  if(UI.timerInterval) clearInterval(UI.timerInterval);
+
+  if (UI.timerInterval) clearInterval(UI.timerInterval);
   UI.setSecondsElapsed(0);
   UI.$("#rec-timer").textContent = "00:00";
-  
+
   const progressEl = UI.$("#upload-progress");
-  if (progressEl) progressEl.style.width = '0%';
+  if (progressEl) progressEl.style.width = "0%";
 
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        UI.toast("Media devices not supported on this browser.", "error");
-        return;
+      UI.toast("Media devices not supported on this browser.", "error");
+      return;
     }
+
     const constraints = {
-      video: { 
-        width: { ideal: 1280 }, 
-        height: { ideal: 720 }, 
-        facingMode: UI.currentFacingMode 
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: UI.currentFacingMode
       },
       audio: true
     };
+
+    // Get camera + mic
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     UI.setMediaStream(stream);
+
+    // Set main preview
     UI.$("#video-preview").srcObject = stream;
     UI.$("#video-preview").muted = true;
-    
-    UI.mediaStream.getAudioTracks().forEach(track => track.enabled = false);
+
+    // ⭐ NEW: Show live camera feed in dockable mini-player
+    UI.openFloatingPlayer(stream, "Live Camera");
+
+    // Mute preview audio only
+    UI.mediaStream.getAudioTracks().forEach(track => (track.enabled = false));
     UI.toast("🎤 Audio is being recorded but muted in preview.", "info");
 
   } catch (permErr) {
     console.error("Permission error:", permErr);
+
     if (permErr.name === "NotAllowedError" || permErr.name === "PermissionDeniedError") {
       UI.toast("You must allow access to your camera and microphone.", "error");
     } else {
