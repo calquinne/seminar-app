@@ -114,6 +114,19 @@ function setupEventListeners() {
   UI.$("#discard-rec-btn").onclick = Record.discardRecording;
   UI.$("#toggle-camera-btn").onclick = Record.toggleCamera;
   
+  // Pop Out Preview Button → opens floating mini-player
+const popBtn = UI.$("#popout-preview-btn");
+if (popBtn) {
+  popBtn.onclick = () => {
+    const stream = UI.mediaStream;
+    if (!stream) {
+      UI.toast("Camera preview not initialized yet.", "error");
+      return;
+    }
+    UI.openFloatingPlayer(stream, "Live Camera");
+  };
+}
+
   // Wire up the Tag button safely
   const tagBtn = UI.$("#tag-btn");
   if (tagBtn) {

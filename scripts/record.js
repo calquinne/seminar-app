@@ -80,9 +80,12 @@ export async function startPreview() {
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     UI.setMediaStream(stream);
 
-    // Set main preview
-    UI.$("#video-preview").srcObject = stream;
-    UI.$("#video-preview").muted = true;
+   UI.$("#video-preview").srcObject = stream;
+   UI.$("#video-preview").muted = true;
+
+   // 🚫 Prevent browser PiP popup
+   UI.$("#video-preview").disablePictureInPicture = true;
+   UI.$("#video-preview").controls = false;
 
     // ⭐ NEW: Show live camera feed in dockable mini-player
     UI.openFloatingPlayer(stream, "Live Camera");
