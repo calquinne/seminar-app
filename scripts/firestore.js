@@ -20,6 +20,9 @@ import {
 // Import UI module for state and utils
 import * as UI from './ui.js';
 
+// Internal scoring context (which video + rubric are we scoring?)
+let currentScoringContext = null;
+
 /* -------------------------------------------------------------------------- */
 /* Firebase Initialization
 /* -------------------------------------------------------------------------- */
@@ -551,7 +554,7 @@ export async function flushOfflineQueue() {
   }
 }
 
-export async function loadLibrary() {
+ export async function loadLibrary() {
   if (!UI.db || !UI.currentUser) return;
 
   const appId = UI.getAppId();
@@ -582,15 +585,21 @@ export async function loadLibrary() {
       const dateStr = created ? created.toLocaleDateString() : "—";
       const sizeStr = ((v.fileSize || 0) / 1024 / 1024).toFixed(1) + " MB";
 
-      const isLocal = v.isLocal || v.storagePath === "local" || !v.downloadURL;
-      const isDrive = v.downloadURL && v.downloadURL.includes("drive.google.com");
+      const isLocal =
+        v.isLocal || v.storagePath === "local" || !v.downloadURL;
+      const isDrive =
+        v.downloadURL && v.downloadURL.includes("drive.google.com");
 
       const li = document.createElement("div");
-      li.className = "p-4 bg-white/5 border border-white/10 rounded-xl mb-3 flex flex-col gap-3";
+      li.className =
+        "p-4 bg-white/5 border border-white/10 rounded-xl mb-3 flex flex-col gap-3";
 
       let badge = "";
       let action = "";
 
+      // -------------------------
+      // LOCAL VIDEO
+      // -------------------------
       if (isLocal) {
         badge = `
           <span class="px-2 py-0.5 text-[10px] rounded bg-yellow-500/20 
@@ -604,17 +613,16 @@ export async function loadLibrary() {
             class="text-yellow-400 text-sm hover:text-yellow-300 hover:underline 
                    flex items-center gap-2 transition-colors"
             data-open-local="true"
+            data-title="${v.participant || 'Video'}"
             title="Click to locate and play this file">
-            <span>📂</span> Open File
+            📂 Open File
           </button>
-
-          <span class="text-xs text-gray-500 ml-auto font-mono truncate max-w-[150px]"
-                title="${v.savedAs || 'unknown'}">
-            ${v.savedAs || "unknown.webm"}
-          </span>
         `;
       }
 
+      // -------------------------
+      // GOOGLE DRIVE
+      // -------------------------
       else if (isDrive) {
         badge = `
           <span class="px-2 py-0.5 text-[10px] rounded bg-green-500/20 
@@ -631,6 +639,9 @@ export async function loadLibrary() {
         `;
       }
 
+      // -------------------------
+      // FIREBASE CLOUD VIDEO
+      // -------------------------
       else {
         badge = `
           <span class="px-2 py-0.5 text-[10px] rounded bg-blue-500/20 
@@ -640,13 +651,33 @@ export async function loadLibrary() {
         `;
 
         action = `
-          <a href="${v.downloadURL}" target="_blank"
-             class="text-primary-300 text-sm hover:underline flex items-center gap-1">
+          <button 
+            class="text-primary-300 text-sm hover:underline flex items-center gap-1"
+            data-play-url="${v.downloadURL}"
+            data-title="${v.participant || 'Video'}">
             ▶ Play Video
-          </a>
+          </button>
         `;
       }
 
+      // -------------------------
+      // SCORING BUTTON (SAFE JSON)
+      // -------------------------
+      const scorePayload = encodeURIComponent(
+        JSON.stringify({ id: d.id, ...v })
+      );
+
+      const scoreBtn = `
+        <button 
+          class="text-amber-400 text-sm hover:text-amber-300 hover:underline flex items-center gap-1"
+          data-score-video="${scorePayload}">
+          ⭐ Score
+        </button>
+      `;
+
+      // -------------------------
+      // MAIN ROW TEMPLATE
+      // -------------------------
       li.innerHTML = `
         <div class="flex justify-between items-start">
           <div class="flex flex-col">
@@ -661,11 +692,12 @@ export async function loadLibrary() {
         </div>
 
         <div class="flex justify-between items-center border-t border-white/10 pt-3 mt-1">
-          <div class="flex items-center gap-4 w-full mr-4">
+          <div class="flex items-center gap-4 flex-wrap">
             ${action}
+            ${scoreBtn}
           </div>
 
-          <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors whitespace-nowrap"
+          <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
             data-del="${d.id}">
             🗑 Delete
           </button>
@@ -676,7 +708,8 @@ export async function loadLibrary() {
     });
   } catch (e) {
     console.error("Error loading library:", e);
-    listEl.innerHTML = '<p class="text-sm text-red-400 py-3">Error loading library.</p>';
+    listEl.innerHTML =
+      '<p class="text-sm text-red-400 py-3">Error loading library.</p>';
   }
 }
 
@@ -737,4 +770,104 @@ export function handleOpenLocalVideo(titleFromDoc) {
   };
 
   input.click();
+}
+/* -------------------------------------------------------------------------- */
+/* Scoring: open dialog for a video + save results                            */
+/* -------------------------------------------------------------------------- */
+
+export async function openScoringForVideo(docId) {
+  if (!UI.db || !UI.currentUser) {
+    UI.toast("Not signed in.", "error");
+    return;
+  }
+
+  const appId = UI.getAppId();
+
+  try {
+    // 1) Load video document
+    const videoRef = doc(
+      UI.db,
+      `artifacts/${appId}/users/${UI.currentUser.uid}/videos`,
+      docId
+    );
+    const videoSnap = await getDoc(videoRef);
+    if (!videoSnap.exists()) {
+      UI.toast("Video not found.", "error");
+      return;
+    }
+    const video = { id: videoSnap.id, ...videoSnap.data() };
+
+    // 2) Load rubrics (for now, just use the first one)
+    const rubCol = collection(
+      UI.db,
+      `artifacts/${appId}/users/${UI.currentUser.uid}/rubrics`
+    );
+    const rubSnap = await getDocs(rubCol);
+    if (rubSnap.empty) {
+      UI.toast("Create a rubric first in the Rubrics tab.", "error");
+      return;
+    }
+
+    const rubrics = [];
+    rubSnap.forEach((d) => rubrics.push({ id: d.id, ...d.data() }));
+    const rubric = rubrics[0];
+
+    // Build rows from componentNames (each row default to 6 pts max)
+    const rows = (rubric.componentNames || []).map((name, idx) => ({
+      label: name,
+      maxPoints: 6,
+      index: idx
+    }));
+
+    // Store context for save
+    currentScoringContext = { video, rubric };
+
+    // Render + open scoring dialog
+    UI.renderScoringDialog({ video, rubric, rows });
+    UI.openScoringDialog();
+  } catch (e) {
+    console.error("Error opening scoring:", e);
+    UI.toast("Could not open scoring dialog.", "error");
+  }
+}
+
+export async function handleScoringSubmit(rowScores) {
+  if (!UI.db || !UI.currentUser || !currentScoringContext) {
+    UI.toast("Scoring context missing.", "error");
+    return;
+  }
+
+  const { video, rubric } = currentScoringContext;
+  const appId = UI.getAppId();
+
+  try {
+    const scoresCol = collection(
+      UI.db,
+      `artifacts/${appId}/users/${UI.currentUser.uid}/scores`
+    );
+
+    const totalPoints = rowScores.reduce(
+      (sum, r) => sum + (r.score || 0),
+      0
+    );
+
+    await addDoc(scoresCol, {
+      videoId: video.id,
+      classEventId: video.classEventId || null,
+      classEventTitle: video.classEventTitle || null,
+      participant: video.participant || null,
+      rubricId: rubric.id,
+      rubricTitle: rubric.title || null,
+      totalPoints,
+      rowScores,
+      scoredAt: serverTimestamp()
+    });
+
+    UI.toast("Scores saved.", "success");
+    UI.closeScoringDialog();
+    currentScoringContext = null;
+  } catch (e) {
+    console.error("Error saving scores:", e);
+    UI.toast("Failed to save scores.", "error");
+  }
 }

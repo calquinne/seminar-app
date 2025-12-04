@@ -151,31 +151,98 @@ if (popBtn) {
     }
   };
 
+// ------------------------------
+// Scoring dialog buttons
+// ------------------------------
+const scoringCancel = UI.$("#scoring-cancel-btn");
+const scoringClose  = UI.$("#scoring-close-btn");
+const scoringSave   = UI.$("#scoring-save-btn");
+
+// Cancel & Close buttons
+if (scoringCancel) scoringCancel.onclick = (e) => {
+  e.stopPropagation();
+  UI.closeScoringDialog();
+};
+if (scoringClose) scoringClose.onclick = (e) => {
+  e.stopPropagation();
+  UI.closeScoringDialog();
+};
+
+// Save Scores
+if (scoringSave) {
+  scoringSave.onclick = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const scoringData = UI.collectScoringData();
+    console.log("Scoring saved:", scoringData);
+
+    // TODO: DB write integration (Step 4)
+    UI.toast("Scores saved!", "success");
+    UI.closeScoringDialog();
+  };
+}
+
   // ------------------------------------------------------
   // Library Click Handler (Delete / Local / Cloud playback)
   // ------------------------------------------------------
-  UI.$("#library-list").onclick = (e) => {
-    const target = e.target.closest("button,a");
-    if (!target) return;
+ UI.$("#library-list").onclick = (e) => {
+  const target = e.target.closest("button,a");
+  if (!target) return;
 
-    if (target.dataset.del) {
-      DB.handleDeleteVideo(target.dataset.del);
-      return;
+  // -------------------------
+  // DELETE
+  // -------------------------
+  if (target.dataset.del) {
+    e.stopPropagation();
+    DB.handleDeleteVideo(target.dataset.del);
+    return;
+  }
+
+  // -------------------------
+  // LOCAL VIDEO
+  // -------------------------
+  if (target.dataset.openLocal) {
+    e.stopPropagation();
+    const title = target.dataset.title || "Local Video";
+    DB.handleOpenLocalVideo(title);
+    return;
+  }
+
+  // -------------------------
+  // CLOUD / DRIVE PLAYBACK
+  // -------------------------
+  if (target.dataset.playUrl) {
+    e.stopPropagation();
+    const url = target.dataset.playUrl;
+    const title = target.dataset.title || "Video Playback";
+    UI.openVideoPlayer(url, title);
+    return;
+  }
+
+  // -------------------------
+  // ⭐ SCORE VIDEO
+  // -------------------------
+  if (target.dataset.scoreVideo) {
+    e.stopPropagation();
+
+    try {
+      const decoded = decodeURIComponent(target.dataset.scoreVideo);
+      const videoObj = JSON.parse(decoded);
+
+      console.log("Score requested:", videoObj);
+
+      // Call Firestore scoring loader
+      DB.openScoringForVideo(videoObj.id);
+
+    } catch (err) {
+      console.error("Scoring JSON parse failed:", err);
+      UI.toast("Could not open scoring dialog.", "error");
     }
 
-    if (target.dataset.openLocal) {
-      const title = target.dataset.title || "Local Video";
-      DB.handleOpenLocalVideo(title);
-      return;
-    }
-
-    if (target.dataset.playUrl) {
-      const url = target.dataset.playUrl;
-      const title = target.dataset.title || "Video Playback";
-      UI.openVideoPlayer(url, title);
-      return;
-    }
-  };
+    return;
+  }
+};
 
   // ------------------------------------------------------
   // In-App Video Player Controls

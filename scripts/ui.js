@@ -641,3 +641,146 @@ export function initFloatingPlayer() {
   setupMiniPlayerResize();
   setupMiniPlayerClose();
 }
+/* ========================================================================== */
+/* SCORING DIALOG HELPERS (Vertical layout, Option A buttons)                */
+/* ========================================================================== */
+
+/**
+ * Render scoring rows for a given video + rubric.
+ * rows = [{ label, maxPoints }]
+ */
+export function renderScoringDialog({ video, rubric, rows }) {
+  const titleEl = $("#scoring-video-title");
+  const partEl = $("#scoring-video-participant");
+  const rubricEl = $("#scoring-rubric-title");
+  const rowsContainer = $("#scoring-rows");
+
+  if (!rowsContainer) return;
+
+  if (titleEl) titleEl.textContent = video.classEventTitle || "Untitled";
+  if (partEl) partEl.textContent = video.participant || "Unknown participant";
+  if (rubricEl) rubricEl.textContent = rubric.title || "Rubric";
+
+  rowsContainer.innerHTML = "";
+
+  rows.forEach((row, idx) => {
+    const max = row.maxPoints || 6;
+
+    // Option A: three score buttons (Low / Med / High)
+    const low = Math.round(max / 3);       // e.g. 2
+    const med = Math.round((2 * max) / 3); // e.g. 4
+    const high = max;                      // e.g. 6
+
+    const wrap = document.createElement("div");
+    wrap.className =
+      "score-row border border-white/10 rounded-xl p-3 bg-black/30";
+    wrap.dataset.index = String(idx);
+    wrap.dataset.label = row.label || row.title || `Row ${idx + 1}`;
+
+    wrap.innerHTML = `
+      <div class="flex justify-between items-baseline mb-2">
+        <div class="text-sm font-semibold text-white">
+          ${idx + 1}. ${wrap.dataset.label}
+        </div>
+        <div class="text-[11px] text-gray-400">Max: ${max} pts</div>
+      </div>
+
+      <div class="flex gap-2 mb-2 text-xs">
+        <button type="button"
+          class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
+          data-score="${low}">
+          ${low} pts
+        </button>
+
+        <button type="button"
+          class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
+          data-score="${med}">
+          ${med} pts
+        </button>
+
+        <button type="button"
+          class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
+          data-score="${high}">
+          ${high} pts
+        </button>
+      </div>
+
+      <textarea
+        class="score-notes w-full rounded-lg bg-black/40 border border-white/10
+               p-2 text-xs"
+        placeholder="Notes for this row (optional)…"></textarea>
+    `;
+
+    rowsContainer.appendChild(wrap);
+  });
+
+  updateScoreTotal();
+}
+
+export function openScoringDialog() {
+  const dlg = $("#scoring-dialog");
+  if (dlg && typeof dlg.showModal === "function") {
+    dlg.showModal();
+    updateScoreTotal();
+  }
+}
+
+export function closeScoringDialog() {
+  const dlg = $("#scoring-dialog");
+  if (dlg && dlg.open) dlg.close();
+}
+
+/** Collect scores + notes from the dialog into an array */
+export function collectScoringData() {
+  const rows = $$("#scoring-rows .score-row");
+  return rows.map((rowEl) => {
+    const idx = parseInt(rowEl.dataset.index || "0", 10);
+    const label = rowEl.dataset.label || `Row ${idx + 1}`;
+    const selected = rowEl.querySelector(".score-btn[data-selected='true']");
+    const score = selected ? parseInt(selected.dataset.score || "0", 10) : 0;
+    const notes = rowEl.querySelector(".score-notes")?.value.trim() || "";
+    return { rowIndex: idx, label, score, notes };
+  });
+}
+
+/** Update the total score label from selected buttons */
+export function updateScoreTotal() {
+  const totalEl = $("#scoring-total");
+  if (!totalEl) return;
+
+  let total = 0;
+  $$("#scoring-rows .score-row").forEach((rowEl) => {
+    const selected = rowEl.querySelector(".score-btn[data-selected='true']");
+    if (selected) {
+      total += parseInt(selected.dataset.score || "0", 10) || 0;
+    }
+  });
+
+  totalEl.textContent = String(total);
+}
+/* ========================================================================== */
+/* EVENT HANDLERS FOR SCORING BUTTONS                                         */
+/* ========================================================================== */
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".score-btn");
+  if (!btn) return;
+
+  const row = btn.closest(".score-row");
+  if (!row) return;
+
+  // Clear previous selection
+  row.querySelectorAll(".score-btn").forEach((b) => {
+    b.removeAttribute("data-selected");
+    b.classList.remove("bg-primary-600", "text-white");
+    b.classList.add("bg-white/10", "text-gray-200");
+  });
+
+  // Mark selected
+  btn.dataset.selected = "true";
+  btn.classList.remove("bg-white/10", "text-gray-200");
+  btn.classList.add("bg-primary-600", "text-white");
+
+  // Update total
+  updateScoreTotal();
+});
