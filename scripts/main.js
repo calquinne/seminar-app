@@ -239,7 +239,7 @@ UI.$("#library-list").onclick = (e) => {
     e.stopPropagation();
     const url = target.dataset.playUrl;
     const title = target.dataset.title || "Video Playback";
-    UI.openVideoPlayer(url, title);
+    UI.showVideoPlayer(url, title);
     return;
   }
 };
