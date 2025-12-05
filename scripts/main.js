@@ -232,16 +232,16 @@ UI.$("#library-list").onclick = (e) => {
     return;
   }
 
-  // -------------------------
-  // CLOUD / DRIVE PLAYBACK
-  // -------------------------
-  if (target.dataset.playUrl) {
-    e.stopPropagation();
-    const url = target.dataset.playUrl;
-    const title = target.dataset.title || "Video Playback";
-    UI.showVideoPlayer(url, title);
-    return;
-  }
+ // -------------------------
+// CLOUD / DRIVE PLAYBACK
+// -------------------------
+if (target.dataset.playUrl) {
+  e.stopPropagation();
+  const url = target.dataset.playUrl;
+  const title = target.dataset.title || "Video Playback";
+  UI.openVideoPlayer(url, title);   // ✅ FIXED NAME
+  return;
+}
 };
 
   // ------------------------------------------------------
