@@ -831,6 +831,10 @@ export async function openScoringForVideo(docId) {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* SAVE SCORES — Overwrite Mode (One score per video)                        */
+/* -------------------------------------------------------------------------- */
+
 export async function handleScoringSubmit(rowScores) {
   if (!UI.db || !UI.currentUser || !currentScoringContext) {
     UI.toast("Scoring context missing.", "error");
@@ -841,9 +845,11 @@ export async function handleScoringSubmit(rowScores) {
   const appId = UI.getAppId();
 
   try {
-    const scoresCol = collection(
+    const scoreId = video.id; 
+    const scoreRef = doc(
       UI.db,
-      `artifacts/${appId}/users/${UI.currentUser.uid}/scores`
+      `artifacts/${appId}/users/${UI.currentUser.uid}/scores`,
+      scoreId
     );
 
     const totalPoints = rowScores.reduce(
@@ -851,7 +857,7 @@ export async function handleScoringSubmit(rowScores) {
       0
     );
 
-    await addDoc(scoresCol, {
+    const scoreDoc = {
       videoId: video.id,
       classEventId: video.classEventId || null,
       classEventTitle: video.classEventTitle || null,
@@ -861,13 +867,29 @@ export async function handleScoringSubmit(rowScores) {
       totalPoints,
       rowScores,
       scoredAt: serverTimestamp()
+    };
+
+    await setDoc(scoreRef, scoreDoc, { merge: true });
+
+    const videoRef = doc(
+      UI.db,
+      `artifacts/${appId}/users/${UI.currentUser.uid}/videos`,
+      video.id
+    );
+
+    await updateDoc(videoRef, {
+      hasScore: true,
+      lastScore: totalPoints,
+      lastScoredAt: serverTimestamp(),
+      rubricUsed: rubric.title || "Rubric"
     });
 
-    UI.toast("Scores saved.", "success");
+    UI.toast("Scores saved!", "success");
     UI.closeScoringDialog();
     currentScoringContext = null;
+
   } catch (e) {
-    console.error("Error saving scores:", e);
-    UI.toast("Failed to save scores.", "error");
+    console.error("Error saving score:", e);
+    UI.toast("Failed to save score.", "error");
   }
 }

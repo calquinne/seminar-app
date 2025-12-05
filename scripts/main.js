@@ -174,12 +174,13 @@ if (scoringSave) {
     e.preventDefault();
     e.stopPropagation();
 
+    // Collect row scores from UI
     const scoringData = UI.collectScoringData();
-    console.log("Scoring saved:", scoringData);
 
-    // TODO: DB write integration (Step 4)
-    UI.toast("Scores saved!", "success");
-    UI.closeScoringDialog();
+    console.log("Submitting scores:", scoringData);
+
+    // Send to Firestore scoring handler
+    await DB.handleScoringSubmit(scoringData);
   };
 }
 
