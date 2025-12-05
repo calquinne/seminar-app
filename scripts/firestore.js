@@ -696,23 +696,24 @@ li.innerHTML = `
       ${action}
 
       <!-- ⭐ Score or View Score -->
-      ${
-        v.hasScore
-          ? `
-            <button 
-              class="text-green-400 text-sm hover:text-green-300 hover:underline flex items-center gap-1"
-              data-open-score="${d.id}">
-              ✔ Scored (${v.lastScore} pts)
-            </button>
-          `
-          : `
-            <button 
-              class="text-amber-400 text-sm hover:text-amber-300 hover:underline flex items-center gap-1"
-              data-score-video='${JSON.stringify({ id: d.id, ...v })}'>
-              ⭐ Score
-            </button>
-          `
-      }
+     ${
+  v.hasScore
+    ? `
+      <button 
+        class="text-green-400 text-sm hover:text-green-300 hover:underline flex items-center gap-1"
+        data-open-score="${d.id}">
+        ✔ Scored (${v.lastScore} pts)
+      </button>
+    `
+    : `
+      <button 
+        class="text-amber-400 text-sm hover:text-amber-300 hover:underline flex items-center gap-1"
+        data-score-video="${d.id}">
+        ⭐ Score
+      </button>
+    `
+}
+
     </div>
 
     <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
