@@ -786,7 +786,7 @@ export function handleOpenLocalVideo(titleFromDoc) {
     const url = URL.createObjectURL(file);
     const title = titleFromDoc || file.name || "Local Video";
 
-    UI.showVideoPlayer(url, title);
+    UI.openVideoPlayer(url, title);
   };
 
   input.click();
