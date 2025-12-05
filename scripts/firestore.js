@@ -675,36 +675,55 @@ export async function flushOfflineQueue() {
         </button>
       `;
 
-      // -------------------------
-      // MAIN ROW TEMPLATE
-      // -------------------------
-      li.innerHTML = `
-        <div class="flex justify-between items-start">
-          <div class="flex flex-col">
-            <div class="font-semibold text-white text-base">
-              ${v.classEventTitle || "Untitled"} — ${v.participant}
-            </div>
-            <div class="text-xs text-gray-400 mt-1">
-              ${dateStr} • ${v.recordingType || "Presentation"} • ${sizeStr}
-            </div>
-          </div>
-          ${badge}
-        </div>
+    // -------------------------
+// MAIN ROW TEMPLATE
+// -------------------------
+li.innerHTML = `
+  <div class="flex justify-between items-start">
+    <div class="flex flex-col">
+      <div class="font-semibold text-white text-base">
+        ${v.classEventTitle || "Untitled"} — ${v.participant}
+      </div>
+      <div class="text-xs text-gray-400 mt-1">
+        ${dateStr} • ${v.recordingType || "Presentation"} • ${sizeStr}
+      </div>
+    </div>
+    ${badge}
+  </div>
 
-        <div class="flex justify-between items-center border-t border-white/10 pt-3 mt-1">
-          <div class="flex items-center gap-4 flex-wrap">
-            ${action}
-            ${scoreBtn}
-          </div>
+  <div class="flex justify-between items-center border-t border-white/10 pt-3 mt-1">
+    <div class="flex items-center gap-4 flex-wrap">
+      ${action}
 
-          <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
-            data-del="${d.id}">
-            🗑 Delete
-          </button>
-        </div>
-      `;
+      <!-- ⭐ Score or View Score -->
+      ${
+        v.hasScore
+          ? `
+            <button 
+              class="text-green-400 text-sm hover:text-green-300 hover:underline flex items-center gap-1"
+              data-open-score="${d.id}">
+              ✔ Scored (${v.lastScore} pts)
+            </button>
+          `
+          : `
+            <button 
+              class="text-amber-400 text-sm hover:text-amber-300 hover:underline flex items-center gap-1"
+              data-score-video='${JSON.stringify({ id: d.id, ...v })}'>
+              ⭐ Score
+            </button>
+          `
+      }
+    </div>
 
-      listEl.appendChild(li);
+    <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+      data-del="${d.id}">
+      🗑 Delete
+    </button>
+  </div>
+`;
+
+listEl.appendChild(li);
+
     });
   } catch (e) {
     console.error("Error loading library:", e);
@@ -845,19 +864,15 @@ export async function handleScoringSubmit(rowScores) {
   const appId = UI.getAppId();
 
   try {
-    const scoreId = video.id; 
-    const scoreRef = doc(
+    // Create new score record
+    const scoresCol = collection(
       UI.db,
-      `artifacts/${appId}/users/${UI.currentUser.uid}/scores`,
-      scoreId
+      `artifacts/${appId}/users/${UI.currentUser.uid}/scores`
     );
 
-    const totalPoints = rowScores.reduce(
-      (sum, r) => sum + (r.score || 0),
-      0
-    );
+    const totalPoints = rowScores.reduce((sum, r) => sum + (r.score || 0), 0);
 
-    const scoreDoc = {
+    await addDoc(scoresCol, {
       videoId: video.id,
       classEventId: video.classEventId || null,
       classEventTitle: video.classEventTitle || null,
@@ -867,10 +882,9 @@ export async function handleScoringSubmit(rowScores) {
       totalPoints,
       rowScores,
       scoredAt: serverTimestamp()
-    };
+    });
 
-    await setDoc(scoreRef, scoreDoc, { merge: true });
-
+    // Update video document for Library display
     const videoRef = doc(
       UI.db,
       `artifacts/${appId}/users/${UI.currentUser.uid}/videos`,
@@ -880,16 +894,19 @@ export async function handleScoringSubmit(rowScores) {
     await updateDoc(videoRef, {
       hasScore: true,
       lastScore: totalPoints,
-      lastScoredAt: serverTimestamp(),
-      rubricUsed: rubric.title || "Rubric"
+      rubricTitle: rubric.title || null,
+      lastScoredAt: serverTimestamp()
     });
 
-    UI.toast("Scores saved!", "success");
+    UI.toast("Scores saved.", "success");
     UI.closeScoringDialog();
     currentScoringContext = null;
 
+    // Refresh Library to show the new badge
+    loadLibrary();
+
   } catch (e) {
-    console.error("Error saving score:", e);
-    UI.toast("Failed to save score.", "error");
+    console.error("Error saving scores:", e);
+    UI.toast("Failed to save scores.", "error");
   }
 }

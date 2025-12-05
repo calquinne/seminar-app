@@ -184,12 +184,34 @@ if (scoringSave) {
   };
 }
 
-  // ------------------------------------------------------
-  // Library Click Handler (Delete / Local / Cloud playback)
-  // ------------------------------------------------------
- UI.$("#library-list").onclick = (e) => {
+// ------------------------------------------------------
+// Library Click Handler (Delete / Local / Cloud / Scoring)
+// ------------------------------------------------------
+UI.$("#library-list").onclick = (e) => {
   const target = e.target.closest("button,a");
   if (!target) return;
+
+  // -------------------------
+  // ⭐ SCORE VIDEO
+  // -------------------------
+  if (target.dataset.scoreVideo) {
+    e.stopPropagation();
+    const videoId = target.dataset.scoreVideo;
+    console.log("Score requested:", videoId);
+    DB.openScoringForVideo(videoId);
+    return;
+  }
+
+  // -------------------------
+  // ✔ VIEW EXISTING SCORE
+  // -------------------------
+  if (target.dataset.openScore) {
+    e.stopPropagation();
+    const videoId = target.dataset.openScore;
+    console.log("Open scored video:", videoId);
+    DB.openScoringForVideo(videoId);
+    return;
+  }
 
   // -------------------------
   // DELETE
@@ -218,29 +240,6 @@ if (scoringSave) {
     const url = target.dataset.playUrl;
     const title = target.dataset.title || "Video Playback";
     UI.openVideoPlayer(url, title);
-    return;
-  }
-
-  // -------------------------
-  // ⭐ SCORE VIDEO
-  // -------------------------
-  if (target.dataset.scoreVideo) {
-    e.stopPropagation();
-
-    try {
-      const decoded = decodeURIComponent(target.dataset.scoreVideo);
-      const videoObj = JSON.parse(decoded);
-
-      console.log("Score requested:", videoObj);
-
-      // Call Firestore scoring loader
-      DB.openScoringForVideo(videoObj.id);
-
-    } catch (err) {
-      console.error("Scoring JSON parse failed:", err);
-      UI.toast("Could not open scoring dialog.", "error");
-    }
-
     return;
   }
 };
