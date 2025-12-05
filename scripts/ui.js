@@ -649,7 +649,7 @@ export function initFloatingPlayer() {
  * Render scoring rows for a given video + rubric.
  * rows = [{ label, maxPoints }]
  */
-export function renderScoringDialog({ video, rubric, rows }) {
+export function renderScoringDialog({ video, rubric, rows, existingScores }) {
   const titleEl = $("#scoring-video-title");
   const partEl = $("#scoring-video-participant");
   const rubricEl = $("#scoring-rubric-title");
@@ -664,55 +664,73 @@ export function renderScoringDialog({ video, rubric, rows }) {
   rowsContainer.innerHTML = "";
 
   rows.forEach((row, idx) => {
-    const max = row.maxPoints || 6;
+  const max = row.maxPoints || 6;
 
-    // Option A: three score buttons (Low / Med / High)
-    const low = Math.round(max / 3);       // e.g. 2
-    const med = Math.round((2 * max) / 3); // e.g. 4
-    const high = max;                      // e.g. 6
+  const low = Math.round(max / 3);
+  const med = Math.round((2 * max) / 3);
+  const high = max;
 
-    const wrap = document.createElement("div");
-    wrap.className =
-      "score-row border border-white/10 rounded-xl p-3 bg-black/30";
-    wrap.dataset.index = String(idx);
-    wrap.dataset.label = row.label || row.title || `Row ${idx + 1}`;
+  const wrap = document.createElement("div");
+  wrap.className =
+    "score-row border border-white/10 rounded-xl p-3 bg-black/30";
+  wrap.dataset.index = String(idx);
+  wrap.dataset.label = row.label || row.title || `Row ${idx + 1}`;
 
-    wrap.innerHTML = `
-      <div class="flex justify-between items-baseline mb-2">
-        <div class="text-sm font-semibold text-white">
-          ${idx + 1}. ${wrap.dataset.label}
-        </div>
-        <div class="text-[11px] text-gray-400">Max: ${max} pts</div>
+  wrap.innerHTML = `
+    <div class="flex justify-between items-baseline mb-2">
+      <div class="text-sm font-semibold text-white">
+        ${idx + 1}. ${wrap.dataset.label}
       </div>
+      <div class="text-[11px] text-gray-400">Max: ${max} pts</div>
+    </div>
 
-      <div class="flex gap-2 mb-2 text-xs">
-        <button type="button"
-          class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
-          data-score="${low}">
-          ${low} pts
-        </button>
+    <div class="flex gap-2 mb-2 text-xs">
+      <button type="button"
+        class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
+        data-score="${low}">
+        ${low} pts
+      </button>
 
-        <button type="button"
-          class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
-          data-score="${med}">
-          ${med} pts
-        </button>
+      <button type="button"
+        class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
+        data-score="${med}">
+        ${med} pts
+      </button>
 
-        <button type="button"
-          class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
-          data-score="${high}">
-          ${high} pts
-        </button>
-      </div>
+      <button type="button"
+        class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
+        data-score="${high}">
+        ${high} pts
+      </button>
+    </div>
 
-      <textarea
-        class="score-notes w-full rounded-lg bg-black/40 border border-white/10
-               p-2 text-xs"
-        placeholder="Notes for this row (optional)…"></textarea>
-    `;
+    <textarea
+      class="score-notes w-full rounded-lg bg-black/40 border border-white/10
+             p-2 text-xs"
+      placeholder="Notes for this row (optional)…"></textarea>
+  `;
 
-    rowsContainer.appendChild(wrap);
-  });
+  rowsContainer.appendChild(wrap);
+
+  // ---------------------------------------------------------
+  // ⭐ PREFILL SCORES IF THEY EXIST (from database)
+  // ---------------------------------------------------------
+  if (existingScores && Array.isArray(existingScores.rowScores)) {
+    const saved = existingScores.rowScores.find((r) => r.rowIndex === idx);
+    if (saved) {
+      const btn = wrap.querySelector(`.score-btn[data-score="${saved.score}"]`);
+      const notesEl = wrap.querySelector(".score-notes");
+
+      if (btn) {
+        btn.dataset.selected = "true";
+        btn.classList.remove("bg-white/10", "text-gray-200");
+        btn.classList.add("bg-primary-600", "text-white");
+      }
+
+      if (notesEl) notesEl.value = saved.notes || "";
+    }
+  }
+});
 
   updateScoreTotal();
 }

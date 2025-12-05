@@ -791,7 +791,7 @@ export function handleOpenLocalVideo(titleFromDoc) {
   input.click();
 }
 /* -------------------------------------------------------------------------- */
-/* Scoring: open dialog for a video + save results                            */
+/* Scoring: Open dialog for a video — INCLUDING loading saved scores          */
 /* -------------------------------------------------------------------------- */
 
 export async function openScoringForVideo(docId) {
@@ -803,25 +803,32 @@ export async function openScoringForVideo(docId) {
   const appId = UI.getAppId();
 
   try {
-    // 1) Load video document
+    // -----------------------------
+    // 1) Load the video document
+    // -----------------------------
     const videoRef = doc(
       UI.db,
       `artifacts/${appId}/users/${UI.currentUser.uid}/videos`,
       docId
     );
     const videoSnap = await getDoc(videoRef);
+
     if (!videoSnap.exists()) {
       UI.toast("Video not found.", "error");
       return;
     }
+
     const video = { id: videoSnap.id, ...videoSnap.data() };
 
-    // 2) Load rubrics (for now, just use the first one)
+    // -----------------------------
+    // 2) Load rubrics (use first)
+    // -----------------------------
     const rubCol = collection(
       UI.db,
       `artifacts/${appId}/users/${UI.currentUser.uid}/rubrics`
     );
     const rubSnap = await getDocs(rubCol);
+
     if (rubSnap.empty) {
       UI.toast("Create a rubric first in the Rubrics tab.", "error");
       return;
@@ -831,19 +838,47 @@ export async function openScoringForVideo(docId) {
     rubSnap.forEach((d) => rubrics.push({ id: d.id, ...d.data() }));
     const rubric = rubrics[0];
 
-    // Build rows from componentNames (each row default to 6 pts max)
+    // Build scoring rows
     const rows = (rubric.componentNames || []).map((name, idx) => ({
       label: name,
       maxPoints: 6,
-      index: idx
+      index: idx,
     }));
 
-    // Store context for save
-    currentScoringContext = { video, rubric };
+    // -----------------------------
+    // 3) LOAD EXISTING SCORE (⭐ NEW)
+    // scores doc ID = video.id
+    // -----------------------------
+    const scoreRef = doc(
+      UI.db,
+      `artifacts/${appId}/users/${UI.currentUser.uid}/scores`,
+      video.id
+    );
 
-    // Render + open scoring dialog
-    UI.renderScoringDialog({ video, rubric, rows });
+    let existingScores = null;
+    const scoreSnap = await getDoc(scoreRef);
+
+    if (scoreSnap.exists()) {
+      existingScores = scoreSnap.data();
+    }
+
+    // -----------------------------
+    // 4) Store context for save
+    // -----------------------------
+    currentScoringContext = { video, rubric, existingScores };
+
+    // -----------------------------
+    // 5) Render dialog with saved scores
+    // -----------------------------
+    UI.renderScoringDialog({
+      video,
+      rubric,
+      rows,
+      existingScores, // ⭐ Pass to UI
+    });
+
     UI.openScoringDialog();
+
   } catch (e) {
     console.error("Error opening scoring:", e);
     UI.toast("Could not open scoring dialog.", "error");
