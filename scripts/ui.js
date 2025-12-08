@@ -509,138 +509,54 @@ export async function saveToLocalDevice(blob, filename) {
 }
 
 /* ========================================================================== */
-/* UNIFIED FLOATING MINI-PLAYER (Dockable + Resizable + Stream/File Support)   */
+/* SPLIT-SCREEN VIDEO PLAYER (Primary Player Used for Playback + Scoring)     */
 /* ========================================================================== */
 
-// Internal state
-let fpIsDragging = false;
-let fpDragOffsetX = 0;
-let fpDragOffsetY = 0;
+/**
+ * Opens the split-screen video player.
+ * Loads a URL into <video id="main-player"> and reveals #player-screen.
+ */
+export function openVideoPlayer(url, title = "Video Playback") {
+  const container = document.getElementById("player-screen");
+  const video = document.getElementById("main-player");
+  const titleEl = document.getElementById("player-title");
 
-let fpIsResizing = false;
-let fpResizeStartX = 0;
-let fpResizeStartY = 0;
-let fpStartWidth = 0;
-let fpStartHeight = 0;
+  if (!container || !video) return;
 
-/* --------------------------------------------------------------------------
-   SHOW FLOATING PLAYER (Stream OR URL)
-   -------------------------------------------------------------------------- */
-export function openFloatingPlayer(source, title = "Preview") {
-  const box = document.getElementById("mini-player");
-  const video = document.getElementById("mini-player-video");
-  const titleEl = document.getElementById("mini-player-title");
-
-  if (!box || !video) return;
-
-  // Clear previous source
+  // Stop previous playback
   video.pause();
   video.src = "";
   video.srcObject = null;
 
-  // Handle live camera feed (MediaStream)
-  if (source instanceof MediaStream) {
-    video.srcObject = source;
-  } else {
-    // Handle file/URL playback
-    video.src = source;
-  }
+  // Load new URL
+  video.src = url;
 
+  // Update title
   if (titleEl) titleEl.textContent = title;
 
-  box.classList.remove("hidden");
+  // Show split-screen layout
+  container.classList.remove("hidden");
 
+  // Autoplay (ignore errors)
   video.play().catch(() => {});
 }
 
-/* --------------------------------------------------------------------------
-   HIDE FLOATING PLAYER
-   -------------------------------------------------------------------------- */
-export function closeFloatingPlayer() {
-  const box = document.getElementById("mini-player");
-  const video = document.getElementById("mini-player-video");
-  if (!box || !video) return;
+/**
+ * Closes the split-screen video player and returns to the library.
+ */
+export function closeVideoPlayer() {
+  const container = document.getElementById("player-screen");
+  const video = document.getElementById("main-player");
+
+  if (!container || !video) return;
 
   video.pause();
   video.src = "";
   video.srcObject = null;
 
-  box.classList.add("hidden");
+  container.classList.add("hidden");
 }
 
-/* --------------------------------------------------------------------------
-   DRAGGING LOGIC
-   -------------------------------------------------------------------------- */
-function setupMiniPlayerDrag() {
-  const box = document.getElementById("mini-player");
-  const header = document.getElementById("mini-player-header");
-
-  header.addEventListener("mousedown", (e) => {
-    fpIsDragging = true;
-    fpDragOffsetX = e.clientX - box.offsetLeft;
-    fpDragOffsetY = e.clientY - box.offsetTop;
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (!fpIsDragging) return;
-    box.style.left = `${e.clientX - fpDragOffsetX}px`;
-    box.style.top = `${e.clientY - fpDragOffsetY}px`;
-    box.style.right = "auto";
-    box.style.bottom = "auto";
-  });
-
-  document.addEventListener("mouseup", () => {
-    fpIsDragging = false;
-  });
-}
-
-/* --------------------------------------------------------------------------
-   RESIZING LOGIC
-   -------------------------------------------------------------------------- */
-function setupMiniPlayerResize() {
-  const box = document.getElementById("mini-player");
-  const handle = document.getElementById("mini-player-resize");
-
-  handle.addEventListener("mousedown", (e) => {
-    fpIsResizing = true;
-    fpResizeStartX = e.clientX;
-    fpResizeStartY = e.clientY;
-    fpStartWidth = box.offsetWidth;
-    fpStartHeight = box.offsetHeight;
-    e.preventDefault();
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (!fpIsResizing) return;
-
-    const dx = e.clientX - fpResizeStartX;
-    const dy = e.clientY - fpResizeStartY;
-
-    box.style.width = `${fpStartWidth + dx}px`;
-    box.style.height = `${fpStartHeight + dy}px`;
-  });
-
-  document.addEventListener("mouseup", () => {
-    fpIsResizing = false;
-  });
-}
-
-/* --------------------------------------------------------------------------
-   CLOSE BUTTON
-   -------------------------------------------------------------------------- */
-function setupMiniPlayerClose() {
-  const closeBtn = document.getElementById("mini-player-close");
-  closeBtn.addEventListener("click", closeFloatingPlayer);
-}
-
-/* --------------------------------------------------------------------------
-   INITIALIZE ONCE
-   -------------------------------------------------------------------------- */
-export function initFloatingPlayer() {
-  setupMiniPlayerDrag();
-  setupMiniPlayerResize();
-  setupMiniPlayerClose();
-}
 /* ========================================================================== */
 /* SCORING DIALOG HELPERS (Vertical layout, Option A buttons)                */
 /* ========================================================================== */
