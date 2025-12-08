@@ -156,8 +156,7 @@ export async function startRecording() {
         UI.mediaStream.getTracks().forEach(track => track.stop());
         UI.setMediaStream(null);
       }
-      UI.$("#preview-player
-").srcObject = null;
+     UI.$("#preview-player").srcObject = null;
       
       if (UI.recordedChunks.length > 0) {
         const blob = new Blob(UI.recordedChunks, { type: recorder.mimeType || 'video/webm' });
@@ -245,8 +244,8 @@ export async function discardRecording() {
     UI.mediaStream.getTracks().forEach(track => track.stop());
     UI.setMediaStream(null);
   }
-  UI.$("#preview-player
-").srcObject = null;
+ UI.$("#preview-player").srcObject = null;
+
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
   if(UI.timerInterval) clearInterval(UI.timerInterval);
