@@ -119,13 +119,10 @@ export async function startRecording() {
   }
   
   if (!UI.mediaStream) {
-    console.log("No preview stream, starting stream first.");
-    await startPreview();
-    if (!UI.mediaStream) {
-      console.error("Failed to get media stream for recording.");
-      return;
-    }
-  }
+  UI.toast("Preview is not active. Please ensure your webcam is working.", "error");
+  console.error("Cannot record — no preview stream.");
+  return;
+}
   
   console.log("Attempting to start recording...");
   UI.updateRecordingUI('recording');
