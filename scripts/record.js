@@ -36,7 +36,7 @@ function appendTagToTimeline(timeSeconds) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Recording Flow                                                              */
+/* Recording Split-Screen Preview (Webcam only for now)                        */
 /* -------------------------------------------------------------------------- */
 export async function startPreview() {
   if (!UI.hasAccess()) {
@@ -44,12 +44,13 @@ export async function startPreview() {
     return;
   }
 
-  // Stop old streams
+  console.log("Starting split-screen preview…");
+
+  // Stop any previous stream
   if (UI.mediaStream) {
-    UI.mediaStream.getTracks().forEach(track => track.stop());
+    UI.mediaStream.getTracks().forEach(t => t.stop());
   }
 
-  console.log("Initializing camera preview...");
   UI.updateRecordingUI("idle");
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
@@ -62,45 +63,51 @@ export async function startPreview() {
   if (progressEl) progressEl.style.width = "0%";
 
   try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      UI.toast("Media devices not supported on this browser.", "error");
-      return;
-    }
-
-    const constraints = {
+    const stream = await navigator.mediaDevices.getUserMedia({
       video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
         facingMode: UI.currentFacingMode
       },
       audio: true
-    };
+    });
 
-    // Get camera + mic
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     UI.setMediaStream(stream);
 
-   UI.$("#video-preview").srcObject = stream;
-   UI.$("#video-preview").muted = true;
+    /* -------------------------------------------------------------
+       LEFT SIDE: Webcam Live Preview (same as library split player)
+    ------------------------------------------------------------- */
+    const videoEl = document.getElementById("preview-player");
+    const screen = document.getElementById("preview-screen");
 
-   // 🚫 Prevent browser PiP popup
-   UI.$("#video-preview").disablePictureInPicture = true;
-   UI.$("#video-preview").controls = false;
+    if (!videoEl || !screen) {
+      console.error("Preview elements missing in HTML.");
+      UI.toast("Preview player missing in UI.", "error");
+      return;
+    }
 
-    // ⭐ NEW: Show live camera feed in dockable mini-player
-    UI.openFloatingPlayer(stream, "Live Camera");
+    videoEl.srcObject = stream;
+    videoEl.muted = true;
+    videoEl.disablePictureInPicture = true;
+    videoEl.controls = false;
 
-    // Mute preview audio only
-    UI.mediaStream.getAudioTracks().forEach(track => (track.enabled = false));
-    UI.toast("🎤 Audio is being recorded but muted in preview.", "info");
+    // Show split screen container
+    screen.classList.remove("hidden");
 
-  } catch (permErr) {
-    console.error("Permission error:", permErr);
+    // Attempt autoplay
+    await videoEl.play().catch(() => {});
 
-    if (permErr.name === "NotAllowedError" || permErr.name === "PermissionDeniedError") {
-      UI.toast("You must allow access to your camera and microphone.", "error");
+    // Mute preview audio (only for local playback — audio still recorded)
+    stream.getAudioTracks().forEach(t => t.enabled = false);
+
+    UI.toast("🎥 Webcam preview active. Audio is recording but muted locally.", "info");
+
+  } catch (err) {
+    console.error("Preview error:", err);
+    if (err.name === "NotAllowedError") {
+      UI.toast("Allow camera & microphone to record.", "error");
     } else {
-      UI.toast(`Could not access media devices: ${permErr.name}.`, "error");
+      UI.toast(`Camera error: ${err.message}`, "error");
     }
   }
 }

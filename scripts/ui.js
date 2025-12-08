@@ -540,22 +540,20 @@ export function openVideoPlayer(url, title = "Video Playback") {
   // Autoplay (ignore errors)
   video.play().catch(() => {});
 }
-
-/**
- * Closes the split-screen video player and returns to the library.
- */
-export function closeVideoPlayer() {
-  const container = document.getElementById("player-screen");
-  const video = document.getElementById("main-player");
-
-  if (!container || !video) return;
-
-  video.pause();
-  video.src = "";
-  video.srcObject = null;
-
-  container.classList.add("hidden");
-}
+//* -------------------------------------------------------------------------- */
+/* Fullscreen Button for Webcam Preview                                        */
+/* -------------------------------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const previewFS = document.getElementById("preview-fullscreen-btn");
+  if (previewFS) {
+    previewFS.onclick = () => {
+      const v = document.getElementById("preview-player");
+      if (v && v.requestFullscreen) {
+        v.requestFullscreen().catch(() => {});
+      }
+    };
+  }
+});
 
 /* ========================================================================== */
 /* SCORING DIALOG HELPERS (Vertical layout, Option A buttons)                */
