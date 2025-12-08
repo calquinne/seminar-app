@@ -540,18 +540,19 @@ export function openVideoPlayer(url, title = "Video Playback") {
   // Autoplay (ignore errors)
   video.play().catch(() => {});
 }
-//* -------------------------------------------------------------------------- */
-/* Fullscreen Button for Webcam Preview                                        */
+/* -------------------------------------------------------------------------- */
+/* Fullscreen Button for Webcam Preview (runs after DOM loaded)               */
 /* -------------------------------------------------------------------------- */
 document.addEventListener("DOMContentLoaded", () => {
   const previewFS = document.getElementById("preview-fullscreen-btn");
   if (previewFS) {
     previewFS.onclick = () => {
       const v = document.getElementById("preview-player");
-      if (v && v.requestFullscreen) {
+      if (v?.requestFullscreen) {
         v.requestFullscreen().catch(() => {});
       }
     };
+    console.log("Fullscreen button wired.");
   }
 });
 
