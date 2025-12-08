@@ -616,45 +616,69 @@
 </section>
 
 <!-- ========================================================= -->
-<!-- FLOATING MINI PLAYER (Unified A4 System)                  -->
+<!-- SPLIT-SCREEN VIDEO PLAYER (Main Player for Playback + Scoring) -->
 <!-- ========================================================= -->
-<div id="mini-player"
-     class="hidden fixed bottom-6 right-6 z-[9999]
-            bg-black/90 border border-gray-700 rounded-xl shadow-2xl
-            w-[380px] h-[250px] flex flex-col overflow-hidden">
 
-    <!-- HEADER (Drag Handle + Title + Close) -->
-    <div id="mini-player-header"
-         class="flex items-center justify-between px-3 py-1.5
-                bg-black/70 border-b border-gray-700
-                cursor-move select-none">
-        <span id="mini-player-title"
-              class="text-gray-300 text-sm font-semibold truncate">
-            Preview
-        </span>
+<div id="player-screen" class="hidden w-full h-full fixed inset-0 bg-black/80 z-[9999] flex">
 
-        <button id="mini-player-close"
-                type="button"
-                class="text-gray-400 hover:text-white text-lg font-bold">
-            ×
-        </button>
+  <!-- LEFT SIDE – VIDEO PLAYER -->
+  <div class="w-1/2 h-full bg-black flex flex-col">
+
+    <!-- Video -->
+    <video id="main-player"
+           class="w-full h-full object-contain bg-black"
+           controls></video>
+
+    <!-- Player Controls -->
+    <div class="flex items-center gap-4 p-3 bg-gray-900 text-white">
+
+      <button id="player-back-10"
+              class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
+        ⏪ 10s
+      </button>
+
+      <button id="player-fwd-10"
+              class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
+        10s ⏩
+      </button>
+
+      <label class="ml-4">Speed:</label>
+      <select id="player-speed"
+              class="bg-gray-800 border border-gray-600 text-white rounded px-2 py-1">
+        <option value="0.5">0.5×</option>
+        <option value="0.75">0.75×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.25">1.25×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+
+      <button id="player-fullscreen-btn"
+              class="ml-auto px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
+        ⛶ Fullscreen
+      </button>
+
+      <button id="player-close-btn"
+              class="px-3 py-1 bg-red-600 hover:bg-red-500 rounded">
+        ✕ Close
+      </button>
+
+    </div>
+  </div>
+
+  <!-- RIGHT SIDE – SCORING PANEL -->
+  <div id="scoring-panel"
+       class="w-1/2 h-full overflow-y-auto bg-gray-900 text-white p-6">
+
+    <h2 id="player-title" class="text-2xl font-bold mb-4">Video Playback</h2>
+
+    <!-- The scoring dialog UI you already have will be injected here -->
+
+    <div id="scoring-dialog-container">
+      <!-- UI.renderScoringDialog() will populate this -->
     </div>
 
-    <!-- VIDEO AREA -->
-    <div class="relative flex-1 bg-black">
-        <video id="mini-player-video"
-               class="w-full h-full object-cover rounded-b-lg"
-               playsinline
-               controls>
-        </video>
-
-        <!-- Resize Handle -->
-        <div id="mini-player-resize"
-             class="absolute bottom-1.5 right-1.5 w-3.5 h-3.5
-                    bg-white/20 border border-white/40 rounded-sm
-                    cursor-se-resize">
-        </div>
-    </div>
+  </div>
 </div>
 
   <!-- METADATA DIALOG -->
