@@ -213,7 +213,7 @@ export async function startPreview() {
      3. Prevent autoplay issues on mobile.
   ------------------------------------------------------ */
 
-  const recordTab = UI.$("#tab-record");
+  const recordTab = UI.$("[data-tab='tab-record']");
   if (!recordTab || recordTab.classList.contains("hidden")) {
     console.log("[Preview] Blocked: Record tab not visible yet.");
     return;
