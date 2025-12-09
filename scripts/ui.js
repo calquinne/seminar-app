@@ -206,7 +206,8 @@ export function refreshMetadataClassList() {
 /* -------------------------------------------------------------------------- */
 /* Global Event Handlers
 /* -------------------------------------------------------------------------- */
-export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPreview, loadLibrary) {
+export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPreviewSafely
+, loadLibrary) {
   const btn = e.target.closest(".app-tab");
   if (!btn) return;
 
@@ -243,7 +244,8 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
     refreshMyRubrics();
   }
   if (tabId === 'tab-record') {
-    startPreview(); 
+    startPreviewSafely
+(); 
   }
   if (tabId === 'tab-library') {
     loadLibrary();

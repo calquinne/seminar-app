@@ -204,7 +204,8 @@ function updateLiveScoreTotal() {
 /* PREVIEW – START CAMERA + SHOW SPLIT SCREEN                                 */
 /* ========================================================================== */
 
-export async function startPreview() {
+export async function startPreviewSafely
+() {
   /* ------------------------------------------------------
      SAFETY WRAPPER — CRITICAL FOR CHROMEBOOK & MOBILE
      ------------------------------------------------------
@@ -316,7 +317,8 @@ export async function startRecording() {
 
   if (!UI.mediaStream) {
     console.log("No preview stream, starting stream first.");
-    await startPreview();
+    await startPreviewSafely
+();
     if (!UI.mediaStream) {
       console.error("Failed to get media stream for recording.");
       return;
@@ -370,7 +372,8 @@ export async function startRecording() {
       } else {
         console.warn("No data recorded.");
         UI.updateRecordingUI("idle");
-        startPreview();
+        startPreviewSafely
+();
       }
       UI.setRecordedChunks([]);
     };
@@ -480,7 +483,8 @@ export async function discardRecording() {
   clearTagList();
   resetLiveScoringUI();
 
-  startPreview();
+  startPreviewSafely
+();
 }
 
 export async function toggleCamera() {
@@ -493,7 +497,8 @@ export async function toggleCamera() {
   );
 
   if (!UI.mediaRecorder || UI.mediaRecorder.state === "inactive") {
-    await startPreview();
+    await startPreviewSafely
+();
   }
 }
 
