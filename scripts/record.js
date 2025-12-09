@@ -628,10 +628,11 @@ export async function handleMetadataSubmit(e) {
     fileSize: UI.currentRecordingBlob.size,
     duration: UI.secondsElapsed,
     recordedAt: new Date().toISOString(),
-    tags: currentTags,      // ✅ all tag timestamps
-    scores: liveScores,     // ✅ live scoring events [{rowId, score, timestamp}]
+    tags: currentTags,
+    scores: liveScores,
   };
 
+  // BASIC VALIDATION
   if (
     !metadata.classEventId ||
     metadata.participant === "--ADD_NEW--" ||
@@ -641,49 +642,61 @@ export async function handleMetadataSubmit(e) {
     return;
   }
 
-  console.log("Processing submission...", metadata);
-
-  // Reset UI immediately
-  UI.$("#metadata-form").reset();
+  // Close dialog immediately (good UX)
   UI.$("#metadata-screen").close();
-  UI.updateRecordingUI("idle");
-  clearTagList();
-  resetLiveScoringUI();
+  UI.toast("Uploading… please wait", "info");
 
-  const storageChoice = UI.getStorageChoice(); // "firebase", "gdrive", "local"
+  const storageChoice = UI.getStorageChoice(); // firebase | gdrive | local
 
-  // ---------- LOCAL / USB ----------
-  if (storageChoice === "local") {
-    const filename = `${Date.now()}_${metadata.participant}.webm`;
+  try {
+    // ----------------------------
+    // LOCAL SAVE
+    // ----------------------------
+    if (storageChoice === "local") {
+      const filename = `${Date.now()}_${metadata.participant}.webm`;
 
-    const saved = await UI.saveToLocalDevice(UI.currentRecordingBlob, filename);
+      const saved = await UI.saveToLocalDevice(UI.currentRecordingBlob, filename);
 
-    if (saved) {
-      metadata.storagePath = "local";
-      metadata.downloadURL = null;
-      metadata.savedAs = filename;
-      metadata.isLocal = true;
+      if (saved) {
+        metadata.storagePath = "local";
+        metadata.downloadURL = null;
+        metadata.savedAs = filename;
+        metadata.isLocal = true;
 
-      await uploadFile(null, metadata); // metadata-only doc
-      UI.toast("Saved to device & database updated!", "success");
-    } else {
-      UI.toast("Save cancelled. Video kept in memory.", "warn");
-      return; // do not clear blob
+        await uploadFile(null, metadata); // metadata-only doc
+
+        UI.toast("Saved to device & metadata stored!", "success");
+      } else {
+        UI.toast("Save cancelled. Video kept in memory.", "warn");
+        return;
+      }
     }
-  }
 
-  // ---------- GOOGLE DRIVE ----------
-  else if (storageChoice === "gdrive") {
-    UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
-  }
+    // ----------------------------
+    // GOOGLE DRIVE
+    // ----------------------------
+    else if (storageChoice === "gdrive") {
+      UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
+    }
 
-  // ---------- FIREBASE ----------
-  else {
-    await uploadFile(UI.currentRecordingBlob, metadata);
-  }
+    // ----------------------------
+    // FIREBASE
+    // ----------------------------
+    else {
+      await uploadFile(UI.currentRecordingBlob, metadata);
+      UI.toast("Uploaded successfully!", "success");
+    }
 
-  // Cleanup recording memory
-  UI.setCurrentRecordingBlob(null);
-  UI.setSecondsElapsed(0);
-  UI.$("#rec-timer").textContent = "00:00";
+    // Cleanup AFTER upload finishes
+    UI.setCurrentRecordingBlob(null);
+    UI.setSecondsElapsed(0);
+    UI.$("#rec-timer").textContent = "00:00";
+    UI.updateRecordingUI("idle");
+    clearTagList();
+    resetLiveScoringUI();
+
+  } catch (err) {
+    console.error("Upload error:", err);
+    UI.toast("Upload failed — video kept in memory.", "error");
+  }
 }
