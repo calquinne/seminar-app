@@ -546,8 +546,22 @@ export function openVideoPlayer(url, title = "Video Playback") {
 
   // Show split-screen layout
   container.classList.remove("hidden");
-
  }
+
+ document.addEventListener("DOMContentLoaded", () => {
+  const closeBtn = document.getElementById("player-close-btn");
+  const container = document.getElementById("player-screen");
+  const video = document.getElementById("main-player");
+
+  if (closeBtn && container && video) {
+    closeBtn.onclick = () => {
+      video.pause();
+      video.src = "";
+      container.classList.add("hidden");
+    };
+  }
+});
+
 /* -------------------------------------------------------------------------- */
 /* Fullscreen Button for Webcam Preview (runs after DOM loaded)               */
 /* -------------------------------------------------------------------------- */
