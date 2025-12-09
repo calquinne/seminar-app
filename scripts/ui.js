@@ -547,9 +547,7 @@ export function openVideoPlayer(url, title = "Video Playback") {
   // Show split-screen layout
   container.classList.remove("hidden");
 
-  // Autoplay (ignore errors)
-  video.play().catch(() => {});
-}
+ }
 /* -------------------------------------------------------------------------- */
 /* Fullscreen Button for Webcam Preview (runs after DOM loaded)               */
 /* -------------------------------------------------------------------------- */
