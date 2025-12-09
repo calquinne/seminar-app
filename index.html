@@ -525,77 +525,121 @@
       </div>
     </div>
 
-    <!-- TAB: RECORD -->
-    <div id="tab-record" class="hidden app-tab-content max-w-2xl mx-auto">
-      <h2 class="text-xl font-semibold mb-4">Record Presentation</h2>
+<!-- ============================== -->
+<!-- TAB: RECORD (FINAL VERSION)   -->
+<!-- ============================== -->
+<div id="tab-record" class="hidden app-tab-content w-full">
 
-      <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
+  <h2 class="text-xl font-semibold mb-4">Record Presentation</h2>
 
-       <video id="video-preview"
-  class="w-full rounded-lg shadow aspect-video mb-4"
-  playsinline muted autoplay></video>
+  <!-- ============================== -->
+  <!-- SPLIT-SCREEN LIVE PREVIEW     -->
+  <!-- ============================== -->
+  <section id="preview-screen"
+    class="hidden w-full h-[70vh] flex border border-white/10 rounded-2xl overflow-hidden bg-black">
 
-<button id="popout-preview-btn"
-  class="mt-3 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm shadow w-full">
-  Pop Out Preview
-</button>
+    <!-- LEFT: LIVE CAMERA -->
+    <div class="flex-1 bg-black flex items-center justify-center relative">
+      <video id="preview-player"
+             class="max-h-full max-w-full rounded-lg"
+             autoplay playsinline muted></video>
 
-        <div class="flex justify-between items-center mb-4">
-          <div class="text-lg">
-            Status: <span id="rec-status" class="font-semibold text-gray-300">Idle</span>
-          </div>
-          <div class="text-lg">
-            Timer: <span id="rec-timer" class="font-semibold text-gray-300">00:00</span>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-          <button id="start-rec-btn" type="button"
-                  class="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold col-span-2">
-            Start Recording
-          </button>
-
-          <button id="pause-rec-btn" type="button" disabled
-                  class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50">
-            Pause
-          </button>
-
-          <button id="tag-btn" type="button"
-                  class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20">
-            Tag
-          </button>
-
-          <button id="toggle-camera-btn" type="button"
-                  class="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20">
-            Switch Camera
-          </button>
-
-          <button id="stop-rec-btn" type="button"
-                  class="hidden px-4 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold col-span-2">
-            Stop & Tag Video
-          </button>
-
-          <button id="discard-rec-btn" type="button"
-                  class="hidden px-4 py-3 rounded-lg bg-red-800 hover:bg-red-700 text-white col-span-2">
-            Discard & Restart
-          </button>
-        </div>
-
-        <p class="text-xs text-gray-500 mt-3 text-center">
-          Note: Recording happens on your device. Tags and uploads occur after stopping.
-        </p>
-
-        <div id="tag-timeline" class="mt-4 space-y-1">
-  <ul id="tag-list" class="text-xs text-gray-400 space-y-1"></ul>
-</div>
-        <div class="w-full h-1 mt-4 bg-white/10 rounded-full overflow-hidden">
-          <div id="upload-progress"
-               class="h-1 bg-primary-500 w-0 transition-all duration-300"></div>
-        </div>
-
-      </div>
+      <!-- FULLSCREEN BUTTON -->
+      <button id="preview-fullscreen-btn"
+        class="absolute top-2 right-2 px-3 py-1 bg-black/60 text-white rounded shadow">
+        ⛶
+      </button>
     </div>
+
+    <!-- RIGHT: LIVE SCORING PANEL -->
+    <aside class="w-[350px] bg-gray-900 border-l border-white/10 p-4 overflow-y-auto">
+
+      <h3 id="live-scoring-rubric-title"
+          class="text-lg font-semibold text-white mb-2">
+        Live Scoring
+      </h3>
+
+      <div class="text-sm text-gray-300 mb-3">
+        Total Score:
+        <span id="live-score-total" class="text-primary-400 font-bold">0</span>
+      </div>
+
+      <!-- LIVE SCORING ROWS -->
+      <div id="live-scoring-rows" class="space-y-2 mb-6">
+        <p class="text-xs text-gray-500 italic">
+          Select a rubric to enable live scoring.
+        </p>
+      </div>
+
+      <!-- TAG LIST -->
+      <div>
+        <h4 class="text-sm font-semibold text-white mb-1">Tags</h4>
+        <ul id="tag-list" class="text-xs text-gray-400 space-y-1"></ul>
+      </div>
+
+    </aside>
+
+  </section>
+
+  <!-- ============================== -->
+  <!-- CONTROLS ROW                   -->
+  <!-- ============================== -->
+  <div class="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+
+    <!-- START -->
+    <button id="start-rec-btn"
+      class="col-span-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold">
+      Start Recording
+    </button>
+
+    <!-- PAUSE -->
+    <button id="pause-rec-btn"
+      class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white disabled:opacity-50"
+      disabled>
+      Pause
+    </button>
+
+    <!-- TAG -->
+    <button id="tag-btn"
+      class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white">
+      Tag
+    </button>
+
+    <!-- SWITCH CAMERA -->
+    <button id="toggle-camera-btn"
+      class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white">
+      Switch Cam
+    </button>
+
+    <!-- STOP & SAVE -->
+    <button id="stop-rec-btn"
+      class="hidden col-span-2 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold">
+      Stop & Save
+    </button>
+
+    <!-- DISCARD -->
+    <button id="discard-rec-btn"
+      class="hidden col-span-2 px-4 py-2 rounded-lg bg-red-800 hover:bg-red-700 text-white">
+      Discard
+    </button>
+
+    <!-- STATUS + TIMER -->
+    <div class="flex items-center justify-center">
+      <span id="rec-status" class="text-sm text-gray-400 mr-2">Idle</span>
+      <span id="rec-timer" class="text-xl font-mono text-white">00:00</span>
+    </div>
+
+  </div>
+
+  <!-- ============================== -->
+  <!-- UPLOAD PROGRESS BAR            -->
+  <!-- ============================== -->
+  <div class="w-full h-2 bg-white/10 rounded mt-3 overflow-hidden">
+    <div id="upload-progress"
+         class="h-full bg-primary-600 w-0 transition-all duration-300"></div>
+  </div>
+
+</div>
 
     <!-- TAB: LIBRARY -->
     <div id="tab-library" class="hidden app-tab-content">
@@ -896,32 +940,6 @@
 
     </div>
   </dialog>
-
-  <!-- ========================================================= -->
-<!-- SPLIT SCREEN – RECORDING PREVIEW                          -->
-<!-- ========================================================= -->
-<section id="preview-screen" class="hidden w-full h-full flex">
-  
-  <!-- LEFT: Live Webcam -->
-  <div class="flex-1 bg-black flex items-center justify-center relative">
-    <video id="preview-player"
-           class="max-h-full max-w-full rounded-lg"
-           autoplay playsinline muted></video>
-
-    <!-- Fullscreen button (same as playback) -->
-    <button id="preview-fullscreen-btn"
-      class="absolute top-2 right-2 px-3 py-1 bg-black/60 text-white rounded">
-      ⛶
-    </button>
-  </div>
-
-  <!-- RIGHT: Scoring placeholder (real UI coming soon) -->
-  <aside class="w-[320px] bg-black/40 border-l border-white/10 p-4 overflow-y-auto">
-    <h2 class="text-white font-semibold mb-2">Live Preview</h2>
-    <p class="text-gray-400 text-sm">Recording controls and scoring UI will appear here.</p>
-  </aside>
-
-</section>
 
 <!-- ================================
 📊 Scoring Dialog (Vertical Layout)

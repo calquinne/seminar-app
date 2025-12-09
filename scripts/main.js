@@ -67,7 +67,7 @@ function setupEventListeners() {
           e,
           DB.refreshClassesList,
           DB.refreshMyRubrics,
-          Record.startPreview,
+          Record.startPreviewSafely,
           DB.loadLibrary
         ))
   );
@@ -117,6 +117,14 @@ function setupEventListeners() {
 
   const tagBtn = UI.$("#tag-btn");
   if (tagBtn) tagBtn.onclick = Record.handleTagButtonClick;
+
+  const previewFS = UI.$("#preview-fullscreen-btn");
+if (previewFS) {
+  previewFS.onclick = () => {
+    const v = UI.$("#preview-player");
+    if (v?.requestFullscreen) v.requestFullscreen();
+  };
+}
 
   /* ------------------------------ METADATA SCREEN ------------------------- */
   UI.$("#metadata-form").onsubmit = (e) => Record.handleMetadataSubmit(e);
