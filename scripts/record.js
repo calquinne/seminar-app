@@ -213,12 +213,14 @@ export async function startPreview() {
      3. Prevent autoplay issues on mobile.
   ------------------------------------------------------ */
 
+  // Correct tab lookup
   const recordTab = UI.$("[data-tab='tab-record']");
   if (!recordTab || recordTab.classList.contains("hidden")) {
     console.log("[Preview] Blocked: Record tab not visible yet.");
     return;
   }
 
+  // Prevent double-start on Chromebook
   if (UI.__previewLock) {
     console.log("[Preview] Blocked: preview lock active");
     return;
@@ -226,6 +228,7 @@ export async function startPreview() {
   UI.__previewLock = true;
   setTimeout(() => (UI.__previewLock = false), 300);
 
+  // Subscription check
   if (!UI.hasAccess()) {
     UI.toast("Recording disabled without an active subscription.", "error");
     return;
@@ -290,10 +293,11 @@ export async function startPreview() {
 
     previewScreen.classList.remove("hidden");
 
-    // Render rubric scoring panel
+    // Build scoring UI
     renderLiveScoringFromRubric();
 
     UI.toast("🎥 Preview active.", "info");
+
   } catch (err) {
     console.error("Camera error:", err);
     UI.toast("Camera or microphone access denied.", "error");
