@@ -200,36 +200,30 @@ function updateLiveScoreTotal() {
   totalEl.textContent = String(total);
 }
 
+// module-level lock (required because UI is not extensible)
+let previewLock = false;
+
 /* ========================================================================== */
 /* PREVIEW – START CAMERA + SHOW SPLIT SCREEN                                 */
 /* ========================================================================== */
+export async function startPreviewSafely() {
 
-export async function startPreviewSafely
-() {
-  /* ------------------------------------------------------
-     SAFETY WRAPPER — CRITICAL FOR CHROMEBOOK & MOBILE
-     ------------------------------------------------------
-     1. Only run preview if the Record tab is visible.
-     2. Prevent double execution within 300ms.
-     3. Prevent autoplay issues on mobile.
-  ------------------------------------------------------ */
-
-  // Correct tab lookup
- const recordTab = UI.$("#tab-record");
+  // SAFETY 1 — Only run if Record tab is active
+  const recordTab = UI.$("[data-tab='tab-record']");
   if (!recordTab || recordTab.classList.contains("hidden")) {
     console.log("[Preview] Blocked: Record tab not visible yet.");
     return;
   }
 
-  // Prevent double-start on Chromebook
-  if (UI.__previewLock) {
+  // SAFETY 2 — Prevent double execution (Chromebook bug)
+  if (previewLock) {
     console.log("[Preview] Blocked: preview lock active");
     return;
   }
-  UI.__previewLock = true;
-  setTimeout(() => (UI.__previewLock = false), 300);
+  previewLock = true;
+  setTimeout(() => (previewLock = false), 300);
 
-  // Subscription check
+  // SAFETY 3 — Subscription check
   if (!UI.hasAccess()) {
     UI.toast("Recording disabled without an active subscription.", "error");
     return;
@@ -243,15 +237,13 @@ export async function startPreviewSafely
     return;
   }
 
-  // Required for Chromebook + iOS autoplay
+  // Mobile autoplay safety
   previewVideo.muted = true;
   previewVideo.playsInline = true;
 
-  /* ------------------------------------------------------
-     RESET ANY OLD STREAMS
-  ------------------------------------------------------ */
+  // Reset old stream
   if (UI.mediaStream) {
-    UI.mediaStream.getTracks().forEach((track) => track.stop());
+    UI.mediaStream.getTracks().forEach(t => t.stop());
     UI.setMediaStream(null);
   }
 
@@ -264,20 +256,16 @@ export async function startPreviewSafely
 
   if (UI.timerInterval) clearInterval(UI.timerInterval);
   UI.setSecondsElapsed(0);
-  const timerEl = UI.$("#rec-timer");
-  if (timerEl) timerEl.textContent = "00:00";
+  UI.$("#rec-timer").textContent = "00:00";
 
-  /* ------------------------------------------------------
-     GET MEDIA STREAM
-  ------------------------------------------------------ */
   try {
     const constraints = {
       video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        facingMode: UI.currentFacingMode,
+        facingMode: UI.currentFacingMode
       },
-      audio: true,
+      audio: true
     };
 
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -285,21 +273,20 @@ export async function startPreviewSafely
 
     previewVideo.srcObject = stream;
 
-    // Mute local preview but keep audio for recording
-    stream.getAudioTracks().forEach((t) => (t.enabled = false));
+    // Mute preview only (still records audio)
+    stream.getAudioTracks().forEach(t => (t.enabled = false));
 
-    await previewVideo.play().catch(() =>
-      console.warn("Autoplay prevented until user gesture.")
+    await previewVideo.play().catch(err =>
+      console.warn("Autoplay blocked until user gesture", err)
     );
 
     previewScreen.classList.remove("hidden");
 
-    // Build scoring UI
     renderLiveScoringFromRubric();
 
     UI.toast("🎥 Preview active.", "info");
-
-  } catch (err) {
+  }
+  catch (err) {
     console.error("Camera error:", err);
     UI.toast("Camera or microphone access denied.", "error");
   }
@@ -317,8 +304,7 @@ export async function startRecording() {
 
   if (!UI.mediaStream) {
     console.log("No preview stream, starting stream first.");
-    await startPreviewSafely
-();
+    await startPreviewSafely();
     if (!UI.mediaStream) {
       console.error("Failed to get media stream for recording.");
       return;
@@ -372,8 +358,7 @@ export async function startRecording() {
       } else {
         console.warn("No data recorded.");
         UI.updateRecordingUI("idle");
-        startPreviewSafely
-();
+        startPreviewSafely();
       }
       UI.setRecordedChunks([]);
     };
@@ -483,8 +468,7 @@ export async function discardRecording() {
   clearTagList();
   resetLiveScoringUI();
 
-  startPreviewSafely
-();
+  startPreviewSafely();
 }
 
 export async function toggleCamera() {
@@ -497,8 +481,7 @@ export async function toggleCamera() {
   );
 
   if (!UI.mediaRecorder || UI.mediaRecorder.state === "inactive") {
-    await startPreviewSafely
-();
+    await startPreviewSafely();
   }
 }
 
