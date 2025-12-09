@@ -215,7 +215,7 @@ export async function startPreviewSafely
   ------------------------------------------------------ */
 
   // Correct tab lookup
-  const recordTab = UI.$("[data-tab='tab-record']");
+ const recordTab = UI.$("#tab-record");
   if (!recordTab || recordTab.classList.contains("hidden")) {
     console.log("[Preview] Blocked: Record tab not visible yet.");
     return;

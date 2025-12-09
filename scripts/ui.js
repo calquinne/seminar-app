@@ -204,32 +204,34 @@ export function refreshMetadataClassList() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Global Event Handlers
+/* Global Event Handlers                                                      */
 /* -------------------------------------------------------------------------- */
-export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPreviewSafely
-, loadLibrary) {
+export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPreviewSafely, loadLibrary) {
   const btn = e.target.closest(".app-tab");
   if (!btn) return;
 
   const tabId = btn.dataset.tab;
-  
+
   if (!hasAccess() && (tabId === 'tab-record' || tabId === 'tab-library' || tabId === 'tab-analytics')) {
     toast("This feature requires an active subscription.", "error");
     return;
   }
 
   $$(".app-tab-content").forEach(el => {
-    if(el) el.classList.add("hidden");
+    if (el) el.classList.add("hidden");
   });
+
   const metaScreen = $("#metadata-screen");
   if (metaScreen && metaScreen.open) metaScreen.close();
 
   $(`#${tabId}`)?.classList.remove("hidden");
-  
-  $$(".app-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.tab === tabId));
-  
+
+  $$(".app-tab").forEach(el =>
+    el.setAttribute("aria-selected", el.dataset.tab === tabId)
+  );
+
   console.log(`Switched to tab: ${tabId}`);
-  
+
   if (tabId !== 'tab-record') {
     const progressEl = $("#upload-progress");
     if (progressEl) progressEl.style.width = '0%';
@@ -238,15 +240,21 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
   if (tabId === 'tab-manage') {
     refreshClassesList();
   }
+
   if (tabId === 'tab-rubrics') {
-    $$(".rubric-sub-tab-content").forEach(el => el.classList.toggle("hidden", el.id !== 'rubric-tab-my'));
-    $$(".sub-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.subtab === 'rubric-tab-my'));
+    $$(".rubric-sub-tab-content").forEach(el =>
+      el.classList.toggle("hidden", el.id !== 'rubric-tab-my')
+    );
+    $$(".sub-tab").forEach(el =>
+      el.setAttribute("aria-selected", el.dataset.subtab === 'rubric-tab-my')
+    );
     refreshMyRubrics();
   }
+
   if (tabId === 'tab-record') {
-    startPreviewSafely
-(); 
+    startPreviewSafely();   // ✅ FIXED
   }
+
   if (tabId === 'tab-library') {
     loadLibrary();
   }
