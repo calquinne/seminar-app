@@ -39,6 +39,9 @@ export function setCurrentRecordingBlob(b) { currentRecordingBlob = b; }
 export function setTimerInterval(i) { timerInterval = i; }
 export function setSecondsElapsed(s) { secondsElapsed = s; }
 export function setCurrentFacingMode(m) { currentFacingMode = m; }
+export function setStorageChoice(choice) {
+  localStorage.setItem(LS.STORE, choice);
+}
 
 /* -------------------------------------------------------------------------- */
 /* DOM Utilities

@@ -682,10 +682,17 @@ export async function handleMetadataSubmit(e) {
     // ----------------------------
     // FIREBASE
     // ----------------------------
-    else {
-      await uploadFile(UI.currentRecordingBlob, metadata);
-      UI.toast("Uploaded successfully!", "success");
+    else if (storageChoice === "firebase") {
+    try {
+        await uploadFile(UI.currentRecordingBlob, metadata);
+        UI.toast("Uploaded to cloud successfully!", "success");
+    } catch (err) {
+        console.error("Cloud upload error:", err);
+        UI.toast("Failed to upload to cloud.", "error");
+        return;
     }
+}
+
 
     // Cleanup AFTER upload finishes
     UI.setCurrentRecordingBlob(null);
