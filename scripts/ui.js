@@ -534,9 +534,17 @@ export function openVideoPlayer(url, title = "Video Playback") {
   if (!container || !video) return;
 
   // Stop previous playback
-  video.pause();
+  try {
+    video.pause();
+  } catch {}
+  video.removeAttribute("src");
   video.src = "";
   video.srcObject = null;
+
+  // Make sure playback is user-initiated only
+  video.autoplay = false;
+  video.muted = false;       // library playback should have sound
+  video.playsInline = true;  // safe on mobile
 
   // Load new URL
   video.src = url;
@@ -546,21 +554,28 @@ export function openVideoPlayer(url, title = "Video Playback") {
 
   // Show split-screen layout
   container.classList.remove("hidden");
- }
+}
 
- document.addEventListener("DOMContentLoaded", () => {
-  const closeBtn = document.getElementById("player-close-btn");
+/**
+ * Closes the split-screen video player and stops playback.
+ */
+export function closeVideoPlayer() {
   const container = document.getElementById("player-screen");
   const video = document.getElementById("main-player");
 
-  if (closeBtn && container && video) {
-    closeBtn.onclick = () => {
+  if (video) {
+    try {
       video.pause();
-      video.src = "";
-      container.classList.add("hidden");
-    };
+    } catch {}
+    video.removeAttribute("src");
+    video.src = "";
+    video.srcObject = null;
   }
-});
+
+  if (container) {
+    container.classList.add("hidden");
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /* Fullscreen Button for Webcam Preview (runs after DOM loaded)               */
