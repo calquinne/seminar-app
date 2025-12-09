@@ -115,6 +115,13 @@ function setupEventListeners() {
   UI.$("#discard-rec-btn").onclick = Record.discardRecording;
   UI.$("#toggle-camera-btn").onclick = Record.toggleCamera;
 
+  const manualPreviewBtn = UI.$("#manual-preview-btn");
+  if (manualPreviewBtn) {
+  manualPreviewBtn.onclick = () => {
+    Record.startPreviewSafely();
+  };
+}
+
   const tagBtn = UI.$("#tag-btn");
   if (tagBtn) tagBtn.onclick = Record.handleTagButtonClick;
 
