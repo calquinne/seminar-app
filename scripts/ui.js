@@ -250,12 +250,8 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
     );
     refreshMyRubrics();
   }
-
-  if (tabId === 'tab-record') {
-    startPreviewSafely();   // ✅ FIXED
-  }
-
-  if (tabId === 'tab-library') {
+  
+    if (tabId === 'tab-library') {
     loadLibrary();
   }
 }
