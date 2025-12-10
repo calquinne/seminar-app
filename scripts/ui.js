@@ -39,8 +39,21 @@ export function setCurrentRecordingBlob(b) { currentRecordingBlob = b; }
 export function setTimerInterval(i) { timerInterval = i; }
 export function setSecondsElapsed(s) { secondsElapsed = s; }
 export function setCurrentFacingMode(m) { currentFacingMode = m; }
+/* -------------------------------------------------------------- */
+/* Storage Choice (firebase | gdrive | local)                     */
+/* -------------------------------------------------------------- */
+export function getStorageChoice() {
+  return localStorage.getItem(LS.STORE) || "firebase";
+}
+
 export function setStorageChoice(choice) {
   localStorage.setItem(LS.STORE, choice);
+
+  const sel = $("#storage-provider");
+  if (sel) sel.value = choice;
+
+  const pill = $("#account-pill");
+  if (pill) pill.textContent = `Role: ${userDoc?.role || '...'} • Storage: ${choice}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -91,11 +104,6 @@ export function showScreen(id) {
 /* -------------------------------------------------------------------------- */
 export function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud"; }
 export function getStorageChoice() { return localStorage.getItem(LS.STORE) || "firebase"; }
-export function setStorageChoice(choice) {
-  localStorage.setItem(LS.STORE, choice);
-  $("#storage-provider").value = choice;
-  $("#account-pill").textContent = `Role: ${userDoc?.role || '...'} • Storage: ${choice}`;
-}
 
 /* -------------------------------------------------------------------------- */
 /* UI Updaters
