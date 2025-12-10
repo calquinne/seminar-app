@@ -108,24 +108,37 @@ function setupEventListeners() {
     DB.handleDeleteRubric(e);
   };
 
-  /* ------------------------------ RECORD TAB ------------------------------ */
-  UI.$("#start-rec-btn").onclick = Record.startRecording;
-  UI.$("#pause-rec-btn").onclick = Record.pauseOrResumeRecording;
-  UI.$("#stop-rec-btn").onclick = Record.stopRecording;
-  UI.$("#discard-rec-btn").onclick = Record.discardRecording;
-  UI.$("#toggle-camera-btn").onclick = Record.toggleCamera;
+ /* ------------------------------ RECORD TAB ------------------------------ */
 
-  const manualPreviewBtn = UI.$("#manual-preview-btn");
-  if (manualPreviewBtn) {
-  manualPreviewBtn.onclick = () => {
-    Record.startPreviewSafely();
+UI.$("#start-rec-btn").onclick = Record.startRecording;
+UI.$("#pause-rec-btn").onclick = Record.pauseOrResumeRecording;
+UI.$("#stop-rec-btn").onclick = Record.stopRecording;
+UI.$("#discard-rec-btn").onclick = Record.discardRecording;
+UI.$("#toggle-camera-btn").onclick = Record.toggleCamera;
+
+// ⭐ MANUAL PREVIEW BUTTON (Start/Stop Preview toggle)
+const manualPreviewBtn = UI.$("#manual-preview-btn");
+if (manualPreviewBtn) {
+  manualPreviewBtn.onclick = async () => {
+    const previewScreen = UI.$("#preview-screen");
+    const isActive = previewScreen && !previewScreen.classList.contains("hidden");
+
+    if (!isActive) {
+      // --- Start Preview ---
+      await Record.startPreviewSafely();
+      manualPreviewBtn.textContent = "Stop Preview";
+    } else {
+      // --- Stop Preview ---
+      Record.stopPreview();
+      manualPreviewBtn.textContent = "Start Preview";
+    }
   };
 }
 
-  const tagBtn = UI.$("#tag-btn");
-  if (tagBtn) tagBtn.onclick = Record.handleTagButtonClick;
+const tagBtn = UI.$("#tag-btn");
+if (tagBtn) tagBtn.onclick = Record.handleTagButtonClick;
 
-  const previewFS = UI.$("#preview-fullscreen-btn");
+const previewFS = UI.$("#preview-fullscreen-btn");
 if (previewFS) {
   previewFS.onclick = () => {
     const v = UI.$("#preview-player");

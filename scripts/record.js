@@ -291,6 +291,37 @@ export async function startPreviewSafely() {
     UI.toast("Camera or microphone access denied.", "error");
   }
 }
+/* ========================================================================== */
+/* PREVIEW – STOP CAMERA + HIDE SPLIT SCREEN                                  */
+/* ========================================================================== */
+export function stopPreview() {
+  const previewVideo = UI.$("#preview-player");
+  const previewScreen = UI.$("#preview-screen");
+
+  // No elements? Stop here.
+  if (!previewVideo || !previewScreen) return;
+
+  console.log("[Preview] Stopping preview…");
+
+  // Stop camera stream if active
+  if (UI.mediaStream) {
+    UI.mediaStream.getTracks().forEach(t => t.stop());
+    UI.setMediaStream(null);
+  }
+
+  // Reset video element
+  try {
+    previewVideo.pause();
+  } catch {}
+  previewVideo.removeAttribute("src");
+  previewVideo.src = "";
+  previewVideo.srcObject = null;
+
+  // Hide the entire preview box
+  previewScreen.classList.add("hidden");
+
+  UI.toast("Preview stopped.", "info");
+}
 
 /* ========================================================================== */
 /* RECORDING FLOW                                                             */
