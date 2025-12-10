@@ -459,29 +459,33 @@ export function stopRecording() {
 }
 
 export async function discardRecording() {
+  // ----------------------------------------------------
+  // 1) If a recording is active, confirm discard
+  // ----------------------------------------------------
   if (
     UI.mediaRecorder &&
     (UI.mediaRecorder.state === "recording" ||
       UI.mediaRecorder.state === "paused")
   ) {
     const confirmed = await UI.showConfirm(
-      "Are you sure you want to discard this recording and start over?",
+      "Are you sure you want to discard this recording?",
       "Discard Recording?",
       "Discard"
     );
 
-    if (confirmed) {
-      console.log("Discarding active recording...");
-      UI.mediaRecorder.onstop = null;
-      UI.mediaRecorder.stop();
-      UI.setMediaRecorder(null);
-      UI.toast("Recording discarded.", "warn");
-    } else {
-      return;
-    }
+    if (!confirmed) return;
+
+    console.log("Discarding active recording...");
+    UI.mediaRecorder.onstop = null;
+    UI.mediaRecorder.stop();
+    UI.setMediaRecorder(null);
   }
 
+  // ----------------------------------------------------
+  // 2) Clean up stream
+  // ----------------------------------------------------
   console.log("Resetting recorder UI.");
+
   if (UI.mediaStream) {
     UI.mediaStream.getTracks().forEach((track) => track.stop());
     UI.setMediaStream(null);
@@ -490,16 +494,34 @@ export async function discardRecording() {
   const previewVideo = UI.$("#preview-player");
   if (previewVideo) previewVideo.srcObject = null;
 
+  // ----------------------------------------------------
+  // 3) Reset UI state
+  // ----------------------------------------------------
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
+
   if (UI.timerInterval) clearInterval(UI.timerInterval);
+
   UI.setSecondsElapsed(0);
   UI.$("#rec-timer").textContent = "00:00";
+
   UI.updateRecordingUI("idle");
   clearTagList();
   resetLiveScoringUI();
 
-  startPreviewSafely();
+  // ----------------------------------------------------
+  // 4) ⭐ STOP PREVIEW COMPLETELY
+  // ----------------------------------------------------
+  Record.stopPreview();
+
+  // ----------------------------------------------------
+  // 5) ⭐ Restore Preview Button state
+  // ----------------------------------------------------
+  const previewBtn = UI.$("#manual-preview-btn");
+  if (previewBtn) {
+    previewBtn.classList.remove("hidden");
+    previewBtn.textContent = "Start Preview";
+  }
 }
 
 export async function toggleCamera() {
