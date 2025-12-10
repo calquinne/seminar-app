@@ -45,7 +45,6 @@ export function setCurrentFacingMode(m) { currentFacingMode = m; }
 export function getStorageChoice() {
   return localStorage.getItem(LS.STORE) || "firebase";
 }
-
 export function setStorageChoice(choice) {
   localStorage.setItem(LS.STORE, choice);
 
@@ -103,7 +102,6 @@ export function showScreen(id) {
 /* Config Getters/Setters
 /* -------------------------------------------------------------------------- */
 export function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud"; }
-export function getStorageChoice() { return localStorage.getItem(LS.STORE) || "firebase"; }
 
 /* -------------------------------------------------------------------------- */
 /* UI Updaters
