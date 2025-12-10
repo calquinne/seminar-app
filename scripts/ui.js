@@ -2,6 +2,8 @@
 /* MODULE: ui.js 
 /* Exports shared state, constants, and UI helper functions.
 /* ========================================================================== */
+import * as Record from "./record.js";
+
 
 // ❗ Removed APP_VERSION import to avoid circular dependency with main.js
 
