@@ -320,6 +320,9 @@ export function stopPreview() {
   previewVideo.src = "";
   previewVideo.srcObject = null;
 
+  // ⭐ Always remove red recording border when preview stops
+  previewScreen.classList.remove("recording-active");
+
   // Hide the entire preview box
   previewScreen.classList.add("hidden");
 
