@@ -343,11 +343,20 @@ export async function startRecording() {
   }
 
   console.log("Attempting to start recording...");
-  UI.updateRecordingUI("recording");
-  UI.setRecordedChunks([]);
-  UI.setCurrentRecordingBlob(null);
-  clearTagList();
-  resetLiveScoringUI(); // New recording → fresh scoring state
+UI.updateRecordingUI("recording");
+UI.setRecordedChunks([]);
+UI.setCurrentRecordingBlob(null);
+clearTagList();
+resetLiveScoringUI(); // New recording → fresh scoring state
+
+// ----------------------------------------------------
+// Hide Preview Button + Activate Red Recording Border
+// ----------------------------------------------------
+const previewBtn = UI.$("#manual-preview-btn");
+if (previewBtn) previewBtn.classList.add("hidden");
+
+const previewScreen = UI.$("#preview-screen");
+if (previewScreen) previewScreen.classList.add("recording-active");
 
   try {
     // Enable audio for recording
@@ -455,6 +464,17 @@ export function stopRecording() {
     UI.mediaRecorder.stop();
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.updateRecordingUI("stopped");
+  }
+    /* ----------------------------------------------------
+     ⭐  Remove red border + restore preview button
+     ---------------------------------------------------- */
+  const previewScreen = UI.$("#preview-screen");
+  if (previewScreen) previewScreen.classList.remove("recording-active");
+
+  const previewBtn = UI.$("#manual-preview-btn");
+  if (previewBtn) {
+    previewBtn.classList.remove("hidden");
+    previewBtn.textContent = "Start Preview";
   }
 }
 
