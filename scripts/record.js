@@ -237,6 +237,9 @@ export async function startPreviewSafely() {
     return;
   }
 
+  // ⭐ ALWAYS remove red recording border ANY TIME preview starts
+  previewScreen.classList.remove("recording-active");
+
   // Mobile autoplay safety
   previewVideo.muted = true;
   previewVideo.playsInline = true;
@@ -281,16 +284,16 @@ export async function startPreviewSafely() {
     );
 
     previewScreen.classList.remove("hidden");
-
     renderLiveScoringFromRubric();
 
     UI.toast("🎥 Preview active.", "info");
-  }
-  catch (err) {
+
+  } catch (err) {
     console.error("Camera error:", err);
     UI.toast("Camera or microphone access denied.", "error");
   }
 }
+
 /* ========================================================================== */
 /* PREVIEW – STOP CAMERA + HIDE SPLIT SCREEN                                  */
 /* ========================================================================== */
