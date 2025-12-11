@@ -512,7 +512,7 @@ export async function discardRecording() {
   // ----------------------------------------------------
   // 4) ⭐ STOP PREVIEW COMPLETELY
   // ----------------------------------------------------
-  Record.stopPreview();
+  stopPreview();
 
   // ----------------------------------------------------
   // 5) ⭐ Restore Preview Button state
