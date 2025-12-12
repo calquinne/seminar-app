@@ -582,6 +582,7 @@ export async function discardRecording() {
     previewBtn.textContent = "Start Preview";
   }
 }
+
 /* ========================================================================== */
 /* LOCAL EXPORT – DOWNLOAD RECORDING TO USB / LOCAL STORAGE                   */
 /* ========================================================================== */
@@ -594,11 +595,19 @@ export async function exportToLocal(metadata) {
     }
 
     // ----------------------------------------------------------
-    // 1. Build filename
+    // 1. Build filename from METADATA (not UI helpers)
     // ----------------------------------------------------------
-    const className = UI.getSelectedClassName() || "presentation";
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const fileName = `${className}-${timestamp}.webm`;
+    const safeClass =
+      (metadata.classEventTitle || "presentation").replace(/[^\w\-]+/g, "_");
+
+    const safeParticipant =
+      (metadata.participant || "participant").replace(/[^\w\-]+/g, "_");
+
+    const timestamp = new Date(metadata.recordedAt)
+      .toISOString()
+      .replace(/[:.]/g, "-");
+
+    const fileName = `${safeClass}_${safeParticipant}_${timestamp}.webm`;
 
     // ----------------------------------------------------------
     // 2. Trigger local download
@@ -612,10 +621,10 @@ export async function exportToLocal(metadata) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    UI.toast("Saved to device!", "success");
+    UI.toast("Saved to local / USB storage!", "success");
 
     // ----------------------------------------------------------
-    // 3. Save metadata (same pipeline as cloud)
+    // 3. Store metadata ONLY (same as cloud)
     // ----------------------------------------------------------
     metadata.storagePath = "local";
     metadata.downloadURL = null;
@@ -625,16 +634,18 @@ export async function exportToLocal(metadata) {
     await uploadFile(null, metadata); // metadata-only Firestore doc
 
     // ==========================================================
-    // 4. FULL UI RESET (IDENTICAL to cloud success)
+    // 4. FULL UI RESET — identical to cloud behavior
     // ==========================================================
 
     stopPreview();
 
     const previewScreen = UI.$("#preview-screen");
     if (previewScreen) {
-      previewScreen.classList.remove("hidden");
-      previewScreen.classList.remove("recording-active");
-      previewScreen.classList.remove("paused-border");
+      previewScreen.classList.remove(
+        "hidden",
+        "recording-active",
+        "paused-border"
+      );
     }
 
     const previewBtn = UI.$("#manual-preview-btn");
@@ -654,9 +665,7 @@ export async function exportToLocal(metadata) {
     UI.setSecondsElapsed(0);
     UI.$("#rec-timer").textContent = "00:00";
 
-    // ----------------------------------------------------------
-    // 5. Navigate back to Class/Event (same as cloud)
-    // ----------------------------------------------------------
+    // Navigate back exactly like cloud
     UI.switchTab("tab-manage");
 
   } catch (err) {
