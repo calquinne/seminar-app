@@ -583,8 +583,8 @@ export async function discardRecording() {
   }
 }
 
-// ----------------------------------------/* ========================================================================== */
-/* LOCAL EXPORT – DOWNLOAD RECORDING TO USB / LOCAL STORAGE                   */
+/* ========================================================================== */
+/* LOCAL EXPORT – HYBRID (Try Picker First, Fallback to Download)             */
 /* ========================================================================== */
 export async function exportToLocal(metadata) {
   try {
@@ -594,35 +594,76 @@ export async function exportToLocal(metadata) {
       return;
     }
 
-    // Build filename using selected class title
-    const className =
-      metadata.classEventTitle?.replace(/[^a-z0-9_-]/gi, "_") || "presentation";
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const fileName = `${className}-${timestamp}.webm`;
+    // ----------------------------------------------------------
+    // 1. Build SAFER filename (Replaces spaces with underscores)
+    // ----------------------------------------------------------
+    // "Class 1 English" -> "Class_1_English"
+    const safeClass = (metadata.classEventTitle || "presentation")
+      .replace(/[^\w\d-_]+/g, "_") 
+      .trim();
 
-    // Trigger browser download
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // "John Doe" -> "John_Doe"
+    const safeParticipant = (metadata.participant || "student")
+      .replace(/[^\w\d-_]+/g, "_")
+      .trim();
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    
+    // Result: "Class_1_English_John_Doe_2023-10-27... .webm"
+    const fileName = `${safeClass}_${safeParticipant}_${timestamp}.webm`;
+
+    let savedViaPicker = false;
+
+    // 2. ATTEMPT "SAVE AS" DIALOG (Chrome/Edge Desktop)
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{
+            description: 'WebM Video',
+            accept: { 'video/webm': ['.webm'] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        savedViaPicker = true;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          UI.toast("Save cancelled.", "info");
+          return; 
+        }
+        console.warn("Picker failed, using fallback:", err);
+      }
+    }
+
+    // 3. FALLBACK (Safari, Firefox, Mobile, or if Picker failed)
+    if (!savedViaPicker) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
 
     UI.toast("Saved to local device!", "success");
 
-    // Store metadata ONLY (no blob upload)
+    // ----------------------------------------------------------
+    // 4. Save metadata to Database
+    // ----------------------------------------------------------
     metadata.storagePath = "local";
     metadata.downloadURL = null;
     metadata.savedAs = fileName;
     metadata.isLocal = true;
 
-    await uploadFile(null, metadata); // metadata-only Firestore doc
+    await uploadFile(null, metadata); 
 
-    // ===============================
-    // FULL CLEANUP (MATCH CLOUD)
-    // ===============================
+    // ----------------------------------------------------------
+    // 5. Cleanup & Reset
+    // ----------------------------------------------------------
     stopPreview();
 
     const previewScreen = UI.$("#preview-screen");
@@ -648,7 +689,7 @@ export async function exportToLocal(metadata) {
     UI.setSecondsElapsed(0);
     UI.$("#rec-timer").textContent = "00:00";
 
-    // ✅ Correct way to return to Class/Event tab
+    // Navigate back
     const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
     if (manageTabBtn) manageTabBtn.click();
 
