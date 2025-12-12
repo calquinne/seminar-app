@@ -242,6 +242,28 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
   );
 
   console.log(`Switched to tab: ${tabId}`);
+  // ----------------------------------------------
+// STEP 3E — Fix blank screen when opening Record tab
+// ----------------------------------------------
+  if (tabId === "tab-record") {
+
+    const previewScreen = $("#preview-screen");
+
+    // Unhide preview container (but do NOT auto-start stream)
+    if (previewScreen) {
+        previewScreen.classList.remove("hidden");
+    }
+
+    // Ensure red/pause borders never appear unless recording
+    previewScreen.classList.remove("recording-active", "paused-border");
+
+    // Reset preview button text correctly
+    const previewBtn = $("#manual-preview-btn");
+    if (previewBtn) {
+        previewBtn.classList.remove("hidden");
+        previewBtn.textContent = "Start Preview";
+    }
+}
 
   if (tabId !== 'tab-record') {
     const progressEl = $("#upload-progress");
