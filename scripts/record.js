@@ -437,25 +437,31 @@ export function pauseOrResumeRecording() {
   if (!UI.mediaRecorder) return;
 
   // -------------------------------
-  // PAUSE → Resume
+  // PAUSE → Enter paused state
   // -------------------------------
   if (UI.mediaRecorder.state === "recording") {
+
     UI.mediaRecorder.pause();
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.updateRecordingUI("paused");
     UI.toast("Recording paused", "info");
 
-    // --- PAUSE VISUAL STATE ---
+    // Hide preview button during pause
+    const previewBtn = UI.$("#manual-preview-btn");
+    if (previewBtn) previewBtn.classList.add("hidden");
+
+    // Visual pause state
     const previewScreen = UI.$("#preview-screen");
     if (previewScreen) {
-        previewScreen.classList.remove("recording-active");
-        previewScreen.classList.add("paused-border");
+      previewScreen.classList.remove("recording-active");
+      previewScreen.classList.add("paused-border");
     }
 
   // -------------------------------
-  // Resume → Recording
+  // RESUME → Back to recording
   // -------------------------------
   } else if (UI.mediaRecorder.state === "paused") {
+
     UI.mediaRecorder.resume();
 
     UI.setTimerInterval(
@@ -470,11 +476,15 @@ export function pauseOrResumeRecording() {
     UI.updateRecordingUI("recording");
     UI.toast("Recording resumed", "info");
 
-    // --- RESUME VISUAL STATE ---
+    // Keep preview button hidden while recording
+    const previewBtn = UI.$("#manual-preview-btn");
+    if (previewBtn) previewBtn.classList.add("hidden");
+
+    // Visual resume state
     const previewScreen = UI.$("#preview-screen");
     if (previewScreen) {
-        previewScreen.classList.remove("paused-border");
-        previewScreen.classList.add("recording-active");
+      previewScreen.classList.remove("paused-border");
+      previewScreen.classList.add("recording-active");
     }
   }
 }
