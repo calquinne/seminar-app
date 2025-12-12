@@ -583,7 +583,7 @@ export async function discardRecording() {
   }
 }
 
-/* ========================================================================== */
+// ----------------------------------------/* ========================================================================== */
 /* LOCAL EXPORT – DOWNLOAD RECORDING TO USB / LOCAL STORAGE                   */
 /* ========================================================================== */
 export async function exportToLocal(metadata) {
@@ -594,24 +594,13 @@ export async function exportToLocal(metadata) {
       return;
     }
 
-    // ----------------------------------------------------------
-    // 1. Build filename from METADATA (not UI helpers)
-    // ----------------------------------------------------------
-    const safeClass =
-      (metadata.classEventTitle || "presentation").replace(/[^\w\-]+/g, "_");
+    // Build filename using selected class title
+    const className =
+      metadata.classEventTitle?.replace(/[^a-z0-9_-]/gi, "_") || "presentation";
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const fileName = `${className}-${timestamp}.webm`;
 
-    const safeParticipant =
-      (metadata.participant || "participant").replace(/[^\w\-]+/g, "_");
-
-    const timestamp = new Date(metadata.recordedAt)
-      .toISOString()
-      .replace(/[:.]/g, "-");
-
-    const fileName = `${safeClass}_${safeParticipant}_${timestamp}.webm`;
-
-    // ----------------------------------------------------------
-    // 2. Trigger local download
-    // ----------------------------------------------------------
+    // Trigger browser download
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -621,11 +610,9 @@ export async function exportToLocal(metadata) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    UI.toast("Saved to local / USB storage!", "success");
+    UI.toast("Saved to local device!", "success");
 
-    // ----------------------------------------------------------
-    // 3. Store metadata ONLY (same as cloud)
-    // ----------------------------------------------------------
+    // Store metadata ONLY (no blob upload)
     metadata.storagePath = "local";
     metadata.downloadURL = null;
     metadata.savedAs = fileName;
@@ -633,19 +620,15 @@ export async function exportToLocal(metadata) {
 
     await uploadFile(null, metadata); // metadata-only Firestore doc
 
-    // ==========================================================
-    // 4. FULL UI RESET — identical to cloud behavior
-    // ==========================================================
-
+    // ===============================
+    // FULL CLEANUP (MATCH CLOUD)
+    // ===============================
     stopPreview();
 
     const previewScreen = UI.$("#preview-screen");
     if (previewScreen) {
-      previewScreen.classList.remove(
-        "hidden",
-        "recording-active",
-        "paused-border"
-      );
+      previewScreen.classList.remove("recording-active", "paused-border");
+      previewScreen.classList.add("hidden");
     }
 
     const previewBtn = UI.$("#manual-preview-btn");
@@ -665,8 +648,9 @@ export async function exportToLocal(metadata) {
     UI.setSecondsElapsed(0);
     UI.$("#rec-timer").textContent = "00:00";
 
-    // Navigate back exactly like cloud
-    UI.switchTab("tab-manage");
+    // ✅ Correct way to return to Class/Event tab
+    const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
+    if (manageTabBtn) manageTabBtn.click();
 
   } catch (err) {
     console.error("Local export error:", err);
@@ -841,24 +825,31 @@ export async function handleMetadataSubmit(e) {
     return;
   }
 
+  // Close modal immediately
   UI.$("#metadata-screen").close();
-  UI.toast("Uploading… please wait", "info");
+  UI.toast("Saving… please wait", "info");
 
   const storageChoice = UI.getStorageChoice(); // firebase | gdrive | local
 
-  if (storageChoice === "local") {
-    await exportToLocal(metadata);
-  }
-  else if (storageChoice === "gdrive") {
-    UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
-  }
-  else if (storageChoice === "firebase") {
-    await uploadFile(UI.currentRecordingBlob, metadata);
-    UI.toast("Uploaded to cloud successfully!", "success");
+  try {
+    if (storageChoice === "local") {
+      await exportToLocal(metadata);
+    }
+    else if (storageChoice === "gdrive") {
+      UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
+    }
+    else if (storageChoice === "firebase") {
+      await uploadFile(UI.currentRecordingBlob, metadata);
+      UI.toast("Uploaded to cloud successfully!", "success");
 
-    // Match local reset behavior
-    stopPreview();
-    UI.switchTab("tab-manage");
+      // Match local cleanup behavior
+      stopPreview();
+      const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
+      if (manageTabBtn) manageTabBtn.click();
+    }
+
+  } catch (err) {
+    console.error("Upload error:", err);
+    UI.toast("Upload failed — video kept in memory.", "error");
   }
 }
-
