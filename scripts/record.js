@@ -436,13 +436,28 @@ if (previewScreen) previewScreen.classList.add("recording-active");
 export function pauseOrResumeRecording() {
   if (!UI.mediaRecorder) return;
 
+  // -------------------------------
+  // PAUSE → Resume
+  // -------------------------------
   if (UI.mediaRecorder.state === "recording") {
     UI.mediaRecorder.pause();
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.updateRecordingUI("paused");
     UI.toast("Recording paused", "info");
+
+    // --- PAUSE VISUAL STATE ---
+    const previewScreen = UI.$("#preview-screen");
+    if (previewScreen) {
+        previewScreen.classList.remove("recording-active");
+        previewScreen.classList.add("paused-border");
+    }
+
+  // -------------------------------
+  // Resume → Recording
+  // -------------------------------
   } else if (UI.mediaRecorder.state === "paused") {
     UI.mediaRecorder.resume();
+
     UI.setTimerInterval(
       setInterval(() => {
         UI.setSecondsElapsed(UI.secondsElapsed + 1);
@@ -451,8 +466,16 @@ export function pauseOrResumeRecording() {
           .substr(14, 5);
       }, 1000)
     );
+
     UI.updateRecordingUI("recording");
     UI.toast("Recording resumed", "info");
+
+    // --- RESUME VISUAL STATE ---
+    const previewScreen = UI.$("#preview-screen");
+    if (previewScreen) {
+        previewScreen.classList.remove("paused-border");
+        previewScreen.classList.add("recording-active");
+    }
   }
 }
 

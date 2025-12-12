@@ -48,61 +48,69 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-  <!-- Styles -->
-  <style>
-    :root { color-scheme: dark; }
-    body { font-family: 'Inter', sans-serif; }
+<!-- Styles -->
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: 'Inter', sans-serif; }
 
-    /* Scrollbars */
-    ::-webkit-scrollbar { width:10px; height:10px }
-    ::-webkit-scrollbar-thumb { background:#374151; border-radius:8px }
-    ::-webkit-scrollbar-track { background:#111827 }
+  /* Scrollbars */
+  ::-webkit-scrollbar { width:10px; height:10px }
+  ::-webkit-scrollbar-thumb { background:#374151; border-radius:8px }
+  ::-webkit-scrollbar-track { background:#111827 }
 
-    /* Animations */
-    .fade { transition: opacity .3s ease; }
-    .fade.hidden { opacity:0; pointer-events:none; }
-    .fade:not(.hidden) { opacity:1; }
+  /* Animations */
+  .fade { transition: opacity .3s ease; }
+  .fade.hidden { opacity:0; pointer-events:none; }
+  .fade:not(.hidden) { opacity:1; }
 
-    dialog::backdrop { background:rgba(0,0,0,.6); }
+  dialog::backdrop { background:rgba(0,0,0,.6); }
 
-    .app-tab[aria-selected="true"] {
-      background-color: rgba(255, 255, 255, 0.1);
-      font-weight: 600;
-      color: #FFFFFF;
-    }
-    .app-tab { color:#9ca3af; }
+  .app-tab[aria-selected="true"] {
+    background-color: rgba(255, 255, 255, 0.1);
+    font-weight: 600;
+    color: #FFFFFF;
+  }
+  .app-tab { color:#9ca3af; }
 
-    .sub-tab[aria-selected="true"] {
-      border-color:#06b6d4;
-      color:#67e8f9;
-    }
-    .sub-tab {
-      border-color:transparent;
-      color:#9ca3af;
-    }
+  .sub-tab[aria-selected="true"] {
+    border-color:#06b6d4;
+    color:#67e8f9;
+  }
+  .sub-tab {
+    border-color:transparent;
+    color:#9ca3af;
+  }
 
-    video#preview-player
- {
-      background-color: #000;
-      width:100%;
-      height:auto;
-      aspect-ratio:16/9;
-      object-fit:cover;
-    }
-    /* Pulsing red recording border */
-.recording-active {
-  border: 3px solid rgb(255, 30, 0);
-  animation: recordPulse 1s infinite ease-in-out;
-  border-radius: 10px;
-}
+  video#preview-player {
+    background-color: #000;
+    width:100%;
+    height:auto;
+    aspect-ratio:16/9;
+    object-fit:cover;
+  }
 
-@keyframes recordPulse {
-  0% { box-shadow: 0 0 0 0 rgba(255, 251, 0, 0.7); }
-  50% { box-shadow: 0 0 20px 6px rgba(194, 127, 127, 0.4); }
-  100% { box-shadow: 0 0 0 0 rgba(255,0,0,0.7); }
-}
+  /* 🔴 Pulsing red border when actively recording */
+  .recording-active {
+    border: 3px solid rgb(255, 30, 0);
+    animation: recordPulse 1s infinite ease-in-out;
+    border-radius: 10px;
+  }
 
-  </style>
+  @keyframes recordPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+    50%  { box-shadow: 0 0 20px 6px rgba(255, 0, 0, 0.4); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+  }
+
+  /* 🟡 Yellow border when PAUSED */
+  .paused-border {
+    border: 3px solid #facc15; /* Tailwind amber-400 */
+    box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);
+    border-radius: 10px;
+  }
+
+</style>
+
 </head>
 
 <body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
