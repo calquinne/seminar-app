@@ -827,38 +827,29 @@ export async function handleMetadataSubmit(e) {
     scores: liveScores,
   };
 
-  // BASIC VALIDATION
-  if (
-    !metadata.classEventId ||
-    metadata.participant === "--ADD_NEW--" ||
-    !metadata.participant
-  ) {
-    UI.toast("Please select a class and a valid participant.", "error");
+  if (!metadata.classEventId || !metadata.participant) {
+    UI.toast("Please select a class and participant.", "error");
     return;
   }
 
-  // Close dialog immediately (good UX)
   UI.$("#metadata-screen").close();
   UI.toast("Uploading… please wait", "info");
 
   const storageChoice = UI.getStorageChoice(); // firebase | gdrive | local
 
-  try {
-    if (storageChoice === "local") {
-      await exportToLocal(metadata);
-    }
+  if (storageChoice === "local") {
+    await exportToLocal(metadata);
+  }
+  else if (storageChoice === "gdrive") {
+    UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
+  }
+  else if (storageChoice === "firebase") {
+    await uploadFile(UI.currentRecordingBlob, metadata);
+    UI.toast("Uploaded to cloud successfully!", "success");
 
-    else if (storageChoice === "gdrive") {
-      UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
-    }
-
-    else if (storageChoice === "firebase") {
-      await uploadFile(UI.currentRecordingBlob, metadata);
-      UI.toast("Uploaded to cloud successfully!", "success");
-    }
-
-  } catch (err) {
-    console.error("Upload error:", err);
-    UI.toast("Upload failed — video kept in memory.", "error");
+    // Match local reset behavior
+    stopPreview();
+    UI.switchTab("tab-manage");
   }
 }
+
