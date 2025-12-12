@@ -582,6 +582,88 @@ export async function discardRecording() {
     previewBtn.textContent = "Start Preview";
   }
 }
+/* ========================================================================== */
+/* LOCAL EXPORT – DOWNLOAD RECORDING TO USB / LOCAL STORAGE                   */
+/* ========================================================================== */
+export async function exportToLocal(metadata) {
+  try {
+    const blob = UI.currentRecordingBlob;
+    if (!blob) {
+      UI.toast("No recording available to export.", "error");
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // 1. Build filename
+    // ----------------------------------------------------------
+    const className = UI.getSelectedClassName() || "presentation";
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const fileName = `${className}-${timestamp}.webm`;
+
+    // ----------------------------------------------------------
+    // 2. Trigger local download
+    // ----------------------------------------------------------
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    UI.toast("Saved to device!", "success");
+
+    // ----------------------------------------------------------
+    // 3. Save metadata (same pipeline as cloud)
+    // ----------------------------------------------------------
+    metadata.storagePath = "local";
+    metadata.downloadURL = null;
+    metadata.savedAs = fileName;
+    metadata.isLocal = true;
+
+    await uploadFile(null, metadata); // metadata-only Firestore doc
+
+    // ==========================================================
+    // 4. FULL UI RESET (IDENTICAL to cloud success)
+    // ==========================================================
+
+    stopPreview();
+
+    const previewScreen = UI.$("#preview-screen");
+    if (previewScreen) {
+      previewScreen.classList.remove("hidden");
+      previewScreen.classList.remove("recording-active");
+      previewScreen.classList.remove("paused-border");
+    }
+
+    const previewBtn = UI.$("#manual-preview-btn");
+    if (previewBtn) {
+      previewBtn.classList.remove("hidden");
+      previewBtn.textContent = "Start Preview";
+    }
+
+    UI.setRecordedChunks([]);
+    UI.setCurrentRecordingBlob(null);
+    UI.updateRecordingUI("idle");
+
+    clearTagList();
+    resetLiveScoringUI();
+
+    if (UI.timerInterval) clearInterval(UI.timerInterval);
+    UI.setSecondsElapsed(0);
+    UI.$("#rec-timer").textContent = "00:00";
+
+    // ----------------------------------------------------------
+    // 5. Navigate back to Class/Event (same as cloud)
+    // ----------------------------------------------------------
+    UI.switchTab("tab-manage");
+
+  } catch (err) {
+    console.error("Local export error:", err);
+    UI.toast(`Export failed: ${err.message}`, "error");
+  }
+}
 
 export async function toggleCamera() {
   UI.setCurrentFacingMode(
@@ -719,6 +801,7 @@ export async function handleAddNewParticipant() {
 
 export async function handleMetadataSubmit(e) {
   e.preventDefault();
+
   if (!UI.currentRecordingBlob) {
     UI.toast("No recording to save.", "error");
     return;
@@ -761,120 +844,18 @@ export async function handleMetadataSubmit(e) {
   const storageChoice = UI.getStorageChoice(); // firebase | gdrive | local
 
   try {
-   /* ========================================================================== */
-/* LOCAL EXPORT – DOWNLOAD RECORDING TO USB / LOCAL STORAGE                   */
-/* ========================================================================== */
-export async function exportToLocal(metadata) {
-  try {
-    const blob = UI.currentRecordingBlob;
-    if (!blob) {
-      UI.toast("No recording available to export.", "error");
-      return;
+    if (storageChoice === "local") {
+      await exportToLocal(metadata);
     }
 
-    // ----------------------------------------------------------
-    // 1. Build filename
-    // ----------------------------------------------------------
-    const className = UI.getSelectedClassName() || "presentation";
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const fileName = `${className}-${timestamp}.webm`;
-
-    // ----------------------------------------------------------
-    // 2. Trigger local download
-    // ----------------------------------------------------------
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    UI.toast("Exported to local storage!", "success");
-
-    // ----------------------------------------------------------
-    // 3. Store metadata (just like cloud mode)
-    // ----------------------------------------------------------
-    metadata.storagePath = "local";
-    metadata.downloadURL = null;
-    metadata.savedAs = fileName;
-    metadata.isLocal = true;
-
-    await uploadFile(null, metadata); // metadata-only doc
-
-    // ==========================================================
-    // 4. FULL UI RESET — identical to cloud upload fixes
-    // ==========================================================
-
-    // (A) Stop preview completely
-    stopPreview();
-
-    // (B) Clean border states
-    const previewScreen = UI.$("#preview-screen");
-    if (previewScreen) {
-      previewScreen.classList.remove("hidden");
-      previewScreen.classList.remove("recording-active");
-      previewScreen.classList.remove("paused-border");
-    }
-
-    // (C) Restore Start Preview button
-    const previewBtn = UI.$("#manual-preview-btn");
-    if (previewBtn) {
-      previewBtn.classList.remove("hidden");
-      previewBtn.textContent = "Start Preview";
-    }
-
-    // (D) Reset recorder UI state
-    UI.setRecordedChunks([]);
-    UI.setCurrentRecordingBlob(null);
-    UI.updateRecordingUI("idle");
-
-    clearTagList();
-    resetLiveScoringUI();
-
-    if (UI.timerInterval) clearInterval(UI.timerInterval);
-    UI.setSecondsElapsed(0);
-    UI.$("#rec-timer").textContent = "00:00";
-
-    // (E) Navigate back to Class/Event tab
-    UI.switchTab("tab-manage");
-
-  } catch (err) {
-    console.error("Local export error:", err);
-    UI.toast(`Export failed: ${err.message}`, "error");
-  }
-}
-
-    // ----------------------------
-    // GOOGLE DRIVE
-    // ----------------------------
     else if (storageChoice === "gdrive") {
       UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
     }
 
-    // ----------------------------
-    // FIREBASE
-    // ----------------------------
     else if (storageChoice === "firebase") {
-    try {
-        await uploadFile(UI.currentRecordingBlob, metadata);
-        UI.toast("Uploaded to cloud successfully!", "success");
-    } catch (err) {
-        console.error("Cloud upload error:", err);
-        UI.toast("Failed to upload to cloud.", "error");
-        return;
+      await uploadFile(UI.currentRecordingBlob, metadata);
+      UI.toast("Uploaded to cloud successfully!", "success");
     }
-}
-
-
-    // Cleanup AFTER upload finishes
-    UI.setCurrentRecordingBlob(null);
-    UI.setSecondsElapsed(0);
-    UI.$("#rec-timer").textContent = "00:00";
-    UI.updateRecordingUI("idle");
-    clearTagList();
-    resetLiveScoringUI();
 
   } catch (err) {
     console.error("Upload error:", err);
