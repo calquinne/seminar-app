@@ -60,7 +60,7 @@ function setupEventListeners() {
   UI.$("#auth-google-btn").onclick = Auth.handleGoogleSignIn;
   UI.$("#signup-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);
 
-  // 4. Main App Tabs (Fixed Syntax & Added Rubrics)
+  // 4. Main App Tabs
   UI.$$(".app-tab").forEach((btn) => {
     btn.onclick = (e) =>
       UI.handleTabClick(
@@ -73,13 +73,16 @@ function setupEventListeners() {
   });
 
   // 5. Rubric Builder
-  UI.$("#add-rubric-row-btn").onclick = Rubrics.addBuilderRow;
-  UI.$("#save-new-rubric-btn").onclick = Rubrics.saveRubric;
-  // Initialize one empty row on load
+  const addRowBtn = UI.$("#add-rubric-row-btn");
+  if (addRowBtn) addRowBtn.onclick = Rubrics.addBuilderRow;
+  
+  const saveRubricBtn = UI.$("#save-new-rubric-btn");
+  if (saveRubricBtn) saveRubricBtn.onclick = Rubrics.saveRubric;
+  
+  // Initialize one empty row on load if builder exists
   if (UI.$("#rubric-builder-rows")) {
-   Rubrics.addBuilderRow();
-}
- 
+      Rubrics.addBuilderRow();
+  }
 
   // 6. Class / Event Manager
   UI.$("#new-class-btn").onclick = UI.clearClassEditor;
@@ -101,19 +104,7 @@ function setupEventListeners() {
     }
   };
 
-  UI.$("#upgrade-plan-btn").onclick = () =>
-    UI.toast("Stripe checkout placeholder", "info");
-  UI.$("#export-data-btn").onclick = () =>
-    UI.toast("Export feature under construction", "info");
-
-  // 7. Rubric Manager (Sub-tabs)
-  UI.$$(".sub-tab").forEach((btn) => (btn.onclick = UI.handleRubricTabClick));
-  UI.$("#my-rubrics-list").onclick = (e) => {
-    DB.handleShareRubric(e);
-    DB.handleDeleteRubric(e);
-  };
-
-  // 8. Record Tab Controls
+  // 7. Record Tab Controls
   UI.$("#start-rec-btn").onclick = Record.startRecording;
   UI.$("#pause-rec-btn").onclick = Record.pauseOrResumeRecording;
   UI.$("#stop-rec-btn").onclick = Record.stopRecording;
@@ -123,7 +114,7 @@ function setupEventListeners() {
   const tagBtn = UI.$("#tag-btn");
   if (tagBtn) tagBtn.onclick = Record.handleTagButtonClick;
 
-  // ⭐ MANUAL PREVIEW BUTTON (Restored)
+  // Manual Preview Button
   const manualPreviewBtn = UI.$("#manual-preview-btn");
   if (manualPreviewBtn) {
     manualPreviewBtn.onclick = async () => {
@@ -131,20 +122,20 @@ function setupEventListeners() {
       const isActive = previewScreen && !previewScreen.classList.contains("hidden");
 
       if (!isActive) {
-        await Record.startPreview(); // Updated to match new export
+        await Record.startPreview();
         manualPreviewBtn.textContent = "Stop Preview";
       } else {
-        // Record.stopPreview isn't exported directly in the new file, 
-        // but discardRecording calls it. For simple toggle, we can hide logic here:
-        // Or better, ensure Record.js exports stopPreview if we want this button to work perfectly.
-        // Assuming Record.js exports stopPreview (checked: it does in the latest version I gave you).
-        if (Record.stopPreview) {
-             Record.stopPreview();
-        } else {
-             // Fallback if not exported
-             previewScreen.classList.add("hidden");
-             if(UI.mediaStream) UI.mediaStream.getTracks().forEach(t=>t.stop());
+        // Safe stop logic
+        const video = UI.$("#preview-player");
+        if (video) {
+            video.srcObject = null;
+            video.src = "";
         }
+        if (UI.mediaStream) {
+            UI.mediaStream.getTracks().forEach(t => t.stop());
+            UI.setMediaStream(null);
+        }
+        previewScreen.classList.add("hidden");
         manualPreviewBtn.textContent = "Start Preview";
       }
     };
@@ -159,7 +150,7 @@ function setupEventListeners() {
     };
   }
 
-  // 9. Metadata Screen (After Recording)
+  // 8. Metadata Screen (After Recording)
   UI.$("#metadata-form").onsubmit = (e) => Record.handleMetadataSubmit(e);
   UI.$("#meta-class").onchange = Record.handleMetadataClassChange;
   UI.$("#meta-participant").onchange = Record.handleMetadataParticipantChange;
@@ -177,7 +168,7 @@ function setupEventListeners() {
     }
   };
 
-  // 10. Scoring Dialog
+  // 9. Scoring Dialog
   const scoringCancel = UI.$("#scoring-cancel-btn");
   const scoringClose = UI.$("#scoring-close-btn");
   const scoringSave = UI.$("#scoring-save-btn");
@@ -193,7 +184,7 @@ function setupEventListeners() {
     };
   }
 
-  // 11. Library Click Handler
+  // 10. Library Click Handler
   UI.$("#library-list").onclick = (e) => {
     const target = e.target.closest("button,a");
     if (!target) return;
@@ -220,7 +211,7 @@ function setupEventListeners() {
     }
   };
 
-  // 12. Video Player Controls (Restored)
+  // 11. Video Player Controls
   const getMainPlayer = () => UI.$("#main-player");
   
   const vpClose = UI.$("#player-close-btn");
@@ -258,7 +249,7 @@ function setupEventListeners() {
     };
   }
 
-  // 13. Network Events
+  // 12. Network Events
   window.addEventListener("online", () => {
     UI.toast("You're back online!", "success");
     DB.flushOfflineQueue();
