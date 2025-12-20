@@ -67,7 +67,7 @@ function setupEventListeners() {
         e,
         DB.refreshClassesList,      // Manage Tab
         Rubrics.loadSavedRubrics,   // Rubrics Tab
-        Record.startPreview,        // Record Tab
+        Record.startPreviewSafely,        // Record Tab
         DB.loadLibrary              // Library Tab
       );
   });
@@ -122,7 +122,7 @@ function setupEventListeners() {
       const isActive = previewScreen && !previewScreen.classList.contains("hidden");
 
       if (!isActive) {
-        await Record.startPreview();
+        await Record.startPreviewSafely();
         manualPreviewBtn.textContent = "Stop Preview";
       } else {
         // Safe stop logic
