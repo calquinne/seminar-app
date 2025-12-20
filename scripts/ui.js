@@ -3,7 +3,7 @@
 /* Exports shared state, constants, and UI helper functions.
 /* ========================================================================== */
 import * as Record from "./record.js";
-
+import * as Rubrics from "./rubrics.js"; 
 
 // ❗ Removed APP_VERSION import to avoid circular dependency with main.js
 
@@ -41,6 +41,7 @@ export function setCurrentRecordingBlob(b) { currentRecordingBlob = b; }
 export function setTimerInterval(i) { timerInterval = i; }
 export function setSecondsElapsed(s) { secondsElapsed = s; }
 export function setCurrentFacingMode(m) { currentFacingMode = m; }
+
 /* -------------------------------------------------------------- */
 /* Storage Choice (firebase | gdrive | local)                     */
 /* -------------------------------------------------------------- */
@@ -215,7 +216,7 @@ export function refreshMetadataClassList() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Global Event Handlers                                                      */
+/* Global Event Handlers
 /* -------------------------------------------------------------------------- */
 export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPreviewSafely, loadLibrary) {
   const btn = e.target.closest(".app-tab");
@@ -242,27 +243,22 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
   );
 
   console.log(`Switched to tab: ${tabId}`);
-  // ----------------------------------------------------
-// STEP 3E – Fix preview visibility when entering Record tab
-// ----------------------------------------------------
-if (tabId === "tab-record") {
 
-  const previewScreen = $("#preview-screen");
-  const previewBtn = $("#manual-preview-btn");
+  // Fix preview visibility when entering Record tab
+  if (tabId === "tab-record") {
+    const previewScreen = $("#preview-screen");
+    const previewBtn = $("#manual-preview-btn");
 
-  // Always hide the preview box when entering the Record tab
-  // (Prevents black screen from temporarily showing)
-  if (previewScreen) {
-    previewScreen.classList.add("hidden");
-    previewScreen.classList.remove("recording-active", "paused-border");
+    if (previewScreen) {
+      previewScreen.classList.add("hidden");
+      previewScreen.classList.remove("recording-active", "paused-border");
+    }
+
+    if (previewBtn) {
+      previewBtn.classList.remove("hidden");
+      previewBtn.textContent = "Start Preview";
+    }
   }
-
-  // Ensure button shows correct default
-  if (previewBtn) {
-    previewBtn.classList.remove("hidden");
-    previewBtn.textContent = "Start Preview";
-  }
-}
 
   if (tabId !== 'tab-record') {
     const progressEl = $("#upload-progress");
@@ -274,16 +270,10 @@ if (tabId === "tab-record") {
   }
 
   if (tabId === 'tab-rubrics') {
-    $$(".rubric-sub-tab-content").forEach(el =>
-      el.classList.toggle("hidden", el.id !== 'rubric-tab-my')
-    );
-    $$(".sub-tab").forEach(el =>
-      el.setAttribute("aria-selected", el.dataset.subtab === 'rubric-tab-my')
-    );
     refreshMyRubrics();
   }
   
-    if (tabId === 'tab-library') {
+  if (tabId === 'tab-library') {
     loadLibrary();
   }
 }
@@ -295,20 +285,11 @@ export function handleRubricTabClick(e) {
   const tabId = btn.dataset.subtab;
   $$(".rubric-sub-tab-content").forEach(el => el.classList.toggle("hidden", el.id !== tabId));
   $$(".sub-tab").forEach(el => el.setAttribute("aria-selected", el.dataset.subtab === tabId));
-  
-  console.log(`Switched to rubric sub-tab: ${tabId}`);
 }
 
 export function handleAddRubricRow() {
-  const container = $("#new-rubric-rows-container");
-  if (!container) return;
-  
-  const rowCount = container.children.length + 1;
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "new-rubric-row w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm";
-  input.placeholder = `Row ${rowCount}: e.g., Pacing`;
-  container.appendChild(input);
+  // Deprecated UI helper, now handled in Rubrics.js addBuilderRow
+  // Kept only if legacy HTML still calls it, but likely safe to remove if main.js is updated.
 }
 
 /* -------------------------------------------------------------------------- */
@@ -340,33 +321,25 @@ export function showConfirm(message, title = "Are you sure?", confirmText = "OK"
   return new Promise((resolve) => {
     confirmPromiseResolver = resolve;
 
-    if (!yesBtn.dataset.listener) {
-      yesBtn.dataset.listener = "true";
-      noBtn.dataset.listener = "true";
+    // Remove old listeners to prevent stacking
+    const newYes = yesBtn.cloneNode(true);
+    const newNo = noBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(newYes, yesBtn);
+    noBtn.parentNode.replaceChild(newNo, noBtn);
+
+    newYes.addEventListener('click', () => {
+       modal.close();
+       resolve(true);
+    });
+
+    newNo.addEventListener('click', () => {
+       modal.close();
+       resolve(false);
+    });
       
-      yesBtn.addEventListener('click', () => {
-        if (confirmPromiseResolver) {
-          modal.close();
-          confirmPromiseResolver(true);
-          confirmPromiseResolver = null;
-        }
-      });
-      
-      noBtn.addEventListener('click', () => {
-        if (confirmPromiseResolver) {
-          modal.close();
-          confirmPromiseResolver(false);
-          confirmPromiseResolver = null;
-        }
-      });
-      
-      modal.addEventListener('close', () => {
-        if (confirmPromiseResolver) {
-          confirmPromiseResolver(false);
-          confirmPromiseResolver = null;
-        }
-      });
-    }
+    modal.onclose = () => {
+       if (modal.returnValue !== 'true') resolve(false);
+    };
   });
 }
 
@@ -400,16 +373,14 @@ export function mockUpdateStorageUsage(bytes){
   console.log(`Mock storage usage updated to ${(bytes / 1e9).toFixed(2)} GB`);
 }
 
-export function redirectToStripeCheckout(){ toast("Stripe Checkout (placeholder)","info"); }
 export function uploadToDrivePlaceholder(file, meta){
   console.log("Drive upload placeholder", file?.size, meta);
   toast("Google Drive upload not yet implemented.","info");
 }
 
 /* -------------------------------------------------------------------------- */
-/* PWA Service Worker Registration (Final Polished Version)                   */
+/* PWA Service Worker Registration
 /* -------------------------------------------------------------------------- */
-
 export async function registerSW() {
   if (!("serviceWorker" in navigator)) return;
 
@@ -417,84 +388,39 @@ export async function registerSW() {
     const reg = await navigator.serviceWorker.register("./sca-sw.js", { scope: "./" });
     console.log("✅ Service Worker registered successfully.");
 
-    /* ------------------------------------------------------------ */
-    /* Inject CSS animations once                                   */
-    /* ------------------------------------------------------------ */
     if (!document.getElementById("update-banner-style")) {
       const style = document.createElement("style");
       style.id = "update-banner-style";
-
       style.textContent = `
-        @keyframes slideDownFade {
-          0% { opacity: 0; transform: translate(-50%, -30px); }
-          100% { opacity: 1; transform: translate(-50%, 0); }
-        }
-        @keyframes slideUpFadeOut {
-          0% { opacity: 1; transform: translate(-50%, 0); }
-          100% { opacity: 0; transform: translate(-50%, -30px); }
-        }
-        @keyframes pingGlow {
-          0% { box-shadow: 0 0 0 0 rgba(14,116,144,0.6); }
-          70% { box-shadow: 0 0 0 12px rgba(14,116,144,0); }
-          100% { box-shadow: 0 0 0 0 rgba(14,116,144,0); }
-        }
-        #update-banner {
-          animation: slideDownFade 0.5s ease-out forwards,
-                     pingGlow 1.4s ease-out 0.3s;
-          text-shadow: 0 0 4px rgba(0,0,0,0.5);
-        }
-        #update-banner.fade-out {
-          animation: slideUpFadeOut 0.5s ease-in forwards;
-        }
+        @keyframes slideDownFade { 0% { opacity: 0; transform: translate(-50%, -30px); } 100% { opacity: 1; transform: translate(-50%, 0); } }
+        @keyframes slideUpFadeOut { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -30px); } }
+        @keyframes pingGlow { 0% { box-shadow: 0 0 0 0 rgba(14,116,144,0.6); } 70% { box-shadow: 0 0 0 12px rgba(14,116,144,0); } 100% { box-shadow: 0 0 0 0 rgba(14,116,144,0); } }
+        #update-banner { animation: slideDownFade 0.5s ease-out forwards, pingGlow 1.4s ease-out 0.3s; text-shadow: 0 0 4px rgba(0,0,0,0.5); }
+        #update-banner.fade-out { animation: slideUpFadeOut 0.5s ease-in forwards; }
       `;
-
       document.head.appendChild(style);
     }
 
-    /* ------------------------------------------------------------ */
-    /* Listen for new service worker                                */
-    /* ------------------------------------------------------------ */
     reg.onupdatefound = () => {
       const newWorker = reg.installing;
       if (!newWorker) return;
-
       newWorker.onstatechange = () => {
-        try {
-          if (
-            newWorker.state === "installed" &&
-            navigator.serviceWorker &&
-            navigator.serviceWorker.controller
-          ) {
-            // Construct banner
+        if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
             const banner = document.createElement("div");
             banner.id = "update-banner";
-
-            banner.className = `
-              fixed top-4 left-1/2 -translate-x-1/2 z-50
-              bg-[#0e7490]/90 backdrop-blur-md text-white text-sm
-              px-5 py-2.5 rounded-2xl shadow-lg border border-white/10
-              cursor-pointer transition hover:bg-[#0e7490]/100
-            `;
-
+            banner.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#0e7490]/90 backdrop-blur-md text-white text-sm px-5 py-2.5 rounded-2xl shadow-lg border border-white/10 cursor-pointer transition hover:bg-[#0e7490]/100`;
             banner.textContent = "🔄 A new update is available — click to refresh";
-
             banner.onclick = () => {
               newWorker.postMessage({ type: "SKIP_WAITING" });
               banner.textContent = "⏳ Updating…";
               banner.classList.add("opacity-80");
               setTimeout(() => window.location.reload(), 500);
             };
-
             document.body.appendChild(banner);
-
-            // Auto fade-out after 20s
             setTimeout(() => {
               banner.classList.add("fade-out");
               setTimeout(() => banner.remove(), 600);
             }, 20000);
-          }
-        } catch (err) {
-          console.warn("[SW] Update check skipped (controller not ready)", err);
         }
       };
     };
@@ -503,30 +429,22 @@ export async function registerSW() {
     console.error("❌ Service Worker registration failed:", e);
   }
 }
+
 /* -------------------------------------------------------------------------- */
 /* Local / USB Storage Helper
 /* -------------------------------------------------------------------------- */
 export async function saveToLocalDevice(blob, filename) {
   try {
-    // 1. Try modern File Picker API (Win/Mac/Linux/ChromeOS)
     if (window.showSaveFilePicker) {
       const handle = await window.showSaveFilePicker({
         suggestedName: filename,
-        types: [
-          {
-            description: "Video File",
-            accept: { "video/webm": [".webm"] }
-          }
-        ]
+        types: [{ description: "Video File", accept: { "video/webm": [".webm"] } }]
       });
-
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
       return true;
     }
-
-    // 2. Fallback for browsers without File Picker API
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -535,7 +453,6 @@ export async function saveToLocalDevice(blob, filename) {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-
     return true;
   } catch (err) {
     if (err.name !== "AbortError") {
@@ -547,13 +464,9 @@ export async function saveToLocalDevice(blob, filename) {
 }
 
 /* ========================================================================== */
-/* SPLIT-SCREEN VIDEO PLAYER (Primary Player Used for Playback + Scoring)     */
+/* SPLIT-SCREEN VIDEO PLAYER
 /* ========================================================================== */
 
-/**
- * Opens the split-screen video player.
- * Loads a URL into <video id="main-player"> and reveals #player-screen.
- */
 export function openVideoPlayer(url, title = "Video Playback") {
   const container = document.getElementById("player-screen");
   const video = document.getElementById("main-player");
@@ -561,224 +474,58 @@ export function openVideoPlayer(url, title = "Video Playback") {
 
   if (!container || !video) return;
 
-  // Stop previous playback
-  try {
-    video.pause();
-  } catch {}
+  try { video.pause(); } catch {}
   video.removeAttribute("src");
   video.src = "";
   video.srcObject = null;
-
-  // Make sure playback is user-initiated only
   video.autoplay = false;
-  video.muted = false;       // library playback should have sound
-  video.playsInline = true;  // safe on mobile
-
-  // Load new URL
+  video.muted = false;
+  video.playsInline = true;
   video.src = url;
 
-  // Update title
   if (titleEl) titleEl.textContent = title;
-
-  // Show split-screen layout
   container.classList.remove("hidden");
 }
 
-/**
- * Closes the split-screen video player and stops playback.
- */
 export function closeVideoPlayer() {
   const container = document.getElementById("player-screen");
   const video = document.getElementById("main-player");
-
   if (video) {
-    try {
-      video.pause();
-    } catch {}
+    try { video.pause(); } catch {}
     video.removeAttribute("src");
     video.src = "";
     video.srcObject = null;
   }
-
-  if (container) {
-    container.classList.add("hidden");
-  }
+  if (container) container.classList.add("hidden");
 }
 
 /* -------------------------------------------------------------------------- */
-/* Fullscreen Button for Webcam Preview (runs after DOM loaded)               */
+/* Fullscreen Button
 /* -------------------------------------------------------------------------- */
 document.addEventListener("DOMContentLoaded", () => {
   const previewFS = document.getElementById("preview-fullscreen-btn");
   if (previewFS) {
     previewFS.onclick = () => {
       const v = document.getElementById("preview-player");
-      if (v?.requestFullscreen) {
-        v.requestFullscreen().catch(() => {});
-      }
+      if (v?.requestFullscreen) v.requestFullscreen().catch(() => {});
     };
-    console.log("Fullscreen button wired.");
   }
 });
 
 /* ========================================================================== */
-/* SCORING DIALOG HELPERS (Vertical layout, Option A buttons)                */
+/* ✅ SCORING UI (Delegated to Record.js for Split Screen reuse)
 /* ========================================================================== */
 
-/**
- * Render scoring rows for a given video + rubric.
- * rows = [{ label, maxPoints }]
- */
-export function renderScoringDialog({ video, rubric, rows, existingScores }) {
-  const titleEl = $("#scoring-video-title");
-  const partEl = $("#scoring-video-participant");
-  const rubricEl = $("#scoring-rubric-title");
-  const rowsContainer = $("#scoring-rows");
-
-  if (!rowsContainer) return;
-
-  if (titleEl) titleEl.textContent = video.classEventTitle || "Untitled";
-  if (partEl) partEl.textContent = video.participant || "Unknown participant";
-  if (rubricEl) rubricEl.textContent = rubric.title || "Rubric";
-
-  rowsContainer.innerHTML = "";
-
-  rows.forEach((row, idx) => {
-  const max = row.maxPoints || 6;
-
-  const low = Math.round(max / 3);
-  const med = Math.round((2 * max) / 3);
-  const high = max;
-
-  const wrap = document.createElement("div");
-  wrap.className =
-    "score-row border border-white/10 rounded-xl p-3 bg-black/30";
-  wrap.dataset.index = String(idx);
-  wrap.dataset.label = row.label || row.title || `Row ${idx + 1}`;
-
-  wrap.innerHTML = `
-    <div class="flex justify-between items-baseline mb-2">
-      <div class="text-sm font-semibold text-white">
-        ${idx + 1}. ${wrap.dataset.label}
-      </div>
-      <div class="text-[11px] text-gray-400">Max: ${max} pts</div>
-    </div>
-
-    <div class="flex gap-2 mb-2 text-xs">
-      <button type="button"
-        class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
-        data-score="${low}">
-        ${low} pts
-      </button>
-
-      <button type="button"
-        class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
-        data-score="${med}">
-        ${med} pts
-      </button>
-
-      <button type="button"
-        class="score-btn px-2 py-1 rounded-lg bg-white/10 text-gray-200 border border-white/10"
-        data-score="${high}">
-        ${high} pts
-      </button>
-    </div>
-
-    <textarea
-      class="score-notes w-full rounded-lg bg-black/40 border border-white/10
-             p-2 text-xs"
-      placeholder="Notes for this row (optional)…"></textarea>
-  `;
-
-  rowsContainer.appendChild(wrap);
-
-  // ---------------------------------------------------------
-  // ⭐ PREFILL SCORES IF THEY EXIST (from database)
-  // ---------------------------------------------------------
-  if (existingScores && Array.isArray(existingScores.rowScores)) {
-    const saved = existingScores.rowScores.find((r) => r.rowIndex === idx);
-    if (saved) {
-      const btn = wrap.querySelector(`.score-btn[data-score="${saved.score}"]`);
-      const notesEl = wrap.querySelector(".score-notes");
-
-      if (btn) {
-        btn.dataset.selected = "true";
-        btn.classList.remove("bg-white/10", "text-gray-200");
-        btn.classList.add("bg-primary-600", "text-white");
-      }
-
-      if (notesEl) notesEl.value = saved.notes || "";
-    }
+export function renderScoringUI({ rubric, existingScores }) {
+  // 1. Ensure the Rubric is Active
+  if (rubric) {
+      Rubrics.setActiveRubric(rubric.id, rubric);
   }
-});
-
-  updateScoreTotal();
+  
+  // 2. Delegate rendering to Record.js (it shares the same Sidebar DOM)
+  // We pass the saved finalScores directly
+  Record.renderLiveScoringFromRubric(existingScores ? existingScores.finalScores : {});
 }
 
-export function openScoringDialog() {
-  const dlg = $("#scoring-dialog");
-  if (dlg && typeof dlg.showModal === "function") {
-    dlg.showModal();
-    updateScoreTotal();
-  }
-}
-
-export function closeScoringDialog() {
-  const dlg = $("#scoring-dialog");
-  if (dlg && dlg.open) dlg.close();
-}
-
-/** Collect scores + notes from the dialog into an array */
-export function collectScoringData() {
-  const rows = $$("#scoring-rows .score-row");
-  return rows.map((rowEl) => {
-    const idx = parseInt(rowEl.dataset.index || "0", 10);
-    const label = rowEl.dataset.label || `Row ${idx + 1}`;
-    const selected = rowEl.querySelector(".score-btn[data-selected='true']");
-    const score = selected ? parseInt(selected.dataset.score || "0", 10) : 0;
-    const notes = rowEl.querySelector(".score-notes")?.value.trim() || "";
-    return { rowIndex: idx, label, score, notes };
-  });
-}
-
-/** Update the total score label from selected buttons */
-export function updateScoreTotal() {
-  const totalEl = $("#scoring-total");
-  if (!totalEl) return;
-
-  let total = 0;
-  $$("#scoring-rows .score-row").forEach((rowEl) => {
-    const selected = rowEl.querySelector(".score-btn[data-selected='true']");
-    if (selected) {
-      total += parseInt(selected.dataset.score || "0", 10) || 0;
-    }
-  });
-
-  totalEl.textContent = String(total);
-}
-/* ========================================================================== */
-/* EVENT HANDLERS FOR SCORING BUTTONS                                         */
-/* ========================================================================== */
-
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest(".score-btn");
-  if (!btn) return;
-
-  const row = btn.closest(".score-row");
-  if (!row) return;
-
-  // Clear previous selection
-  row.querySelectorAll(".score-btn").forEach((b) => {
-    b.removeAttribute("data-selected");
-    b.classList.remove("bg-primary-600", "text-white");
-    b.classList.add("bg-white/10", "text-gray-200");
-  });
-
-  // Mark selected
-  btn.dataset.selected = "true";
-  btn.classList.remove("bg-white/10", "text-gray-200");
-  btn.classList.add("bg-primary-600", "text-white");
-
-  // Update total
-  updateScoreTotal();
-});
+// ❌ Removed deprecated: renderScoringDialog, openScoringDialog, closeScoringDialog
+// ❌ Removed deprecated: collectScoringData (Record.js handles metadata submit now)
