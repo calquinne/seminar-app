@@ -52,51 +52,57 @@ if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-  .score-btn-wrapper {
+        .score-btn-wrapper {
             position: relative;
             display: inline-block;
-            overflow: visible; /* Allow tooltip to overflow */
+            /* overflow: visible is critical so tooltip isn't clipped by button box */
+            overflow: visible; 
         }
 
         .rubric-tooltip {
             visibility: hidden;
             position: absolute;
-            z-index: 9999; /* Ensure on top */
+            z-index: 9999; /* Ensure on top of everything */
 
-            bottom: calc(100% + 10px);
-            left: 50%;
-            transform: translateX(-50%);
-
-            background-color: #0f172a; /* Dark slate */
-            color: #e5e7eb;
-            border-radius: 8px;
-            padding: 8px 10px;
-
-            max-width: 220px;       /* Limit width */
-            white-space: normal;    /* Allow wrapping */
-            text-align: left;       /* readable text */
-            font-size: 11px;
+            bottom: calc(100% + 8px); /* 8px gap above button */
+            left: 0; /* Anchor left edge to button */
+            
+            /* Sizing & Layout */
+            width: max-content;
+            max-width: 300px;       /* Allow wider balloons */
+            min-width: 150px;
+            white-space: normal;    /* Allow text wrapping */
+            text-align: left;
             line-height: 1.4;
 
+            /* Visuals */
+            background-color: #0f172a; /* Dark slate */
+            color: #e5e7eb;
+            font-size: 11px;
+            border-radius: 6px;
+            padding: 8px 12px;
+            
+            /* Fade transition */
             opacity: 0;
-            transition: opacity 0.15s ease;
+            transition: opacity 0.15s ease-in-out;
 
-            pointer-events: none;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.12);
+            pointer-events: none; /* Let clicks pass through */
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
+        /* Triangle Arrow */
         .rubric-tooltip::after {
             content: "";
             position: absolute;
             top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 12px; /* Align arrow with button center roughly */
             border-width: 6px;
             border-style: solid;
             border-color: #0f172a transparent transparent transparent;
         }
 
+        /* Hover State */
         .score-btn-wrapper:hover .rubric-tooltip {
             visibility: visible;
             opacity: 1;
