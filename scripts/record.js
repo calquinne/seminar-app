@@ -52,42 +52,57 @@ if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-        .score-btn-wrapper { position: relative; display: inline-block; }
-        .rubric-tooltip {
-            visibility: hidden;
-            background-color: #1e293b;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 5px 10px;
-            position: absolute;
-            z-index: 50;
-            bottom: 125%; /* Position above */
-            left: 50%;
-            transform: translateX(-50%);
-            opacity: 0;
-            transition: opacity 0.2s;
-            white-space: nowrap;
-            font-size: 11px;
-            pointer-events: none;
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-        }
-        .rubric-tooltip::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #1e293b transparent transparent transparent;
-        }
-        .score-btn-wrapper:hover .rubric-tooltip {
-            visibility: visible;
-            opacity: 1;
-        }
-    `;
+  .score-btn-wrapper {
+    position: relative;
+    display: inline-block;
+    overflow: visible;
+  }
+
+  .rubric-tooltip {
+    visibility: hidden;
+    position: absolute;
+    z-index: 9999;
+
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+
+    background-color: #0f172a;
+    color: #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 10px;
+
+    max-width: 220px;
+    white-space: normal;
+    text-align: left;
+    font-size: 11px;
+    line-height: 1.4;
+
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    pointer-events: none;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .rubric-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #0f172a transparent transparent transparent;
+  }
+
+  .score-btn-wrapper:hover .rubric-tooltip {
+    visibility: visible;
+    opacity: 1;
+  }
+`;
+
     document.head.appendChild(style);
 }
 
@@ -130,7 +145,7 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
       }
 
       const rowEl = document.createElement("div");
-      rowEl.className = "mb-5 pb-4 border-b border-white/10 last:border-0 live-score-row";
+      rowEl.className = "mb-5 pb-4 border-b border-white/10 last:border-0 live-score-row overflow-visible";
 
       // 1. Header
       let html = `
