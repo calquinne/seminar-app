@@ -53,55 +53,55 @@ if (!document.getElementById(styleId)) {
     style.id = styleId;
     style.textContent = `
   .score-btn-wrapper {
-    position: relative;
-    display: inline-block;
-    overflow: visible;
-  }
+            position: relative;
+            display: inline-block;
+            overflow: visible; /* Allow tooltip to overflow */
+        }
 
-  .rubric-tooltip {
-    visibility: hidden;
-    position: absolute;
-    z-index: 9999;
+        .rubric-tooltip {
+            visibility: hidden;
+            position: absolute;
+            z-index: 9999; /* Ensure on top */
 
-    bottom: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%);
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%);
 
-    background-color: #0f172a;
-    color: #e5e7eb;
-    border-radius: 8px;
-    padding: 8px 10px;
+            background-color: #0f172a; /* Dark slate */
+            color: #e5e7eb;
+            border-radius: 8px;
+            padding: 8px 10px;
 
-    max-width: 220px;
-    white-space: normal;
-    text-align: left;
-    font-size: 11px;
-    line-height: 1.4;
+            max-width: 220px;       /* Limit width */
+            white-space: normal;    /* Allow wrapping */
+            text-align: left;       /* readable text */
+            font-size: 11px;
+            line-height: 1.4;
 
-    opacity: 0;
-    transition: opacity 0.15s ease;
+            opacity: 0;
+            transition: opacity 0.15s ease;
 
-    pointer-events: none;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    border: 1px solid rgba(255,255,255,0.12);
-  }
+            pointer-events: none;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
 
-  .rubric-tooltip::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border-width: 6px;
-    border-style: solid;
-    border-color: #0f172a transparent transparent transparent;
-  }
+        .rubric-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px;
+            border-style: solid;
+            border-color: #0f172a transparent transparent transparent;
+        }
 
-  .score-btn-wrapper:hover .rubric-tooltip {
-    visibility: visible;
-    opacity: 1;
-  }
-`;
+        .score-btn-wrapper:hover .rubric-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+    `;
 
     document.head.appendChild(style);
 }
