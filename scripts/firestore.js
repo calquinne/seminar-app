@@ -432,7 +432,7 @@ export async function flushOfflineQueue() {
   }
 }
 
- export async function loadLibrary() {
+export async function loadLibrary() {
   if (!UI.db || !UI.currentUser) return;
 
   const appId = UI.getAppId();
@@ -468,73 +468,49 @@ export async function flushOfflineQueue() {
       const isDrive =
         v.downloadURL && v.downloadURL.includes("drive.google.com");
 
+      // ✅ Rubric Badge Logic
+      const rubricBadge = v.rubricTitle 
+        ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20 ml-2">
+             ${v.rubricTitle}
+           </span>`
+        : ``;
+
       const li = document.createElement("div");
       li.className =
-        "p-4 bg-white/5 border border-white/10 rounded-xl mb-3 flex flex-col gap-3";
+        "p-4 bg-white/5 border border-white/10 rounded-xl mb-3 flex flex-col gap-3 transition-all hover:bg-white/10";
 
       let badge = "";
       let action = "";
 
+      // Storage Badges
       if (isLocal) {
-        badge = `
-          <span class="px-2 py-0.5 text-[10px] rounded bg-yellow-500/20 
-                 border border-yellow-500/40 text-yellow-200 uppercase tracking-wide">
-            LOCAL ONLY
-          </span>
-        `;
-        action = `
-          <button 
-            class="text-yellow-400 text-sm hover:text-yellow-300 hover:underline 
-                   flex items-center gap-2 transition-colors"
-            data-open-local="true"
-            data-title="${v.participant || 'Video'}"
-            title="Click to locate and play this file">
-            📂 Open File
-          </button>
-        `;
+        badge = `<span class="px-2 py-0.5 text-[10px] rounded bg-yellow-500/20 border border-yellow-500/40 text-yellow-200 uppercase tracking-wide">LOCAL</span>`;
+        action = `<button class="text-yellow-400 text-sm hover:text-yellow-300 hover:underline flex items-center gap-2" data-open-local="true" data-title="${v.participant}">📂 Open File</button>`;
       } else if (isDrive) {
-        badge = `
-          <span class="px-2 py-0.5 text-[10px] rounded bg-green-500/20 
-                 border border-green-500/40 text-green-200 uppercase tracking-wide">
-            GOOGLE DRIVE
-          </span>
-        `;
-        action = `
-          <a href="${v.downloadURL}" target="_blank"
-             class="text-green-400 text-sm hover:underline flex items-center gap-1">
-            ↗ Open Drive
-          </a>
-        `;
+        badge = `<span class="px-2 py-0.5 text-[10px] rounded bg-green-500/20 border border-green-500/40 text-green-200 uppercase tracking-wide">DRIVE</span>`;
+        action = `<a href="${v.downloadURL}" target="_blank" class="text-green-400 text-sm hover:underline flex items-center gap-1">↗ Open Drive</a>`;
       } else {
-        badge = `
-          <span class="px-2 py-0.5 text-[10px] rounded bg-blue-500/20 
-                 border border-blue-500/40 text-blue-200 uppercase tracking-wide">
-            CLOUD
-          </span>
-        `;
-        action = `
-          <button 
-            class="text-primary-300 text-sm hover:underline flex items-center gap-1"
-            data-play-url="${v.downloadURL}"
-            data-title="${v.participant || 'Video'}">
-            ▶ Play Video
-          </button>
-        `;
+        badge = `<span class="px-2 py-0.5 text-[10px] rounded bg-blue-500/20 border border-blue-500/40 text-blue-200 uppercase tracking-wide">CLOUD</span>`;
+        action = `<button class="text-primary-300 text-sm hover:underline flex items-center gap-1" data-play-url="${v.downloadURL}" data-title="${v.participant}">▶ Play Video</button>`;
       }
 
-      // SCORING BUTTON (SAFE JSON)
-      const scorePayload = encodeURIComponent(
-        JSON.stringify({ id: d.id, ...v })
-      );
+      // Scoring Payload
+      const scorePayload = encodeURIComponent(JSON.stringify({ id: d.id, ...v }));
 
+      // Render Card
       li.innerHTML = `
         <div class="flex justify-between items-start">
           <div class="flex flex-col">
             <div class="font-semibold text-white text-base">
               ${v.classEventTitle || "Untitled"} — ${v.participant}
             </div>
-            <div class="text-xs text-gray-400 mt-1">
-              ${dateStr} • ${v.recordingType || "Presentation"} • ${sizeStr}
+            <div class="text-xs text-gray-400 mt-1 flex flex-wrap items-center gap-1">
+              <span>${dateStr}</span>
+              <span>•</span>
+              <span>${v.recordingType || "Presentation"}</span>
+              <span>•</span>
+              <span>${sizeStr}</span>
+              ${rubricBadge}
             </div>
           </div>
           ${badge}
@@ -544,39 +520,28 @@ export async function flushOfflineQueue() {
           <div class="flex items-center gap-4 flex-wrap">
             ${action}
 
-            ${
-              v.hasScore
-                ? `
-                  <button 
-                    class="text-green-400 text-sm hover:text-green-300 hover:underline flex items-center gap-1"
-                    data-score-video="${scorePayload}">
-                    ✔ Scored (${v.lastScore || v.totalScore} pts)
-                  </button>
-                `
-                : `
-                  <button 
-                    class="text-amber-400 text-sm hover:text-amber-300 hover:underline flex items-center gap-1"
-                    data-score-video="${scorePayload}">
-                    ⭐ Score
-                  </button>
-                `
+            ${v.hasScore
+              ? `<button class="text-green-400 text-sm hover:text-green-300 hover:underline flex items-center gap-1" data-score-video="${scorePayload}">
+                   ✔ Scored (${v.lastScore || v.totalScore || 0} pts)
+                 </button>`
+              : `<button class="text-amber-400 text-sm hover:text-amber-300 hover:underline flex items-center gap-1" data-score-video="${scorePayload}">
+                   ⭐ Score
+                 </button>`
             }
           </div>
 
-          <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
-            data-del="${d.id}">
+          <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors" data-del="${d.id}">
             🗑 Delete
           </button>
         </div>
       `;
 
       listEl.appendChild(li);
-
     });
+
   } catch (e) {
     console.error("Error loading library:", e);
-    listEl.innerHTML =
-      '<p class="text-sm text-red-400 py-3">Error loading library.</p>';
+    listEl.innerHTML = '<p class="text-sm text-red-400 py-3">Error loading library.</p>';
   }
 }
 

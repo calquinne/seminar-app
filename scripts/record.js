@@ -43,35 +43,54 @@ function appendTagToTimeline(timeSeconds) {
 }
 
 /* ========================================================================== */
-/* ✅ LIVE SCORING UI
+/* ✅ LIVE SCORING UI (CUSTOM SCORES + TOOLTIPS)
 /* ========================================================================== */
 
-// Helper to create the button HTML string
-function buildScoreButtons(row, selectedScore = null) {
-  let html = "";
-  const current = selectedScore !== null ? Number(selectedScore) : null;
-
-  for (let i = 0; i <= row.maxPoints; i++) {
-    const isActive = i === current;
-    // Highlight logic
-    const classes = isActive 
-      ? "bg-primary-600 text-white border-primary-400 scale-110 font-bold shadow-md" 
-      : "bg-white/10 text-gray-300 hover:bg-white/20 border-transparent";
-
-    html += `
-      <button
-        type="button"
-        class="live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none ${classes}"
-        data-score="${i}"
-        data-row-id="${row.id}"
-        title="${i} pts - ${row.description || ''}"
-      >
-        ${i}
-      </button>
+// Inject styles for tooltips once
+const styleId = "rubric-tooltip-styles";
+if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+        .score-btn-wrapper { position: relative; display: inline-block; }
+        .rubric-tooltip {
+            visibility: hidden;
+            background-color: #1e293b;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 10px;
+            position: absolute;
+            z-index: 50;
+            bottom: 125%; /* Position above */
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+            font-size: 11px;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+        .rubric-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+        }
+        .score-btn-wrapper:hover .rubric-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
     `;
-  }
-  return html;
+    document.head.appendChild(style);
 }
+
 
 export function renderLiveScoringFromRubric(existingScores = {}) {
   const rowsContainer = UI.$("#live-scoring-rows");
@@ -79,7 +98,6 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
 
   resetLiveScoringUI();
 
-  // 1. Get active rubric
   const rubric = Rubrics.getActiveRubric();
 
   if (!rubric || !rubric.rows || rubric.rows.length === 0) {
@@ -94,15 +112,14 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
       return;
   }
 
-  // 2. Set Title
+  // Set Title
   const titleEl = UI.$("#live-scoring-rubric-title");
   if(titleEl) titleEl.textContent = rubric.title;
 
   let initialTotal = 0;
 
-  // 3. Build Rows
   rubric.rows.forEach((row, index) => {
-      // Check for existing data (for future library editing)
+      // Data Load
       const savedData = existingScores[row.id] || {};
       const savedScore = savedData.score !== undefined ? savedData.score : null;
       const savedNote = savedData.note || "";
@@ -115,18 +132,53 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
       const rowEl = document.createElement("div");
       rowEl.className = "mb-5 pb-4 border-b border-white/10 last:border-0 live-score-row";
 
-      rowEl.innerHTML = `
+      // 1. Header
+      let html = `
         <div class="flex justify-between items-end mb-2">
           <span class="text-sm font-medium text-white">
             <span class="text-primary-400 mr-1">${index + 1}.</span> ${row.label}
           </span>
-          <span class="text-[10px] text-gray-500 uppercase tracking-wide">Max: ${row.maxPoints}</span>
         </div>
-
         <div class="flex flex-wrap gap-1 mb-2">
-          ${buildScoreButtons(row, savedScore)}
-        </div>
+      `;
 
+      // 2. Buttons (From allowedScores)
+      // Fallback for legacy rubrics: 0..maxPoints
+      let scoresToRender = row.allowedScores;
+      if (!scoresToRender || scoresToRender.length === 0) {
+          const max = row.maxPoints || 5;
+          scoresToRender = [];
+          for(let i=0; i<=max; i++) scoresToRender.push({ value: i, label: '' });
+      }
+
+      scoresToRender.forEach(opt => {
+          const val = opt.value;
+          const label = opt.label || '';
+          const isActive = (val === (savedScore !== null ? Number(savedScore) : null));
+          
+          const classes = isActive 
+            ? "bg-primary-600 text-white border-primary-400 scale-110 font-bold shadow-md" 
+            : "bg-white/10 text-gray-300 hover:bg-white/20 border-transparent";
+
+          html += `
+            <div class="score-btn-wrapper">
+                <button
+                    type="button"
+                    class="live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none ${classes}"
+                    data-score="${val}"
+                    data-row-id="${row.id}"
+                >
+                    ${val}
+                </button>
+                ${label ? `<span class="rubric-tooltip">${label}</span>` : ''}
+            </div>
+          `;
+      });
+
+      html += `</div>`;
+
+      // 3. Notes
+      html += `
         <textarea
           class="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-gray-300 focus:border-primary-500 focus:outline-none resize-none placeholder-gray-600"
           rows="1"
@@ -135,10 +187,11 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
         >${savedNote}</textarea>
       `;
 
+      rowEl.innerHTML = html;
       rowsContainer.appendChild(rowEl);
   });
 
-  // 4. Attach Event Listeners to Buttons
+  // Attach Listeners
   rowsContainer.querySelectorAll(".live-score-btn").forEach((btn) => {
     btn.onclick = () => {
       const rowId = btn.dataset.rowId;
@@ -147,13 +200,14 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
     };
   });
 
-  // Initialize total display
+  // Initialize total
   const totalEl = UI.$("#live-score-total");
   if (totalEl) totalEl.textContent = initialTotal;
 }
 
 function handleLiveScore(rowId, score, btnElement) {
-    const container = btnElement.parentElement;
+    // Navigate up to the container div (wrapper's parent)
+    const container = btnElement.closest('.flex'); 
     
     // 1. Visual Update
     const allBtns = container.querySelectorAll("button");
@@ -168,8 +222,6 @@ function handleLiveScore(rowId, score, btnElement) {
         const timestamp = UI.secondsElapsed;
         liveScores.push({ rowId, score, timestamp });
         UI.toast(`Scored ${score} pts`, "success");
-    } else {
-        // Silent update for setup/preview
     }
     
     // 3. Update Live Total
@@ -202,14 +254,12 @@ export function handleTagButtonClick() {
 
 // ✅ EXPORTED as "startPreviewSafely"
 export async function startPreviewSafely() {
-  // SAFETY 1: Tab Check
   const recordTab = UI.$("[data-tab='tab-record']");
   if (!recordTab || recordTab.classList.contains("hidden")) {
     console.log("[Preview] Blocked: Record tab not visible yet.");
     return;
   }
 
-  // SAFETY 2: Lock
   if (previewLock) {
     console.log("[Preview] Blocked: preview lock active");
     return;
@@ -217,7 +267,6 @@ export async function startPreviewSafely() {
   previewLock = true;
   setTimeout(() => (previewLock = false), 300);
 
-  // SAFETY 3: Subscription
   if (!UI.hasAccess()) {
     UI.toast("Recording disabled without an active subscription.", "error");
     return;
@@ -231,12 +280,10 @@ export async function startPreviewSafely() {
     return;
   }
 
-  // Remove red border
   previewScreen.classList.remove("recording-active");
   previewVideo.muted = true;
   previewVideo.playsInline = true;
 
-  // Cleanup old streams
   if (UI.mediaStream) {
     UI.mediaStream.getTracks().forEach(t => t.stop());
     UI.setMediaStream(null);
@@ -263,15 +310,11 @@ export async function startPreviewSafely() {
     UI.setMediaStream(stream);
 
     previewVideo.srcObject = stream;
-    
-    // Mute preview audio to prevent echo
     stream.getAudioTracks().forEach(t => (t.enabled = false));
 
     await previewVideo.play().catch(err => console.warn("Autoplay blocked", err));
 
     previewScreen.classList.remove("hidden");
-    
-    // Re-render rubric (Clean slate for new session)
     renderLiveScoringFromRubric(); 
 
     UI.toast("🎥 Preview active.", "info");
@@ -315,7 +358,6 @@ export async function startRecording() {
   UI.setCurrentRecordingBlob(null);
   clearTagList();
   
-  // Clean slate for recording session
   resetLiveScoringUI(); 
   renderLiveScoringFromRubric();
 
@@ -519,7 +561,6 @@ export async function exportToLocal(metadata) {
       return;
     }
 
-    // 1. Build SAFER filename (Fix: Remove leading/trailing underscores)
     const safeClass = (metadata.classEventTitle || "presentation")
       .replace(/[^\w\d-_]+/g, "_")
       .replace(/^_+|_+$/g, "") 
@@ -617,12 +658,10 @@ export async function handleMetadataSubmit(e) {
 
   const activeRubric = Rubrics.getActiveRubric();
 
-  // ✅ Fix: Warn if no rubric (Polish recommendation)
   if (!activeRubric) {
     UI.toast("Warning: No rubric selected. Scoring data will be empty.", "info");
   }
 
-  // ✅ 1. CAPTURE NOTES
   const noteElements = document.querySelectorAll('[data-note-row-id]');
   const capturedNotes = {};
   noteElements.forEach(el => {
@@ -631,11 +670,9 @@ export async function handleMetadataSubmit(e) {
       }
   });
 
-  // ✅ Fix B: Aggregate Final Scores for Analytics
   const finalScores = {};
   let totalScore = 0;
   
-  // Convert Map to Object for storage
   latestRowScores.forEach((score, rowId) => {
       finalScores[rowId] = score;
       totalScore += score;
@@ -658,10 +695,10 @@ export async function handleMetadataSubmit(e) {
     // ✅ SAVE FULL SCORING DATA
     rubricId: activeRubric ? activeRubric.id : null,
     rubricTitle: activeRubric ? activeRubric.title : null,
-    scoreEvents: liveScores,      // Renamed from 'scores' to avoid confusion
-    finalScores: finalScores,     // Snapshot for analytics
-    totalScore: totalScore,       // Snapshot for analytics
-    rowNotes: capturedNotes       // Text notes
+    scoreEvents: liveScores,      
+    finalScores: finalScores,     
+    totalScore: totalScore,       
+    rowNotes: capturedNotes       
   };
 
   if (!metadata.classEventId || !metadata.participant) {

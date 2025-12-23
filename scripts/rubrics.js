@@ -39,7 +39,7 @@ export function addBuilderRow() {
     "p-4 bg-white/5 rounded-xl border border-white/10 mb-3 relative group transition-all hover:bg-white/10";
 
   div.innerHTML = `
-    <div class="flex gap-4 items-start">
+    <div class="flex gap-4 items-start mb-3">
       <div class="flex-1">
         <label class="block text-xs text-gray-400 mb-1 uppercase tracking-wide">
           Row Title
@@ -51,46 +51,90 @@ export function addBuilderRow() {
           placeholder="e.g., Argument & Analysis"
         >
       </div>
+      
+      <button
+        type="button"
+        class="text-gray-500 hover:text-red-400 transition-colors p-1"
+        onclick="document.getElementById('${domId}').remove()"
+        title="Remove row"
+      >
+        ✕
+      </button>
+    </div>
 
-      <div class="w-24">
-        <label class="block text-xs text-gray-400 mb-1 uppercase tracking-wide">
-          Max Pts
-        </label>
-        <input
-          type="number"
-          class="row-max w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white text-center
-                 focus:border-primary-500 outline-none"
-          value="10"
-          min="1"
-          max="50"
-        >
+    <div class="mb-3">
+      <label class="block text-xs text-gray-400 mb-2 uppercase tracking-wide">
+        Allowed Scores
+      </label>
+      <div class="flex flex-wrap gap-2 score-checkboxes">
+        ${[0,1,2,3,4,5,6,7,8,9,10].map(n => `
+          <label class="flex items-center gap-1.5 cursor-pointer bg-black/20 px-2 py-1 rounded border border-white/5 hover:border-white/20 transition-colors">
+            <input type="checkbox" value="${n}" class="accent-primary-500 w-3 h-3 score-cb" ${[0,2,4,6,8,10].includes(n) ? 'checked' : ''}>
+            <span class="text-xs text-gray-300 font-mono">${n}</span>
+          </label>
+        `).join('')}
       </div>
     </div>
 
-    <div class="mt-3">
+    <div>
       <label class="block text-xs text-gray-400 mb-1 uppercase tracking-wide">
-        Score Tooltip / Description
+        Score Descriptions (Tooltips)
       </label>
-      <textarea
-        class="row-desc w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2
-               text-xs text-gray-300 h-16 resize-none focus:border-primary-500 outline-none placeholder-gray-600"
-        placeholder="This text appears when hovering over score buttons (e.g. what a 4 vs 8 means)"
-      ></textarea>
+      <div class="score-descriptions space-y-2 pl-1 border-l-2 border-white/5">
+        </div>
     </div>
-
-    <button
-      type="button"
-      class="absolute top-3 right-3 text-gray-500 hover:text-red-400 transition-colors p-1"
-      onclick="document.getElementById('${domId}').remove()"
-      title="Remove row"
-    >
-      ✕
-    </button>
   `;
 
   container.appendChild(div);
+  
+  // Wire up checkbox listeners for this row
+  const checkboxes = div.querySelectorAll('.score-cb');
+  checkboxes.forEach(cb => {
+      cb.addEventListener('change', () => updateScoreDescriptions(div));
+  });
+
+  // Initial render of description inputs
+  updateScoreDescriptions(div);
+  
   const titleInput = div.querySelector(".row-title");
   if (titleInput) titleInput.focus();
+}
+
+function updateScoreDescriptions(rowEl) {
+    const container = rowEl.querySelector('.score-descriptions');
+    const checked = Array.from(rowEl.querySelectorAll('.score-cb:checked'))
+                         .map(cb => parseInt(cb.value))
+                         .sort((a,b) => a - b);
+    
+    // Save current values to restore them
+    const currentValues = {};
+    container.querySelectorAll('input').forEach(inp => {
+        currentValues[inp.dataset.score] = inp.value;
+    });
+
+    container.innerHTML = '';
+
+    if (checked.length === 0) {
+        container.innerHTML = '<p class="text-[10px] text-gray-500 italic py-1">Select scores above to add descriptions.</p>';
+        return;
+    }
+
+    checked.forEach(score => {
+        const wrap = document.createElement('div');
+        wrap.className = "flex items-center gap-3";
+        
+        wrap.innerHTML = `
+            <span class="text-xs font-bold text-primary-400 w-4 text-right">${score}</span>
+            <input 
+                type="text" 
+                class="flex-1 bg-black/40 border border-white/10 rounded px-2 py-1.5 text-xs text-gray-300 focus:border-primary-500 outline-none placeholder-gray-700"
+                placeholder="Description (e.g. 'Partial mastery')"
+                data-score="${score}"
+                value="${currentValues[score] || ''}"
+            >
+        `;
+        container.appendChild(wrap);
+    });
 }
 
 /* ========================================================================== */
@@ -116,23 +160,34 @@ export async function saveRubric() {
 
   rowElements.forEach((el) => {
     const label = el.querySelector(".row-title")?.value.trim();
-    const maxPoints = parseInt(el.querySelector(".row-max")?.value, 10) || 10;
-    const description = el.querySelector(".row-desc")?.value.trim() || "";
-
     if (!label) return;
+
+    // Collect allowed scores and descriptions
+    const allowedScores = [];
+    const descInputs = el.querySelectorAll('.score-descriptions input');
+    
+    descInputs.forEach(inp => {
+        allowedScores.push({
+            value: parseInt(inp.dataset.score),
+            label: inp.value.trim()
+        });
+    });
+
+    // Calculate max points from the highest allowed score
+    const maxPoints = allowedScores.length > 0 
+        ? Math.max(...allowedScores.map(s => s.value)) 
+        : 0;
 
     /* ------------------------------------------------------------------
        IMPORTANT: Generate a UNIQUE ID for analytics stability.
-       This ensures that even if you delete/reorder rows later, 
-       old scores stay attached to the correct criteria.
     ------------------------------------------------------------------ */
     const uniqueId = `row_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     rows.push({
       id: uniqueId, 
       label,
-      maxPoints,
-      description
+      maxPoints, // Kept for legacy compatibility/display
+      allowedScores // ✅ THE NEW CORE DATA
     });
   });
 
