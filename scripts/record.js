@@ -5,45 +5,93 @@
 
 import * as UI from "./ui.js";
 import { uploadFile } from "./firestore.js";
-import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import * as Rubrics from "./rubrics.js"; 
 
 // ✅ LOCAL STATE
 let currentTags = [];
-let liveScores = []; // The timeline of clicks (events)
-const latestRowScores = new Map(); // The current "winning" score for each row
-let previewLock = false; // Prevents double-taps on Chromebooks
-
-/* -------------------------------------------------------------------------- */
-/* Helper Functions
-/* -------------------------------------------------------------------------- */
-
-function clearTagList() {
-  const list = UI.$("#tag-list");
-  if (list) list.innerHTML = "";
-  currentTags = [];
-}
-
-function resetLiveScoringUI() {
-  liveScores = [];
-  latestRowScores.clear();
-  const rowsContainer = UI.$("#live-scoring-rows");
-  if (rowsContainer) rowsContainer.innerHTML = "";
-  const totalEl = UI.$("#live-score-total");
-  if (totalEl) totalEl.textContent = "0";
-}
-
-function appendTagToTimeline(timeSeconds) {
-  const list = UI.$("#tag-list");
-  if (!list) return;
-  const li = document.createElement("div");
-  li.className = "text-xs text-gray-300 border-l-2 border-gray-600 pl-2 mb-1";
-  li.textContent = `Tag at ${new Date(timeSeconds * 1000).toISOString().substr(14, 5)}`;
-  list.appendChild(li);
-}
+let liveScores = [];                  // Timeline scoring (recording only)
+const latestRowScores = new Map();    // rowId → score
+let currentLibraryVideoId = null;     // Tracks which video is being edited in Library
+let previewLock = false;              // Prevents double-taps
 
 /* ========================================================================== */
-/* ✅ LIVE SCORING UI (CUSTOM SCORES + TOOLTIPS)
+/* LIBRARY CONTEXT & SAVE HANDLER
+/* ========================================================================== */
+
+// Called by firestore.js when opening a video
+export function setCurrentLibraryVideoId(id) {
+  currentLibraryVideoId = id;
+}
+
+// ✅ GLOBAL LISTENER: Handles "Save Score" button click in Library View
+document.addEventListener("click", async (e) => {
+  if (e.target && e.target.id === "scoring-save-btn") {
+      
+      if (!currentLibraryVideoId) {
+          UI.toast("No active library video to save.", "error");
+          return;
+      }
+
+      // 1. Gather Final Scores from Map
+      const finalScores = {};
+      let totalScore = 0;
+      latestRowScores.forEach((score, rowId) => {
+          finalScores[rowId] = score;
+          totalScore += score;
+      });
+
+      // 2. Gather Notes from DOM
+      const rowNotes = {};
+      document.querySelectorAll('[data-note-row-id]').forEach(el => {
+          if (el.value.trim()) {
+              rowNotes[el.dataset.noteRowId] = el.value.trim();
+          }
+      });
+
+      // 3. Get Active Rubric Info
+      const rubric = Rubrics.getActiveRubric();
+
+      // 4. Update Firestore
+      const btn = e.target;
+      const originalText = btn.textContent;
+      btn.textContent = "Saving...";
+      btn.disabled = true;
+
+      try {
+          const docRef = doc(
+              UI.db, 
+              `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`, 
+              currentLibraryVideoId
+          );
+
+          // ✅ FIX 4: Save rubricRowIds for analytics consistency
+          await updateDoc(docRef, {
+              finalScores,
+              rowNotes,
+              totalScore,
+              hasScore: true,
+              lastScore: totalScore,
+              rubricId: rubric?.id || null,
+              rubricTitle: rubric?.title || null,
+              rubricRowIds: rubric?.rows?.map(r => r.id) || [], 
+              lastScoredAt: serverTimestamp()
+          });
+
+          UI.toast("Scores updated successfully!", "success");
+          
+      } catch (err) {
+          console.error("Score save failed:", err);
+          UI.toast("Failed to save scores.", "error");
+      } finally {
+          btn.textContent = originalText;
+          btn.disabled = false;
+      }
+  }
+});
+
+/* ========================================================================== */
+/* ✅ LIVE SCORING UI (STYLES & RENDERER)
 /* ========================================================================== */
 
 // Inject styles for tooltips once
@@ -55,70 +103,71 @@ if (!document.getElementById(styleId)) {
         .score-btn-wrapper {
             position: relative;
             display: inline-block;
-            /* overflow: visible is critical so tooltip isn't clipped by button box */
-            overflow: visible; 
+            overflow: visible; /* ✅ Allow tooltip to expand outside */
         }
 
         .rubric-tooltip {
             visibility: hidden;
             position: absolute;
-            z-index: 9999; /* Ensure on top of everything */
+            z-index: 9999; 
 
-            bottom: calc(100% + 8px); /* 8px gap above button */
-            left: 0; /* Anchor left edge to button */
+            bottom: calc(100% + 8px);
+            left: 0;
             
-            /* Sizing & Layout */
             width: max-content;
-            max-width: 300px;       /* Allow wider balloons */
+            max-width: 300px;       /* ✅ Wider balloon */
             min-width: 150px;
-            white-space: normal;    /* Allow text wrapping */
+            white-space: normal;    /* ✅ Allow text wrap */
             text-align: left;
             line-height: 1.4;
 
-            /* Visuals */
-            background-color: #0f172a; /* Dark slate */
+            background-color: #0f172a;
             color: #e5e7eb;
             font-size: 11px;
             border-radius: 6px;
             padding: 8px 12px;
             
-            /* Fade transition */
             opacity: 0;
             transition: opacity 0.15s ease-in-out;
-
-            pointer-events: none; /* Let clicks pass through */
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
             border: 1px solid rgba(255,255,255,0.1);
         }
 
-        /* Triangle Arrow */
         .rubric-tooltip::after {
             content: "";
             position: absolute;
             top: 100%;
-            left: 12px; /* Align arrow with button center roughly */
+            left: 12px;
             border-width: 6px;
             border-style: solid;
             border-color: #0f172a transparent transparent transparent;
         }
 
-        /* Hover State */
         .score-btn-wrapper:hover .rubric-tooltip {
             visibility: visible;
             opacity: 1;
         }
     `;
-
     document.head.appendChild(style);
 }
 
-
-export function renderLiveScoringFromRubric(existingScores = {}) {
+// ✅ FIX 1: Robust Input Handling
+export function renderLiveScoringFromRubric(input = {}) {
   const rowsContainer = UI.$("#live-scoring-rows");
   if (!rowsContainer) return;
 
-  resetLiveScoringUI();
+  // ✅ FIX 3: Clear State Immediately
+  liveScores = [];
+  latestRowScores.clear();
+  rowsContainer.innerHTML = "";
+  UI.$("#live-score-total").textContent = "0";
 
+  // Normalize input: handle {scores:..., notes:...} OR direct map
+  const existingScores = input.scores || input.existingScores?.scores || input || {};
+  const existingNotes = input.notes || input.existingScores?.notes || {};
+
+  // 1. Get active rubric
   const rubric = Rubrics.getActiveRubric();
 
   if (!rubric || !rubric.rows || rubric.rows.length === 0) {
@@ -133,24 +182,24 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
       return;
   }
 
-  // Set Title
+  // 2. Set Title
   const titleEl = UI.$("#live-scoring-rubric-title");
   if(titleEl) titleEl.textContent = rubric.title;
 
   let initialTotal = 0;
 
+  // 3. Build Rows
   rubric.rows.forEach((row, index) => {
-      // Data Load
-      const savedData = existingScores[row.id] || {};
-      const savedScore = savedData.score !== undefined ? savedData.score : null;
-      const savedNote = savedData.note || "";
+      let savedScore = existingScores[row.id];
+      let savedNote = existingNotes[row.id] || "";
 
-      if (savedScore !== null) {
+      if (savedScore !== undefined && savedScore !== null) {
           latestRowScores.set(row.id, Number(savedScore));
           initialTotal += Number(savedScore);
       }
 
       const rowEl = document.createElement("div");
+      // ✅ Added overflow-visible so tooltip isn't clipped
       rowEl.className = "mb-5 pb-4 border-b border-white/10 last:border-0 live-score-row overflow-visible";
 
       // 1. Header
@@ -159,12 +208,12 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
           <span class="text-sm font-medium text-white">
             <span class="text-primary-400 mr-1">${index + 1}.</span> ${row.label}
           </span>
+          <span class="text-[10px] text-gray-500 uppercase tracking-wide">Max: ${row.maxPoints}</span>
         </div>
         <div class="flex flex-wrap gap-1 mb-2">
       `;
 
-      // 2. Buttons (From allowedScores)
-      // Fallback for legacy rubrics: 0..maxPoints
+      // 2. Buttons
       let scoresToRender = row.allowedScores;
       if (!scoresToRender || scoresToRender.length === 0) {
           const max = row.maxPoints || 5;
@@ -177,21 +226,23 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
           const label = opt.label || '';
           const isActive = (val === (savedScore !== null ? Number(savedScore) : null));
           
-          const classes = isActive 
-            ? "bg-primary-600 text-white border-primary-400 scale-110 font-bold shadow-md" 
+          // Use specific classes for highlighting
+          const btnClass = isActive 
+            ? "bg-primary-600 text-white border-primary-400 font-bold scale-110 shadow-md"
             : "bg-white/10 text-gray-300 hover:bg-white/20 border-transparent";
 
+          // ✅ RENDER BUTTON WITH WRAPPER FOR TOOLTIP
           html += `
             <div class="score-btn-wrapper">
                 <button
                     type="button"
-                    class="live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none ${classes}"
+                    class="live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none ${btnClass}"
                     data-score="${val}"
                     data-row-id="${row.id}"
                 >
                     ${val}
                 </button>
-                ${label ? `<span class="rubric-tooltip">${label}</span>` : ''}
+                ${label ? `<div class="rubric-tooltip">${label}</div>` : ''}
             </div>
           `;
       });
@@ -212,40 +263,40 @@ export function renderLiveScoringFromRubric(existingScores = {}) {
       rowsContainer.appendChild(rowEl);
   });
 
-  // Attach Listeners
+  // 4. Attach Event Listeners
   rowsContainer.querySelectorAll(".live-score-btn").forEach((btn) => {
-    btn.onclick = () => {
-      const rowId = btn.dataset.rowId;
-      const score = Number(btn.dataset.score);
-      handleLiveScore(rowId, score, btn);
-    };
+    btn.onclick = () => handleScoreClick(btn);
   });
 
-  // Initialize total
+  // Initialize total display
   const totalEl = UI.$("#live-score-total");
   if (totalEl) totalEl.textContent = initialTotal;
 }
 
-function handleLiveScore(rowId, score, btnElement) {
-    // Navigate up to the container div (wrapper's parent)
-    const container = btnElement.closest('.flex'); 
+function handleScoreClick(btnElement) {
+    // ✅ FIX 2: Safer Selector (.live-score-row instead of generic .flex)
+    const container = btnElement.closest('.live-score-row'); 
+    if (!container) return;
+
+    const rowId = btnElement.dataset.rowId;
+    const score = Number(btnElement.dataset.score);
     
     // 1. Visual Update
-    const allBtns = container.querySelectorAll("button");
+    const allBtns = container.querySelectorAll(".live-score-btn");
     allBtns.forEach(b => {
         b.className = "live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none bg-white/10 text-gray-300 hover:bg-white/20 border-transparent";
     });
     
-    btnElement.className = "live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none bg-primary-600 text-white border-primary-400 scale-110 font-bold shadow-md";
+    btnElement.className = "live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none bg-primary-600 text-white border-primary-400 font-bold scale-110 shadow-md";
     
-    // 2. Record Event (if recording)
+    // 2. Record Event (only if recording)
     if (UI.mediaRecorder && (UI.mediaRecorder.state === 'recording' || UI.mediaRecorder.state === 'paused')) {
         const timestamp = UI.secondsElapsed;
         liveScores.push({ rowId, score, timestamp });
         UI.toast(`Scored ${score} pts`, "success");
     }
     
-    // 3. Update Live Total
+    // 3. Update Live Total (Always)
     latestRowScores.set(rowId, score);
     let total = 0;
     latestRowScores.forEach(val => total += val);
@@ -259,8 +310,23 @@ function handleLiveScore(rowId, score, btnElement) {
 }
 
 /* ========================================================================== */
-/* CORE: PREVIEW & RECORDING
+/* CORE: PREVIEW & RECORDING & METADATA
 /* ========================================================================== */
+
+function clearTagList() {
+  const list = UI.$("#tag-list");
+  if (list) list.innerHTML = "";
+  currentTags = [];
+}
+
+function appendTagToTimeline(timeSeconds) {
+  const list = UI.$("#tag-list");
+  if (!list) return;
+  const li = document.createElement("div");
+  li.className = "text-xs text-gray-300 border-l-2 border-gray-600 pl-2 mb-1";
+  li.textContent = `Tag at ${new Date(timeSeconds * 1000).toISOString().substr(14, 5)}`;
+  list.appendChild(li);
+}
 
 export function handleTagButtonClick() {
   if (!UI.mediaRecorder || UI.mediaRecorder.state !== "recording") {
@@ -273,18 +339,13 @@ export function handleTagButtonClick() {
   appendTagToTimeline(time);
 }
 
-// ✅ EXPORTED as "startPreviewSafely"
 export async function startPreviewSafely() {
   const recordTab = UI.$("[data-tab='tab-record']");
   if (!recordTab || recordTab.classList.contains("hidden")) {
-    console.log("[Preview] Blocked: Record tab not visible yet.");
     return;
   }
 
-  if (previewLock) {
-    console.log("[Preview] Blocked: preview lock active");
-    return;
-  }
+  if (previewLock) return;
   previewLock = true;
   setTimeout(() => (previewLock = false), 300);
 
@@ -296,10 +357,7 @@ export async function startPreviewSafely() {
   const previewVideo = UI.$("#preview-player");
   const previewScreen = UI.$("#preview-screen");
 
-  if (!previewVideo || !previewScreen) {
-    console.error("[Preview] Missing preview DOM elements.");
-    return;
-  }
+  if (!previewVideo || !previewScreen) return;
 
   previewScreen.classList.remove("recording-active");
   previewVideo.muted = true;
@@ -310,12 +368,18 @@ export async function startPreviewSafely() {
     UI.setMediaStream(null);
   }
 
-  console.log("Initializing camera preview...");
   UI.updateRecordingUI("idle");
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
   clearTagList();
-  resetLiveScoringUI();
+  
+  // Clear library context so clicking "Save" doesn't overwrite a random file
+  currentLibraryVideoId = null;
+  
+  // Reset UI (Handled by renderLiveScoring but explicit clear helps)
+  liveScores = [];
+  latestRowScores.clear();
+  UI.$("#live-score-total").textContent = "0";
 
   if (UI.timerInterval) clearInterval(UI.timerInterval);
   UI.setSecondsElapsed(0);
@@ -373,13 +437,14 @@ export async function startRecording() {
     if (!UI.mediaStream) return;
   }
 
-  console.log("Starting recording...");
   UI.updateRecordingUI("recording");
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
   clearTagList();
   
-  resetLiveScoringUI(); 
+  // Reset for recording
+  liveScores = [];
+  latestRowScores.clear();
   renderLiveScoringFromRubric();
 
   try {
@@ -396,7 +461,6 @@ export async function startRecording() {
     };
 
     recorder.onstop = () => {
-      console.log("Recording stopped.");
       if (UI.mediaStream) {
         UI.mediaStream.getTracks().forEach((track) => track.stop());
         UI.setMediaStream(null);
@@ -484,7 +548,6 @@ export async function discardRecording() {
   UI.$("#rec-timer").textContent = "00:00";
   UI.updateRecordingUI("idle");
   clearTagList();
-  resetLiveScoringUI();
   
   const manualPreviewBtn = UI.$("#manual-preview-btn");
   if(manualPreviewBtn) manualPreviewBtn.textContent = "Start Preview";
@@ -497,10 +560,6 @@ export async function toggleCamera() {
     await startPreviewSafely();
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/* Metadata & Upload Logic
-/* -------------------------------------------------------------------------- */
 
 function openMetadataScreen() {
   if (!UI.currentRecordingBlob) {
@@ -651,7 +710,13 @@ export async function exportToLocal(metadata) {
     UI.setCurrentRecordingBlob(null);
     UI.updateRecordingUI("idle");
     clearTagList();
-    resetLiveScoringUI();
+    
+    // Reset Live Scoring
+    liveScores = [];
+    latestRowScores.clear();
+    const rowsContainer = UI.$("#live-scoring-rows");
+    if(rowsContainer) rowsContainer.innerHTML = "";
+    UI.$("#live-score-total").textContent = "0";
 
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.setSecondsElapsed(0);

@@ -655,53 +655,56 @@
 <!-- SPLIT-SCREEN VIDEO PLAYER (Main Player for Playback + Scoring) -->
 <!-- ========================================================= -->
 
-<div id="player-screen" class="hidden w-full h-full fixed inset-0 bg-black/80 z-[9999] flex">
+<<div id="player-screen" class="hidden fixed inset-0 z-50 bg-gray-900 flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gray-900">
+        <h2 id="player-title" class="text-lg font-bold text-white">Video Playback</h2>
+        <button id="player-close-btn" class="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition">
+          ✕ Close
+        </button>
+      </div>
 
-  <!-- LEFT SIDE – VIDEO PLAYER -->
-  <div class="w-1/2 h-full bg-black flex flex-col">
+      <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-0 overflow-hidden">
+        
+        <div class="md:col-span-2 bg-black flex flex-col justify-center relative group">
+          <video id="main-player" class="w-full max-h-full" controls playsinline></video>
+          
+          <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 px-4 py-2 rounded-xl backdrop-blur-sm">
+             <button id="player-back-10" class="text-white hover:text-primary-400 text-xs">⏪ 10s</button>
+             <select id="player-speed" class="bg-transparent text-white text-xs border border-white/30 rounded px-1">
+               <option value="0.5">0.5x</option>
+               <option value="1" selected>1.0x</option>
+               <option value="1.5">1.5x</option>
+               <option value="2">2.0x</option>
+             </select>
+             <button id="player-fwd-10" class="text-white hover:text-primary-400 text-xs">10s ⏩</button>
+             <button id="player-fullscreen-btn" class="text-white hover:text-primary-400 text-xs">⛶</button>
+          </div>
+        </div>
 
-    <!-- Video -->
-    <video id="main-player"
-           class="w-full h-full object-contain bg-black"
-           controls></video>
+        <div class="md:col-span-1 border-l border-white/10 bg-gray-800/50 flex flex-col h-full">
+          <div class="p-4 border-b border-white/10 bg-gray-900/50 flex justify-between items-center">
+            <div>
+              <h3 class="font-bold text-white text-sm">Scoring</h3>
+              <p id="live-scoring-rubric-title" class="text-xs text-primary-400">Loading rubric...</p>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] text-gray-400 uppercase tracking-wide">Total</div>
+              <div id="live-score-total" class="text-xl font-bold text-white font-mono">0</div>
+            </div>
+          </div>
 
-    <!-- Player Controls -->
-    <div class="flex items-center gap-4 p-3 bg-gray-900 text-white">
+          <div id="live-scoring-rows" class="flex-1 overflow-y-auto p-4 space-y-4">
+            </div>
 
-      <button id="player-back-10"
-              class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
-        ⏪ 10s
-      </button>
+          <div class="p-4 border-t border-white/10 bg-gray-900">
+            <button id="scoring-save-btn" class="w-full py-3 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl shadow-lg transition-all">
+              Save Score
+            </button>
+          </div>
+        </div>
 
-      <button id="player-fwd-10"
-              class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
-        10s ⏩
-      </button>
-
-      <label class="ml-4">Speed:</label>
-      <select id="player-speed"
-              class="bg-gray-800 border border-gray-600 text-white rounded px-2 py-1">
-        <option value="0.5">0.5×</option>
-        <option value="0.75">0.75×</option>
-        <option value="1" selected>1×</option>
-        <option value="1.25">1.25×</option>
-        <option value="1.5">1.5×</option>
-        <option value="2">2×</option>
-      </select>
-
-      <button id="player-fullscreen-btn"
-              class="ml-auto px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
-        ⛶ Fullscreen
-      </button>
-
-      <button id="player-close-btn"
-        class="absolute top-2 right-2 text-white text-xl px-3 py-1">
-    ✕
-</button>
-
-
+      </div>
     </div>
-  </div>
 
   <!-- RIGHT SIDE – SCORING PANEL -->
   <div id="scoring-panel"

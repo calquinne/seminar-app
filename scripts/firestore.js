@@ -1,6 +1,6 @@
 /* ========================================================================== */
 /* MODULE: firestore.js
-/* Exports all Firebase and IndexedDB logic.
+/* Firebase, Storage, Library, and Scoring Coordination
 /* ========================================================================== */
 
 // Firebase SDK Imports
@@ -17,62 +17,52 @@ import {
   deleteObject
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-// Import UI module for state and utils
-import * as UI from './ui.js';
-import * as Rubrics from './rubrics.js'; 
+// App Modules
+import * as UI from "./ui.js";
+import * as Rubrics from "./rubrics.js";
+import * as Record from "./record.js";
 
-// Internal scoring context (which video + rubric are we scoring?)
-let currentScoringContext = null;
-
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* Firebase Initialization
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+
 export async function initFirebase() {
   try {
     if (getApps().length) {
-      console.log("Firebase already initialized, reusing app.");
+      console.log("Firebase already initialized.");
       const app = getApps()[0];
-      const auth = getAuth(app);
-      const db = getFirestore(app);
-      const storage = getStorage(app);
-      UI.setFirebase(app, auth, db, storage);
-      await setPersistence(auth, browserLocalPersistence);
+      UI.setFirebase(app, getAuth(app), getFirestore(app), getStorage(app));
+      await setPersistence(getAuth(app), browserLocalPersistence);
       return true;
     }
 
     const cfgStr = localStorage.getItem(UI.LS.CFG);
-    if (!cfgStr) {
-      console.warn("⚠️ No Firebase config found in localStorage.");
-      return false;
-    }
+    if (!cfgStr) return false;
 
     const cfg = JSON.parse(cfgStr);
     const app = initializeApp(cfg);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
-    
-    UI.setFirebase(app, auth, db, storage);
-    await setPersistence(auth, browserLocalPersistence);
-
-    console.log("✅ Firebase initialized successfully.");
+    UI.setFirebase(app, getAuth(app), getFirestore(app), getStorage(app));
+    await setPersistence(getAuth(app), browserLocalPersistence);
     return true;
+
   } catch (e) {
-    console.error("❌ Firebase init error:", e);
-    UI.toast("Firebase init failed: " + e.message, "error");
+    console.error("Firebase init failed:", e);
+    UI.toast("Firebase init failed.", "error");
     return false;
   }
 }
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* IndexedDB Offline Queue
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+
 export function idbOpen() {
   return new Promise((res, rej) => {
     const r = indexedDB.open(UI.IDB_NAME, 1);
     r.onupgradeneeded = () => {
-      if (!r.result.objectStoreNames.contains(UI.IDB_STORE))
+      if (!r.result.objectStoreNames.contains(UI.IDB_STORE)) {
         r.result.createObjectStore(UI.IDB_STORE, { keyPath: "id", autoIncrement: true });
+      }
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -82,38 +72,174 @@ export function idbOpen() {
 export async function cacheOffline(blob, meta) {
   try {
     const dbx = await idbOpen();
-    await new Promise((res, rej) => {
-      const tx = dbx.transaction(UI.IDB_STORE, "readwrite");
-      tx.objectStore(UI.IDB_STORE).add({ blob, meta, createdAt: Date.now() });
-      tx.oncomplete = res;
-      tx.onerror = () => rej(tx.error);
-    });
-    UI.toast("Saved offline. Will upload when back online.", "info");
+    const tx = dbx.transaction(UI.IDB_STORE, "readwrite");
+    tx.objectStore(UI.IDB_STORE).add({ blob, meta, createdAt: Date.now() });
+    UI.toast("Saved offline. Will upload when online.", "info");
   } catch (e) {
-    console.error("Failed to cache offline", e);
-    UI.toast("Failed to save offline. Storage may be full.", "error");
+    console.error("Cache offline failed", e);
   }
 }
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* Quota Management
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+
 export async function updateUserStorageQuota(deltaBytes) {
-  if (!UI.db || !UI.currentUser || deltaBytes === 0) return;
-  
+  if (!UI.db || !UI.currentUser || !deltaBytes) return;
   try {
-    const ref = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}`);
-    await updateDoc(ref, { 
-      storageUsedBytes: increment(deltaBytes) 
+    await updateDoc(
+      doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}`),
+      { storageUsedBytes: increment(deltaBytes) }
+    );
+  } catch(e) { console.warn("Quota update failed", e); }
+}
+
+/* ========================================================================== */
+/* Video Upload (Local + Firebase)
+/* ========================================================================== */
+
+export async function uploadFile(blob, meta) {
+  const isLocal = blob === null;
+  const appId = UI.getAppId();
+
+  if (!isLocal && (!UI.db || !UI.storage || !UI.currentUser)) {
+    await cacheOffline(blob, meta);
+    return;
+  }
+
+  // ✅ Snapshot rubric metadata for safety & analytics
+  const activeRubric = Rubrics.getActiveRubric();
+  const rubricSnapshot = activeRubric
+    ? {
+        rubricId: activeRubric.id,
+        rubricTitle: activeRubric.title,
+        rubricVersion: activeRubric.updatedAt || activeRubric.createdAt || null,
+        rubricRowIds: (activeRubric.rows || []).map(r => r.id)
+      }
+    : {};
+
+  // ✅ Fix: Ensure scoring fields exist even if 0
+  const finalScores = meta.finalScores || {};
+  const totalScore = meta.totalScore || 0;
+
+  const baseMeta = {
+    ...meta,
+    ...rubricSnapshot,
+    createdAt: serverTimestamp(),
+    archived: false,
+    finalScores: finalScores,
+    totalScore: totalScore,
+    // ✅ Fix: Sync lastScore immediately so Library shows it
+    lastScore: totalScore,
+    // ✅ Fix: Check keys length so 0 points counts as "Scored"
+    hasScore: Object.keys(finalScores).length > 0
+  };
+
+  try {
+    const progressEl = UI.$("#upload-progress");
+
+    // LOCAL SAVE
+    if (isLocal) {
+      const docRef = await addDoc(
+        collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
+        { ...baseMeta, storagePath: "local", downloadURL: null }
+      );
+      UI.toast("Saved to device & Database!", "success");
+      return { id: docRef.id, url: null };
+    }
+
+    // CLOUD SAVE
+    if (!navigator.onLine) throw new Error("Offline. Caching file.");
+
+    const ts = Date.now();
+    const safe = (s) => String(s || "unk").replace(/[^a-z0-9_\-\.]/gi, "_");
+    const fileName = `${ts}_${safe(meta.participant)}.webm`;
+    const path = `artifacts/${appId}/users/${UI.currentUser.uid}/videos/${meta.classEventId}/${fileName}`;
+    const fileRef = sRef(UI.storage, path);
+
+    const uploadTask = uploadBytesResumable(fileRef, blob);
+    uploadTask.on("state_changed", snapshot => {
+      const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+      if (progressEl) progressEl.style.width = `${pct}%`;
     });
-  } catch (e) {
-    console.warn("User quota update failed:", e);
+
+    await uploadTask;
+    const url = await getDownloadURL(fileRef);
+
+    const docRef = await addDoc(
+      collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
+      { ...baseMeta, storagePath: path, downloadURL: url }
+    );
+
+    await updateUserStorageQuota(meta.fileSize);
+    
+    UI.toast("Upload complete!", "success");
+    if (progressEl) progressEl.style.width = "0%";
+    return { id: docRef.id, url };
+
+  } catch(e) {
+    if (!isLocal && blob) await cacheOffline(blob, meta);
+    console.error("Upload failed:", e);
+    UI.toast("Offline or failed — queued.", "info");
+    const progressEl = UI.$("#upload-progress");
+    if (progressEl) progressEl.style.width = "0%";
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Class / Event Management
-/* -------------------------------------------------------------------------- */
+// ✅ Fix: Restored Full Implementation
+export async function flushOfflineQueue() {
+  if (!navigator.onLine) return;
+  
+  let dbx;
+  try {
+    dbx = await idbOpen();
+  } catch (e) {
+    console.error("Failed to open IDB for flushing:", e);
+    return;
+  }
+
+  let all;
+  try {
+    all = await new Promise((res, rej) => {
+      const tx = dbx.transaction(UI.IDB_STORE, "readonly");
+      const store = tx.objectStore(UI.IDB_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  } catch (e) {
+    console.error("Failed to read from IDB queue:", e);
+    return;
+  }
+
+  if (!all.length) return;
+
+  UI.toast(`Uploading ${all.length} queued file(s)...`, "info");
+
+  for (const item of all) {
+    try {
+      if (!UI.storage || !UI.db || !UI.currentUser) break;
+      
+      await uploadFile(item.blob, item.meta);
+
+      await new Promise((res, rej) => {
+        const deleteTx = dbx.transaction(UI.IDB_STORE, "readwrite");
+        deleteTx.objectStore(UI.IDB_STORE).delete(item.id);
+        deleteTx.oncomplete = res;
+        deleteTx.onerror = () => rej(deleteTx.error);
+      });
+      
+      UI.toast("Queued file uploaded!", "success");
+    } catch (e) {
+      console.error("Failed to flush item:", item.id, e);
+    }
+  }
+}
+
+/* ========================================================================== */
+/* Class / Event Helpers (Restored)
+/* ========================================================================== */
+
 export async function refreshClassesList() {
   if (!UI.db || !UI.currentUser) return;
   const col = collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`);
@@ -148,60 +274,37 @@ export async function refreshClassesList() {
         const metaOpt = o.cloneNode(true);
         metaClassSelect.appendChild(metaOpt);
       }
-      
       classListSelect.appendChild(o);
-      
       if (!firstClassId) firstClassId = d.id;
     });
     
     UI.setClassData(newClassData);
-    
     if (firstClassId) {
       classListSelect.value = firstClassId;
       UI.loadClassIntoEditor(firstClassId);
     }
-
   } catch (e) {
     console.error("Error refreshing classes:", e);
-    UI.toast("Could not load classes.", "error");
   }
 }
 
 export async function handleSaveClass() {
-  if (!UI.db || !UI.currentUser) {
-    UI.toast("Not signed in.", "error");
-    return;
-  }
+  if (!UI.db || !UI.currentUser) return;
   
-  if (!UI.hasAccess()) {
-    UI.toast("Saving classes requires an active subscription.", "error");
-    return;
-  }
-
   const title = UI.$("#class-title").value.trim();
-  if (!title) {
-    UI.toast("Class Title is required.", "error");
-    return;
-  }
+  if (!title) { UI.toast("Title required.", "error"); return; }
   
   const participants = UI.$("#class-roster").value.split(/\n+/).map(s => s.trim()).filter(Boolean);
   const archiveDate = UI.$("#class-archive-date").value || null;
   const deleteDate = UI.$("#class-delete-date").value || null;
   const selectedClassId = UI.$("#classes-list").value;
 
-  const payload = {
-    title,
-    participants,
-    archiveDate,
-    deleteDate,
-    updatedAt: serverTimestamp()
-  };
+  const payload = { title, participants, archiveDate, deleteDate, updatedAt: serverTimestamp() };
 
   try {
     let newDocId = null;
     if (selectedClassId) {
-      const docRef = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`, selectedClassId);
-      await updateDoc(docRef, payload);
+      await updateDoc(doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`, selectedClassId), payload);
       UI.toast("Class updated!", "success");
       newDocId = selectedClassId;
     } else {
@@ -211,52 +314,19 @@ export async function handleSaveClass() {
       newDocId = newDoc.id;
       UI.toast("Class created!", "success");
     }
-    
     await refreshClassesList();
     UI.$("#classes-list").value = newDocId; 
-    
   } catch (e) {
-    console.error("Error saving class:", e);
-    UI.toast(`Failed to save class: ${e.message}`, "error");
+    console.error(e);
+    UI.toast("Save failed.", "error");
   }
 }
 
 export async function handleArchiveClass() {
   const id = UI.$("#classes-list").value;
-  if (!id) {
-    UI.toast("Select a class to archive first.", "error");
-    return;
-  }
-  
-  if (!UI.hasAccess()) {
-    UI.toast("Archiving requires an active subscription.", "error");
-    return;
-  }
-
-  let doExport = false;
-  if (UI.getStorageChoice() === 'firebase') {
-    doExport = await UI.showConfirm(
-      "Archiving will hide this class. Videos remain accessible. Do you want to export videos now? (Recommended before potential deletion).",
-      "Archive Class?",
-      "Export & Archive"
-    );
-  } else {
-    const proceed = await UI.showConfirm(
-      "Archiving will hide this class from active lists. Videos remain accessible until auto-deletion.",
-      "Archive Class?",
-      "Archive"
-    );
-    if (!proceed) return;
-  }
-
-  if (doExport) {
-    console.log("Triggering export for class:", id);
-    UI.toast("Exporting... (This feature is under construction)", "info");
-  }
-
+  if (!id) return;
   try {
-    const appId = UI.getAppId();
-    await updateDoc(doc(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/classes`, id), {
+    await updateDoc(doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`, id), {
       archived: true,
       updatedAt: serverTimestamp()
     });
@@ -264,173 +334,14 @@ export async function handleArchiveClass() {
     await refreshClassesList();
     UI.clearClassEditor();
   } catch (e) {
-    console.error("Error archiving class:", e);
-    UI.toast(`Failed to archive class: ${e.message}`, "error");
+    console.error(e);
+    UI.toast("Archive failed.", "error");
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Video Upload & Library  — supports Local + Firebase                        */
-/* -------------------------------------------------------------------------- */
-export async function uploadFile(blob, meta) {
-  const isLocal = (blob === null); // If null = Local/USB save
-
-  // If Cloud upload required but Firebase not ready
-  if (!isLocal && (!UI.storage || !UI.db || !UI.currentUser)) {
-    UI.toast("Storage/auth not ready.", "error");
-    if (blob) await cacheOffline(blob, meta);
-    return;
-  }
-
-  const appId = UI.getAppId();
-  const progressEl = UI.$("#upload-progress");
-
-  try {
-    /* -------------------------------------------------------------- */
-    /* A) LOCAL / USB SAVE (only metadata written to Firestore)       */
-    /* -------------------------------------------------------------- */
-    if (isLocal) {
-      console.log("[uploadFile] Local save — metadata only");
-
-      const docRef = await addDoc(
-        collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
-        {
-          ...meta,
-          storagePath: "local",     
-          downloadURL: null,        
-          createdAt: serverTimestamp(),
-          archived: false,
-          
-          // ✅ ENSURE SCORING DATA IS SAVED
-          finalScores: meta.finalScores || {},
-          totalScore: meta.totalScore || 0,
-          rubricId: meta.rubricId || null,
-          hasScore: !!meta.totalScore
-        }
-      );
-
-      UI.toast("Saved to device & Database!", "success");
-      return { id: docRef.id, url: null };
-    }
-
-    /* -------------------------------------------------------------- */
-    /* B) FIREBASE CLOUD UPLOAD                                       */
-    /* -------------------------------------------------------------- */
-    if (!navigator.onLine) throw new Error("Offline. Caching file.");
-
-    UI.toast(`Uploading ${meta.participant}'s video...`, "info");
-
-    const ts = Date.now();
-    const safe = (s) => String(s || "unk").replace(/[^a-z0-9_\-\.]/gi, "_");
-    const fileName = `${ts}_${safe(meta.participant)}.webm`;
-
-    const path = `artifacts/${appId}/users/${UI.currentUser.uid}/videos/${meta.classEventId}/${fileName}`;
-    const fileRef = sRef(UI.storage, path);
-
-    // Start upload
-    const uploadTask = uploadBytesResumable(fileRef, blob);
-    uploadTask.on("state_changed", snapshot => {
-      const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-      if (progressEl) progressEl.style.width = `${pct}%`;
-    });
-
-    await uploadTask;
-
-    // Get URL
-    const url = await getDownloadURL(fileRef);
-
-    // Save metadata
-    const docRef = await addDoc(
-      collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`),
-      {
-        ...meta,
-        storagePath: path,
-        downloadURL: url,
-        createdAt: serverTimestamp(),
-        archived: false,
-        
-        // ✅ ENSURE SCORING DATA IS SAVED
-        finalScores: meta.finalScores || {},
-        totalScore: meta.totalScore || 0,
-        rubricId: meta.rubricId || null,
-        hasScore: !!meta.totalScore
-      }
-    );
-
-    UI.toast("Upload complete!", "success");
-    await updateUserStorageQuota(meta.fileSize);
-
-    if (progressEl) progressEl.style.width = "0%";
-    return { id: docRef.id, url };
-
-  } catch (e) {
-    // Only cache if cloud upload failed
-    if (!isLocal && blob) await cacheOffline(blob, meta);
-
-    console.error("Upload failed:", e);
-    UI.toast("Offline or failed — queued.", "info");
-
-    if (progressEl) progressEl.style.width = "0%";
-  }
-}
-
-export async function flushOfflineQueue() {
-  if (!navigator.onLine) return;
-  
-  let dbx;
-  try {
-    dbx = await idbOpen();
-  } catch (e) {
-    console.error("Failed to open IDB for flushing:", e);
-    return;
-  }
-
-  let all;
-  try {
-    all = await new Promise((res, rej) => {
-      const tx = dbx.transaction(UI.IDB_STORE, "readonly");
-      const store = tx.objectStore(UI.IDB_STORE);
-      const req = store.getAll();
-      req.onsuccess = () => res(req.result);
-      req.onerror = () => rej(req.error);
-    });
-  } catch (e) {
-    console.error("Failed to read from IDB queue:", e);
-    return;
-  }
-
-  if (!all.length) {
-    console.log("Offline queue is empty.");
-    return;
-  }
-
-  UI.toast(`Uploading ${all.length} queued file(s)...`, "info");
-
-  for (const item of all) {
-    try {
-      if (!UI.storage || !UI.db || !UI.currentUser) {
-         console.warn("Auth not ready, skipping queue flush.");
-         break;
-      }
-      
-      // 1. Upload the file (and wait for it)
-      await uploadFile(item.blob, item.meta);
-
-      // 2. Delete in a *new* transaction
-      await new Promise((res, rej) => {
-        const deleteTx = dbx.transaction(UI.IDB_STORE, "readwrite");
-        deleteTx.objectStore(UI.IDB_STORE).delete(item.id);
-        deleteTx.oncomplete = res;
-        deleteTx.onerror = () => rej(deleteTx.error);
-      });
-      
-      UI.toast("Queued file uploaded!", "success");
-
-    } catch (e) {
-      console.error("Failed to flush item, will retry later:", item.id, e);
-    }
-  }
-}
+/* ========================================================================== */
+/* Library Management
+/* ========================================================================== */
 
 export async function loadLibrary() {
   if (!UI.db || !UI.currentUser) return;
@@ -455,6 +366,7 @@ export async function loadLibrary() {
 
     snap.forEach((d) => {
       const v = d.data();
+      const id = d.id;
 
       const created = v.createdAt?.seconds
         ? new Date(v.createdAt.seconds * 1000)
@@ -463,31 +375,25 @@ export async function loadLibrary() {
       const dateStr = created ? created.toLocaleDateString() : "—";
       const sizeStr = ((v.fileSize || 0) / 1024 / 1024).toFixed(1) + " MB";
 
-      const isLocal =
-        v.isLocal || v.storagePath === "local" || !v.downloadURL;
-      const isDrive =
-        v.downloadURL && v.downloadURL.includes("drive.google.com");
+      const isLocal = v.isLocal || v.storagePath === "local" || !v.downloadURL;
+      const isDrive = v.downloadURL && v.downloadURL.includes("drive.google.com");
 
-      // ✅ Rubric Badge Logic
+      // Rubric Badge
       const rubricBadge = v.rubricTitle 
-        ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20 ml-2">
-             ${v.rubricTitle}
-           </span>`
+        ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20 ml-2">${v.rubricTitle}</span>`
         : ``;
 
       const li = document.createElement("div");
-      li.className =
-        "p-4 bg-white/5 border border-white/10 rounded-xl mb-3 flex flex-col gap-3 transition-all hover:bg-white/10";
+      li.className = "p-4 bg-white/5 border border-white/10 rounded-xl mb-3 flex flex-col gap-3 transition-all hover:bg-white/10";
 
       let badge = "";
       let action = "";
 
-      // Storage Badges
       if (isLocal) {
-        badge = `<span class="px-2 py-0.5 text-[10px] rounded bg-yellow-500/20 border border-yellow-500/40 text-yellow-200 uppercase tracking-wide">LOCAL</span>`;
+        badge = `<span class="px-2 py-0.5 text-[10px] rounded bg-yellow-500/20 border border-yellow-500/40 text-yellow-200 uppercase tracking-wide">LOCAL ONLY</span>`;
         action = `<button class="text-yellow-400 text-sm hover:text-yellow-300 hover:underline flex items-center gap-2" data-open-local="true" data-title="${v.participant}">📂 Open File</button>`;
       } else if (isDrive) {
-        badge = `<span class="px-2 py-0.5 text-[10px] rounded bg-green-500/20 border border-green-500/40 text-green-200 uppercase tracking-wide">DRIVE</span>`;
+        badge = `<span class="px-2 py-0.5 text-[10px] rounded bg-green-500/20 border border-green-500/40 text-green-200 uppercase tracking-wide">GOOGLE DRIVE</span>`;
         action = `<a href="${v.downloadURL}" target="_blank" class="text-green-400 text-sm hover:underline flex items-center gap-1">↗ Open Drive</a>`;
       } else {
         badge = `<span class="px-2 py-0.5 text-[10px] rounded bg-blue-500/20 border border-blue-500/40 text-blue-200 uppercase tracking-wide">CLOUD</span>`;
@@ -495,9 +401,8 @@ export async function loadLibrary() {
       }
 
       // Scoring Payload
-      const scorePayload = encodeURIComponent(JSON.stringify({ id: d.id, ...v }));
+      const scorePayload = encodeURIComponent(JSON.stringify({ id, ...v }));
 
-      // Render Card
       li.innerHTML = `
         <div class="flex justify-between items-start">
           <div class="flex flex-col">
@@ -505,37 +410,23 @@ export async function loadLibrary() {
               ${v.classEventTitle || "Untitled"} — ${v.participant}
             </div>
             <div class="text-xs text-gray-400 mt-1 flex flex-wrap items-center gap-1">
-              <span>${dateStr}</span>
-              <span>•</span>
-              <span>${v.recordingType || "Presentation"}</span>
-              <span>•</span>
-              <span>${sizeStr}</span>
+              <span>${dateStr}</span><span>•</span><span>${v.recordingType || "Presentation"}</span><span>•</span><span>${sizeStr}</span>
               ${rubricBadge}
             </div>
           </div>
           ${badge}
         </div>
-
         <div class="flex justify-between items-center border-t border-white/10 pt-3 mt-1">
           <div class="flex items-center gap-4 flex-wrap">
             ${action}
-
             ${v.hasScore
-              ? `<button class="text-green-400 text-sm hover:text-green-300 hover:underline flex items-center gap-1" data-score-video="${scorePayload}">
-                   ✔ Scored (${v.lastScore || v.totalScore || 0} pts)
-                 </button>`
-              : `<button class="text-amber-400 text-sm hover:text-amber-300 hover:underline flex items-center gap-1" data-score-video="${scorePayload}">
-                   ⭐ Score
-                 </button>`
+              ? `<button class="text-green-400 text-sm hover:text-green-300 hover:underline flex items-center gap-1" data-score-video="${scorePayload}">✔ Scored (${v.lastScore || v.totalScore} pts)</button>`
+              : `<button class="text-amber-400 text-sm hover:text-amber-300 hover:underline flex items-center gap-1" data-score-video="${scorePayload}">⭐ Score</button>`
             }
           </div>
-
-          <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors" data-del="${d.id}">
-            🗑 Delete
-          </button>
+          <button class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors" data-del="${id}">🗑 Delete</button>
         </div>
       `;
-
       listEl.appendChild(li);
     });
 
@@ -551,34 +442,22 @@ export async function handleDeleteVideo(docId) {
   const confirmed = await UI.showConfirm("Are you sure you want to permanently delete this video?", "Delete Video?", "Delete");
   if (!confirmed) return;
 
-  const appId = UI.getAppId();
-  const docRef = doc(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`, docId);
-
+  const ref = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`, docId);
   try {
-    const videoDoc = await getDoc(docRef);
-    if (!videoDoc.exists()) {
-      UI.toast("Document already deleted.", "warn");
-      return;
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const { storagePath, fileSize } = snap.data();
+      if (storagePath && storagePath !== "local") {
+        await deleteObject(sRef(UI.storage, storagePath)).catch(e => console.warn(e));
+      }
+      await deleteDoc(ref);
+      await updateUserStorageQuota(-fileSize);
+      UI.toast("Video deleted.", "success");
+      loadLibrary();
     }
-
-    const storagePath = videoDoc.data().storagePath;
-    const fileSize = videoDoc.data().fileSize || 0;
-    
-    if (storagePath && storagePath !== "local") {
-      const fileRef = sRef(UI.storage, storagePath);
-      await deleteObject(fileRef).catch(e => console.warn("File delete error:", e));
-    }
-
-    await deleteDoc(docRef);
-    
-    await updateUserStorageQuota(-fileSize);
-
-    UI.toast("Video deleted.", "success");
-    loadLibrary(); // Refresh the list
-
   } catch (e) {
-    console.error("Error deleting video:", e);
-    UI.toast(`Delete failed: ${e.message}`, "error");
+    console.error("Delete failed:", e);
+    UI.toast("Delete failed.", "error");
   }
 }
 
@@ -586,23 +465,19 @@ export function handleOpenLocalVideo(titleFromDoc) {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "video/*";
-
   input.onchange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const url = URL.createObjectURL(file);
     const title = titleFromDoc || file.name || "Local Video";
-
     UI.openVideoPlayer(url, title);
   };
-
   input.click();
 }
 
-/* -------------------------------------------------------------------------- */
-/* ✅ SCORING: Open Scoring Dialog (Delegates to Split Screen)
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Scoring: Open Video for Scoring & Replay
+/* ========================================================================== */
 
 export async function openScoringForVideo(videoId) {
   if (!UI.db || !UI.currentUser) {
@@ -610,61 +485,52 @@ export async function openScoringForVideo(videoId) {
     return;
   }
 
-  const appId = UI.getAppId();
-
+  const ref = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`, videoId);
   try {
-    // 1. Get Video Doc
-    const videoRef = doc(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`, videoId);
-    const videoSnap = await getDoc(videoRef);
-
-    if (!videoSnap.exists()) {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
       UI.toast("Video not found.", "error");
       return;
     }
 
-    const video = { id: videoSnap.id, ...videoSnap.data() };
+    const video = { id: snap.id, ...snap.data() };
     
-    // 2. Determine which rubric to use
-    let rubricId = video.rubricId;
+    // ✅ 1. Set Active Video ID for Record.js (critical for Saving)
+    Record.setCurrentLibraryVideoId(video.id);
+
+    // 2. Resolve Rubric
     let rubric = null;
-
-    if (rubricId) {
-        const rubRef = doc(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/rubrics`, rubricId);
-        const rubSnap = await getDoc(rubRef);
-        if (rubSnap.exists()) rubric = { id: rubSnap.id, ...rubSnap.data() };
-    } 
+    if (video.rubricId) {
+      const rSnap = await getDoc(doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/rubrics`, video.rubricId));
+      if (rSnap.exists()) rubric = { id: rSnap.id, ...rSnap.data() };
+    }
     
+    // Fallback if video has no rubric saved
     if (!rubric) {
-        // Fallback: Use currently active rubric or first available
-        rubric = Rubrics.getActiveRubric();
-        if (!rubric) {
-             UI.toast("No rubric attached. Select one in Rubrics tab.", "warn");
-             return;
-        }
+      rubric = Rubrics.getActiveRubric();
+      if (!rubric) {
+        UI.toast("No rubric attached. Select one in Rubrics tab.", "warn");
+        return;
+      }
     }
 
-    // 3. Prepare Existing Scores
-    // The new model stores scores directly on the video document under `finalScores`
+    // 3. Prepare Scores
     const existingScores = {
-        finalScores: video.finalScores || {},
-        rowNotes: video.rowNotes || {}
+      scores: video.finalScores || {}, 
+      notes: video.rowNotes || {}
     };
-    
-    // 4. Store Context
-    currentScoringContext = { video, rubric };
 
-    // 5. Open Player & Scoring UI
+    // 4. Open UI
     if (video.downloadURL) {
-        UI.openVideoPlayer(video.downloadURL, video.participant);
+      UI.openVideoPlayer(video.downloadURL, video.participant);
     } else {
-        // Local video needs manual opening usually, handled by the "Open File" button separately.
-        // But we still want to show the scoring UI.
+      // For local videos, we rely on the user clicking "Open File" in the UI first
+      // But we still open the scoring sidebar
     }
     
-    // ✅ Render the scoring UI (Delegate to UI module which delegates to Record.js)
-    UI.renderScoringUI({ video, rubric, existingScores });
+    // ✅ Render Sidebar
+    UI.renderScoringUI({ rubric, existingScores });
     
-    // Open the Split Screen layout
     const playerScreen = document.getElementById("player-screen");
     if(playerScreen) playerScreen.classList.remove("hidden");
 
@@ -673,48 +539,21 @@ export async function openScoringForVideo(videoId) {
     UI.toast("Could not open scoring.", "error");
   }
 }
+/* ========================================================================== */
+/* 🔗 BRIDGE: BACKWARD COMPATIBILITY
+/* Redirects old main.js calls to the new Rubrics module
+/* ========================================================================== */
 
-/* -------------------------------------------------------------------------- */
-/* ✅ SAVE SCORES — UPDATED for New Data Model
-/* -------------------------------------------------------------------------- */
-
-export async function handleScoringSubmit(scoringData) {
-  if (!UI.db || !UI.currentUser || !currentScoringContext) {
-    UI.toast("Scoring context missing.", "error");
-    return;
-  }
-
-  const { video } = currentScoringContext;
-  const appId = UI.getAppId();
-
-  try {
-    // We update the VIDEO document itself (not a separate scores collection)
-    const videoRef = doc(
-      UI.db,
-      `artifacts/${appId}/users/${UI.currentUser.uid}/videos`,
-      video.id
-    );
-
-    await updateDoc(videoRef, {
-      finalScores: scoringData.finalScores,
-      rowNotes: scoringData.rowNotes,
-      totalScore: scoringData.totalScore,
-      hasScore: true,
-      lastScore: scoringData.totalScore,
-      lastScoredAt: serverTimestamp()
-    });
-
-    UI.toast("Scores saved!", "success");
-    currentScoringContext = null;
-
-    // Refresh Library to update the "Scored (X pts)" badge
-    loadLibrary();
-    
-    // Optional: Close player if desired, or let user continue watching
-    // UI.closeVideoPlayer();
-
-  } catch (e) {
-    console.error("Error saving scores:", e);
-    UI.toast("Failed to save scores.", "error");
-  }
+export async function handleSaveNewRubric() { 
+  console.log("Bridge: Delegating to Rubrics.saveRubric()");
+  return Rubrics.saveRubric(); 
 }
+
+export async function refreshMyRubrics() { 
+  console.log("Bridge: Delegating to Rubrics.loadSavedRubrics()");
+  return Rubrics.loadSavedRubrics(); 
+}
+
+// Ensure these are available globally if your HTML onclicks use them
+window.handleSaveNewRubric = handleSaveNewRubric;
+window.refreshMyRubrics = refreshMyRubrics;
