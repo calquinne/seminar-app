@@ -475,18 +475,17 @@ export function handleOpenLocalVideo(titleFromDoc) {
   input.click();
 }
 
+/* ========================================================================== */
+/* Scoring: Open Video for Scoring & Replay
+/* ========================================================================== */
+
 export async function openScoringForVideo(videoId) {
   if (!UI.db || !UI.currentUser) {
     UI.toast("Not signed in.", "error");
     return;
   }
 
-  const ref = doc(
-    UI.db,
-    `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`,
-    videoId
-  );
-
+  const ref = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`, videoId);
   try {
     const snap = await getDoc(ref);
     if (!snap.exists()) {
@@ -495,23 +494,18 @@ export async function openScoringForVideo(videoId) {
     }
 
     const video = { id: snap.id, ...snap.data() };
-
-    // 1️⃣ Critical for Save Score
+    
+    // 1. Set Active Video ID for Record.js (critical for Saving)
     Record.setCurrentLibraryVideoId(video.id);
 
-    // 2️⃣ Resolve rubric
+    // 2. Resolve Rubric
     let rubric = null;
     if (video.rubricId) {
-      const rSnap = await getDoc(
-        doc(
-          UI.db,
-          `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/rubrics`,
-          video.rubricId
-        )
-      );
+      const rSnap = await getDoc(doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/rubrics`, video.rubricId));
       if (rSnap.exists()) rubric = { id: rSnap.id, ...rSnap.data() };
     }
-
+    
+    // Fallback if video has no rubric saved
     if (!rubric) {
       rubric = Rubrics.getActiveRubric();
       if (!rubric) {
@@ -520,35 +514,34 @@ export async function openScoringForVideo(videoId) {
       }
     }
 
-    // 3️⃣ 🔑 Make rubric globally active
+    // ✅ CRITICAL FIX 1: Make this rubric globally active
     Rubrics.setActiveRubric(rubric.id, rubric);
 
-    // 4️⃣ Prepare saved scores
+    // 3. Prepare Scores
     const existingScores = {
-      scores: video.finalScores || {},
+      scores: video.finalScores || {}, 
       notes: video.rowNotes || {}
     };
 
-    // 5️⃣ Open video
+    // 4. Open UI
     if (video.downloadURL) {
       UI.openVideoPlayer(video.downloadURL, video.participant);
     }
-
-    // 6️⃣ Show scoring UI shell
+    
+    // 5. Render Sidebar Shell
     UI.renderScoringUI({ rubric, existingScores });
 
-    // ✅ 7️⃣ ACTUALLY RENDER ROWS (THIS WAS MISSING)
+    // ✅ CRITICAL FIX 2: Force the rows to render immediately
     Record.renderLiveScoringFromRubric(existingScores);
-
+    
     const playerScreen = document.getElementById("player-screen");
-    if (playerScreen) playerScreen.classList.remove("hidden");
+    if(playerScreen) playerScreen.classList.remove("hidden");
 
   } catch (e) {
     console.error("Error opening scoring:", e);
     UI.toast("Could not open scoring.", "error");
   }
 }
-
 /* ========================================================================== */
 /* 🔗 BRIDGE: BACKWARD COMPATIBILITY
 /* Redirects old main.js calls to the new Rubrics module
