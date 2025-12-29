@@ -4,8 +4,8 @@
 /* ========================================================================== */
 import * as Record from "./record.js";
 import * as Rubrics from "./rubrics.js"; 
-
-// ❗ Removed APP_VERSION import to avoid circular dependency with main.js
+// Ensure Firestore functions are available
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /* -------------------------------------------------------------------------- */
 /* Constants
@@ -289,7 +289,6 @@ export function handleRubricTabClick(e) {
 
 export function handleAddRubricRow() {
   // Deprecated UI helper, now handled in Rubrics.js addBuilderRow
-  // Kept only if legacy HTML still calls it, but likely safe to remove if main.js is updated.
 }
 
 /* -------------------------------------------------------------------------- */
@@ -513,101 +512,95 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /* ========================================================================== */
-/* ✅ SCORING UI (Locally Rendered for Library/Playback)
+/* ✅ SCORING UI: SHELL ONLY
+/* This function prepares the container but delegates row rendering to record.js
 /* ========================================================================== */
 
-export function renderScoringUI({ rubric, existingScores }) {
-  // 1. Target the correct container from your screenshot
-  const containerId = "live-scoring-rows"; 
-  const container = document.getElementById(containerId);
-
-  // 2. Target the title element (currently says "Loading rubric...")
+export function renderScoringUI({ rubric }) {
+  // 1. Target the elements
   const titleEl = document.getElementById("live-scoring-rubric-title");
+  const rowsContainer = document.getElementById("live-scoring-rows");
 
-  if (!container) {
-    console.error(`❌ renderScoringUI: Container #${containerId} not found.`);
+  // 2. Set the Title
+  if (titleEl && rubric) {
+      titleEl.textContent = rubric.title || "Scoring Rubric";
+      titleEl.classList.remove("animate-pulse");
+  }
+
+  // 3. Clear the container so record.js can fill it cleanly
+  if (rowsContainer) {
+      rowsContainer.innerHTML = "";
+  }
+}
+
+/* ========================================================================== */
+/* ✅ COORDINATOR: Opens Video & Delegates Rendering
+/* ========================================================================== */
+
+export async function openScoringForVideo(videoId) {
+  if (!db || !currentUser) {
+    toast("Not signed in.", "error");
     return;
   }
 
-  // 3. Update the Title & Clear "Loading..." spinner
-  if (titleEl && rubric) {
-      titleEl.textContent = rubric.title || "Scoring Rubric";
-      titleEl.classList.remove("animate-pulse"); // Stop any pulsing effect if present
-  }
-  
-  // 4. Clear previous rows
-  container.innerHTML = "";
-  
-  // 5. Render Rows
-  const rows = rubric?.rows || [];
-  const savedScores = existingScores?.scores || {};
-  const savedNotes = existingScores?.notes || {};
+  const ref = doc(db, `artifacts/${getAppId()}/users/${currentUser.uid}/videos`, videoId);
 
-  rows.forEach((row) => {
-    // Create Row Container
-    const rowEl = document.createElement("div");
-    // Matches the dark theme style seen in your screenshot
-    rowEl.className = "mb-4 p-3 bg-gray-800 rounded shadow-sm border border-white/10";
-    
-    // Header (Row Title)
-    const header = document.createElement("div");
-    header.className = "flex justify-between items-center mb-2";
-    header.innerHTML = `<span class="font-medium text-gray-200 text-sm">${row.title}</span>`;
-    rowEl.appendChild(header);
-
-    // Button Group
-    const btnGroup = document.createElement("div");
-    btnGroup.className = "flex space-x-2";
-    
-    const max = parseInt(row.maxPoints) || 4;
-    
-    for (let i = 1; i <= max; i++) {
-      const btn = document.createElement("button");
-      btn.textContent = i;
-      // Base styling for dark mode
-      btn.className = "w-8 h-8 rounded-full border text-xs font-bold transition-colors duration-200 ";
-      
-      // Check if previously selected
-      const isSelected = savedScores[row.id] == i;
-      
-      if (isSelected) {
-        btn.classList.add("bg-cyan-600", "text-white", "border-cyan-500");
-      } else {
-        btn.classList.add("bg-gray-700", "text-gray-300", "border-gray-600", "hover:bg-gray-600");
-      }
-
-      // Click Handler
-      btn.onclick = () => {
-        // Visual toggle
-        Array.from(btnGroup.children).forEach(b => {
-          b.className = "w-8 h-8 rounded-full border text-xs font-bold transition-colors duration-200 bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600";
-        });
-        btn.className = "w-8 h-8 rounded-full border text-xs font-bold transition-colors duration-200 bg-cyan-600 text-white border-cyan-500";
-
-        // Logic: Update Record state (so Save works)
-        if (Record.handleLibraryScoreUpdate) {
-            Record.handleLibraryScoreUpdate(row.id, i);
-        }
-        updateTotalScore(container);
-      };
-
-      btnGroup.appendChild(btn);
+  try {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      toast("Video not found.", "error");
+      return;
     }
-    rowEl.appendChild(btnGroup);
-    container.appendChild(rowEl);
-  });
-  
-  // 6. Calculate initial total
-  updateTotalScore(container);
-}
 
-function updateTotalScore(container) {
-    // Look for active buttons (cyan-600 is our active class now)
-    const activeBtns = container.querySelectorAll(".bg-cyan-600");
-    let total = 0;
-    activeBtns.forEach(btn => total += parseInt(btn.textContent) || 0);
-    
-    // Update the Total Display in the header
-    const totalEl = document.getElementById("total-score-display"); // Ensure this ID exists in your HTML header
-    if (totalEl) totalEl.textContent = `${total}`;
+    const video = { id: snap.id, ...snap.data() };
+
+    // 1. Set Active Video ID (Critical for Save Button logic in Record.js)
+    Record.setCurrentLibraryVideoId(video.id);
+
+    // 2. Resolve Rubric
+    let rubric = null;
+    if (video.rubricId) {
+      const rSnap = await getDoc(doc(db, `artifacts/${getAppId()}/users/${currentUser.uid}/rubrics`, video.rubricId));
+      if (rSnap.exists()) rubric = { id: rSnap.id, ...rSnap.data() };
+    }
+
+    if (!rubric) {
+      rubric = Rubrics.getActiveRubric();
+      if (!rubric) {
+        toast("No rubric attached. Select one in Rubrics tab.", "warn");
+        return;
+      }
+    }
+
+    // 3. Set Active State
+    Rubrics.setActiveRubric(rubric.id, rubric);
+
+    const existingScores = {
+      scores: video.finalScores || {},
+      notes: video.rowNotes || {}
+    };
+
+    // 4. Open Player
+    if (video.downloadURL) {
+      openVideoPlayer(video.downloadURL, video.participant);
+    }
+
+    // 5. Render Shell (Title only) - ui.js job
+    renderScoringUI({ rubric });
+
+    // 6. DELEGATE TO RECORD.JS (Renderer) - record.js job
+    // This is what actually draws the buttons and handles the "Loading..." fix
+    if (Record.renderLiveScoringFromRubric) {
+        Record.renderLiveScoringFromRubric(existingScores);
+    } else {
+        console.error("❌ Record.renderLiveScoringFromRubric not found!");
+    }
+
+    const playerScreen = document.getElementById("player-screen");
+    if (playerScreen) playerScreen.classList.remove("hidden");
+
+  } catch (e) {
+    console.error("Error opening scoring:", e);
+    toast("Could not open scoring.", "error");
+  }
 }

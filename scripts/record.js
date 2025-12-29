@@ -19,7 +19,7 @@ let previewLock = false;              // Prevents double-taps
 /* LIBRARY CONTEXT & SAVE HANDLER
 /* ========================================================================== */
 
-// Called by firestore.js when opening a video
+// Called by ui.js when opening a video
 export function setCurrentLibraryVideoId(id) {
   currentLibraryVideoId = id;
 }
@@ -65,7 +65,6 @@ document.addEventListener("click", async (e) => {
               currentLibraryVideoId
           );
 
-          // ✅ FIX 4: Save rubricRowIds for analytics consistency
           await updateDoc(docRef, {
               finalScores,
               rowNotes,
@@ -103,7 +102,7 @@ if (!document.getElementById(styleId)) {
         .score-btn-wrapper {
             position: relative;
             display: inline-block;
-            overflow: visible; /* ✅ Allow tooltip to expand outside */
+            overflow: visible;
         }
 
         .rubric-tooltip {
@@ -115,9 +114,9 @@ if (!document.getElementById(styleId)) {
             left: 0;
             
             width: max-content;
-            max-width: 300px;       /* ✅ Wider balloon */
+            max-width: 300px;
             min-width: 150px;
-            white-space: normal;    /* ✅ Allow text wrap */
+            white-space: normal;
             text-align: left;
             line-height: 1.4;
 
@@ -152,22 +151,32 @@ if (!document.getElementById(styleId)) {
     document.head.appendChild(style);
 }
 
-// ✅ FIX 1: Robust Input Handling
+// ✅ RENDERER: HYDRATION & BUTTON CREATION
 export function renderLiveScoringFromRubric(input = {}) {
   const rowsContainer = UI.$("#live-scoring-rows");
   if (!rowsContainer) return;
 
-  // ✅ FIX 3: Clear State Immediately
-  liveScores = [];
-  latestRowScores.clear();
+  // 1. Reset Rendering Container
   rowsContainer.innerHTML = "";
-  UI.$("#live-score-total").textContent = "0";
-
-  // Normalize input: handle {scores:..., notes:...} OR direct map
+  
+  // 2. Normalize Input
+  // If 'input' has scores, we are in Library Mode. If empty, we are in Recording Mode.
   const existingScores = input.scores || input.existingScores?.scores || input || {};
   const existingNotes = input.notes || input.existingScores?.notes || {};
+  const isHydrating = Object.keys(existingScores).length > 0;
 
-  // 1. Get active rubric
+  // 3. Manage State
+  if (isHydrating) {
+      // Library Mode: Don't wipe liveScores, just load the map
+      // (liveScores are for recording timeline, not relevant here)
+  } else {
+      // Recording Mode: Wipe everything
+      liveScores = [];
+      latestRowScores.clear();
+      UI.$("#live-score-total").textContent = "0";
+  }
+
+  // 4. Get active rubric
   const rubric = Rubrics.getActiveRubric();
 
   if (!rubric || !rubric.rows || rubric.rows.length === 0) {
@@ -182,27 +191,27 @@ export function renderLiveScoringFromRubric(input = {}) {
       return;
   }
 
-  // 2. Set Title
+  // 5. Update Title
   const titleEl = UI.$("#live-scoring-rubric-title");
   if(titleEl) titleEl.textContent = rubric.title;
 
   let initialTotal = 0;
 
-  // 3. Build Rows
+  // 6. Build Rows
   rubric.rows.forEach((row, index) => {
       let savedScore = existingScores[row.id];
       let savedNote = existingNotes[row.id] || "";
 
+      // Hydrate Map & Total if we have data
       if (savedScore !== undefined && savedScore !== null) {
           latestRowScores.set(row.id, Number(savedScore));
           initialTotal += Number(savedScore);
       }
 
       const rowEl = document.createElement("div");
-      // ✅ Added overflow-visible so tooltip isn't clipped
       rowEl.className = "mb-5 pb-4 border-b border-white/10 last:border-0 live-score-row overflow-visible";
 
-      // 1. Header
+      // Header
       let html = `
         <div class="flex justify-between items-end mb-2">
           <span class="text-sm font-medium text-white">
@@ -213,7 +222,7 @@ export function renderLiveScoringFromRubric(input = {}) {
         <div class="flex flex-wrap gap-1 mb-2">
       `;
 
-      // 2. Buttons
+      // Buttons
       let scoresToRender = row.allowedScores;
       if (!scoresToRender || scoresToRender.length === 0) {
           const max = row.maxPoints || 5;
@@ -226,12 +235,10 @@ export function renderLiveScoringFromRubric(input = {}) {
           const label = opt.label || '';
           const isActive = (val === (savedScore !== null ? Number(savedScore) : null));
           
-          // Use specific classes for highlighting
           const btnClass = isActive 
             ? "bg-primary-600 text-white border-primary-400 font-bold scale-110 shadow-md"
             : "bg-white/10 text-gray-300 hover:bg-white/20 border-transparent";
 
-          // ✅ RENDER BUTTON WITH WRAPPER FOR TOOLTIP
           html += `
             <div class="score-btn-wrapper">
                 <button
@@ -249,7 +256,7 @@ export function renderLiveScoringFromRubric(input = {}) {
 
       html += `</div>`;
 
-      // 3. Notes
+      // Notes
       html += `
         <textarea
           class="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-gray-300 focus:border-primary-500 focus:outline-none resize-none placeholder-gray-600"
@@ -263,18 +270,17 @@ export function renderLiveScoringFromRubric(input = {}) {
       rowsContainer.appendChild(rowEl);
   });
 
-  // 4. Attach Event Listeners
+  // 7. Attach Event Listeners
   rowsContainer.querySelectorAll(".live-score-btn").forEach((btn) => {
     btn.onclick = () => handleScoreClick(btn);
   });
 
-  // Initialize total display
+  // 8. Update Total Display Immediately
   const totalEl = UI.$("#live-score-total");
   if (totalEl) totalEl.textContent = initialTotal;
 }
 
 function handleScoreClick(btnElement) {
-    // ✅ FIX 2: Safer Selector (.live-score-row instead of generic .flex)
     const container = btnElement.closest('.live-score-row'); 
     if (!container) return;
 
@@ -376,10 +382,8 @@ export async function startPreviewSafely() {
   // Clear library context so clicking "Save" doesn't overwrite a random file
   currentLibraryVideoId = null;
   
-  // Reset UI (Handled by renderLiveScoring but explicit clear helps)
-  liveScores = [];
-  latestRowScores.clear();
-  UI.$("#live-score-total").textContent = "0";
+  // Reset UI (Recording Mode - Empty)
+  renderLiveScoringFromRubric({}); 
 
   if (UI.timerInterval) clearInterval(UI.timerInterval);
   UI.setSecondsElapsed(0);
@@ -400,8 +404,7 @@ export async function startPreviewSafely() {
     await previewVideo.play().catch(err => console.warn("Autoplay blocked", err));
 
     previewScreen.classList.remove("hidden");
-    renderLiveScoringFromRubric(); 
-
+    
     UI.toast("🎥 Preview active.", "info");
 
   } catch (err) {
@@ -443,9 +446,7 @@ export async function startRecording() {
   clearTagList();
   
   // Reset for recording
-  liveScores = [];
-  latestRowScores.clear();
-  renderLiveScoringFromRubric();
+  renderLiveScoringFromRubric({});
 
   try {
     UI.mediaStream.getAudioTracks().forEach((track) => (track.enabled = true));
@@ -712,11 +713,7 @@ export async function exportToLocal(metadata) {
     clearTagList();
     
     // Reset Live Scoring
-    liveScores = [];
-    latestRowScores.clear();
-    const rowsContainer = UI.$("#live-scoring-rows");
-    if(rowsContainer) rowsContainer.innerHTML = "";
-    UI.$("#live-score-total").textContent = "0";
+    renderLiveScoringFromRubric({});
 
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.setSecondsElapsed(0);
