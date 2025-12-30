@@ -161,7 +161,7 @@ export function renderLiveScoringFromRubric(input = {}) {
   
   // 2. Normalize Input
   // If 'input' has scores, we are in Library Mode. If empty, we are in Recording Mode.
-  const existingScores = input.scores || input.existingScores?.scores || input || {};
+  const existingScores = input.finalScores || input.scores || input.existingScores?.scores || input || {};
   const existingNotes = input.notes || input.existingScores?.notes || {};
   const isHydrating = Object.keys(existingScores).length > 0;
 

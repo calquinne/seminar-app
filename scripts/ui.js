@@ -565,12 +565,14 @@ export async function openScoringForVideo(videoId) {
     }
 
     if (!rubric) {
-      rubric = Rubrics.getActiveRubric();
-      if (!rubric) {
-        toast("No rubric attached. Select one in Rubrics tab.", "warn");
-        return;
-      }
+    rubric = Rubrics.getActiveRubric();
+    if (!rubric) {
+        toast("No rubric selected. Please select one in the Rubrics tab.", "warn");
+        return; // Stop execution
+    } else {
+        toast("Using currently active rubric (Video had none attached).", "info");
     }
+}
 
     // 3. Set Active State
     Rubrics.setActiveRubric(rubric.id, rubric);
