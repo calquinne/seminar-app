@@ -20,15 +20,21 @@ function setupEventListeners() {
   console.log("Setting up event listeners...");
 
   // 1. Header Navigation
-  UI.$("#nav-help").onclick = () => UI.$("#help-faq-screen").showModal();
-  UI.$("#nav-account").onclick = () => {
+  const helpBtn = UI.$("#nav-help");
+  if (helpBtn) helpBtn.onclick = () => UI.$("#help-faq-screen").showModal();
+  
+  const accountBtn = UI.$("#nav-account");
+  if (accountBtn) accountBtn.onclick = () => {
     const manageTabButton = UI.$(".app-tab[data-tab='tab-manage']");
     if (manageTabButton) manageTabButton.click();
   };
-  UI.$("#signout-btn").onclick = Auth.handleSignOut;
+  
+  const signoutBtn = UI.$("#signout-btn");
+  if (signoutBtn) signoutBtn.onclick = Auth.handleSignOut;
 
   // 2. Setup Screen
-  UI.$("#setup-save").onclick = () => {
+  const setupSave = UI.$("#setup-save");
+  if (setupSave) setupSave.onclick = () => {
     try {
       const configStr =
         UI.$("#firebase-config-json").value.trim() ||
@@ -48,7 +54,8 @@ function setupEventListeners() {
     }
   };
 
-  UI.$("#setup-offline").onclick = () => {
+  const setupOffline = UI.$("#setup-offline");
+  if (setupOffline) setupOffline.onclick = () => {
     localStorage.removeItem(UI.LS.CFG);
     UI.setStorageChoice("firebase");
     UI.showScreen("auth-screen");
@@ -56,9 +63,14 @@ function setupEventListeners() {
   };
 
   // 3. Auth Screen
-  UI.$("#auth-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);
-  UI.$("#auth-google-btn").onclick = Auth.handleGoogleSignIn;
-  UI.$("#signup-form").onsubmit = (e) => Auth.handleAuthFormSubmit(e);
+  const authForm = UI.$("#auth-form");
+  if (authForm) authForm.onsubmit = (e) => Auth.handleAuthFormSubmit(e);
+  
+  const googleBtn = UI.$("#auth-google-btn");
+  if (googleBtn) googleBtn.onclick = Auth.handleGoogleSignIn;
+  
+  const signupForm = UI.$("#signup-form");
+  if (signupForm) signupForm.onsubmit = (e) => Auth.handleAuthFormSubmit(e);
 
   // 4. Main App Tabs
   UI.$$(".app-tab").forEach((btn) => {
@@ -67,14 +79,19 @@ function setupEventListeners() {
         e,
         DB.refreshClassesList,      // Manage Tab
         Rubrics.loadSavedRubrics,   // Rubrics Tab
-        Record.startPreviewSafely,        // Record Tab
+        Record.startPreviewSafely,  // Record Tab
         DB.loadLibrary              // Library Tab
       );
+  });
+  
+  // Rubric Sub-tabs (if any)
+  UI.$$(".sub-tab").forEach((btn) => {
+      btn.onclick = UI.handleRubricTabClick;
   });
 
   // 5. Rubric Builder
   const addRowBtn = UI.$("#add-rubric-row-btn");
-  if (addRowBtn) addRowBtn.onclick = Rubrics.addBuilderRow;
+  if (addRowBtn) addRowBtn.onclick = () => Rubrics.addBuilderRow();
   
   const saveRubricBtn = UI.$("#save-new-rubric-btn");
   if (saveRubricBtn) saveRubricBtn.onclick = Rubrics.saveRubric;
@@ -85,12 +102,20 @@ function setupEventListeners() {
   }
 
   // 6. Class / Event Manager
-  UI.$("#new-class-btn").onclick = UI.clearClassEditor;
-  UI.$("#save-class-btn").onclick = DB.handleSaveClass;
-  UI.$("#archive-class-btn").onclick = DB.handleArchiveClass;
-  UI.$("#classes-list").onchange = (e) => UI.loadClassIntoEditor(e.target.value);
+  const newClassBtn = UI.$("#new-class-btn");
+  if (newClassBtn) newClassBtn.onclick = UI.clearClassEditor;
+  
+  const saveClassBtn = UI.$("#save-class-btn");
+  if (saveClassBtn) saveClassBtn.onclick = DB.handleSaveClass;
+  
+  const archiveClassBtn = UI.$("#archive-class-btn");
+  if (archiveClassBtn) archiveClassBtn.onclick = DB.handleArchiveClass;
+  
+  const classesList = UI.$("#classes-list");
+  if (classesList) classesList.onchange = (e) => UI.loadClassIntoEditor(e.target.value);
 
-  UI.$("#storage-provider").onchange = async (e) => {
+  const storageProvider = UI.$("#storage-provider");
+  if (storageProvider) storageProvider.onchange = async (e) => {
     const confirmed = await UI.showConfirm(
       "Changing providers will hide all files from the old location in the app. This is for a 'fresh start' and does not move old data.",
       "Are you sure?",
@@ -105,11 +130,20 @@ function setupEventListeners() {
   };
 
   // 7. Record Tab Controls
-  UI.$("#start-rec-btn").onclick = Record.startRecording;
-  UI.$("#pause-rec-btn").onclick = Record.pauseOrResumeRecording;
-  UI.$("#stop-rec-btn").onclick = Record.stopRecording;
-  UI.$("#discard-rec-btn").onclick = Record.discardRecording;
-  UI.$("#toggle-camera-btn").onclick = Record.toggleCamera;
+  const startBtn = UI.$("#start-rec-btn");
+  if (startBtn) startBtn.onclick = Record.startRecording;
+  
+  const pauseBtn = UI.$("#pause-rec-btn");
+  if (pauseBtn) pauseBtn.onclick = Record.pauseOrResumeRecording;
+  
+  const stopBtn = UI.$("#stop-rec-btn");
+  if (stopBtn) stopBtn.onclick = Record.stopRecording;
+  
+  const discardBtn = UI.$("#discard-rec-btn");
+  if (discardBtn) discardBtn.onclick = Record.discardRecording;
+  
+  const toggleCamBtn = UI.$("#toggle-camera-btn");
+  if (toggleCamBtn) toggleCamBtn.onclick = Record.toggleCamera;
   
   const tagBtn = UI.$("#tag-btn");
   if (tagBtn) tagBtn.onclick = Record.handleTagButtonClick;
@@ -151,12 +185,20 @@ function setupEventListeners() {
   }
 
   // 8. Metadata Screen (After Recording)
-  UI.$("#metadata-form").onsubmit = (e) => Record.handleMetadataSubmit(e);
-  UI.$("#meta-class").onchange = Record.handleMetadataClassChange;
-  UI.$("#meta-participant").onchange = Record.handleMetadataParticipantChange;
-  UI.$("#add-participant-btn").onclick = Record.handleAddNewParticipant;
+  const metaForm = UI.$("#metadata-form");
+  if (metaForm) metaForm.onsubmit = (e) => Record.handleMetadataSubmit(e);
+  
+  const metaClass = UI.$("#meta-class");
+  if (metaClass) metaClass.onchange = Record.handleMetadataClassChange;
+  
+  const metaPart = UI.$("#meta-participant");
+  if (metaPart) metaPart.onchange = Record.handleMetadataParticipantChange;
+  
+  const addPartBtn = UI.$("#add-participant-btn");
+  if (addPartBtn) addPartBtn.onclick = Record.handleAddNewParticipant;
 
-  UI.$("#cancel-upload-btn").onclick = async () => {
+  const cancelUploadBtn = UI.$("#cancel-upload-btn");
+  if (cancelUploadBtn) cancelUploadBtn.onclick = async () => {
     const confirmed = await UI.showConfirm(
       "Are you sure you want to cancel and discard this recording?",
       "Cancel Upload?",
@@ -168,48 +210,16 @@ function setupEventListeners() {
     }
   };
 
-  // 9. Scoring Dialog
+  // 9. Scoring Dialog / Player View
   const scoringCancel = UI.$("#scoring-cancel-btn");
   const scoringClose = UI.$("#scoring-close-btn");
-  const scoringSave = UI.$("#scoring-save-btn");
 
-  if (scoringCancel) scoringCancel.onclick = () => UI.closeScoringDialog();
-  if (scoringClose) scoringClose.onclick = () => UI.closeScoringDialog();
+  if (scoringCancel) scoringCancel.onclick = () => UI.closeVideoPlayer();
+  if (scoringClose) scoringClose.onclick = () => UI.closeVideoPlayer();
 
-  if (scoringSave) {
-    scoringSave.onclick = async (e) => {
-      e.preventDefault();
-      const scoringData = UI.collectScoringData();
-      await DB.handleScoringSubmit(scoringData);
-    };
-  }
-
-  // 10. Library Click Handler
-  UI.$("#library-list").onclick = (e) => {
-    const target = e.target.closest("button,a");
-    if (!target) return;
-
-    if (target.dataset.del) {
-      DB.handleDeleteVideo(target.dataset.del);
-      return;
-    }
-    if (target.dataset.openLocal) {
-      const title = target.dataset.title || "Local Video";
-      DB.handleOpenLocalVideo(title);
-      return;
-    }
-    if (target.dataset.scoreVideo) {
-      let videoId = target.dataset.scoreVideo;
-      if (videoId.startsWith("%7B")) { 
-         try { 
-             const data = JSON.parse(decodeURIComponent(videoId));
-             videoId = data.id;
-         } catch(e) {}
-      }
-      DB.openScoringForVideo(videoId);
-      return;
-    }
-  };
+  // 10. Library Click Handler - REMOVED
+  // Rationale: Logic is now handled via direct button binding in firestore.js (loadLibrary)
+  // to ensure Single Source of Truth for opening videos.
 
   // 11. Video Player Controls
   const getMainPlayer = () => UI.$("#main-player");
