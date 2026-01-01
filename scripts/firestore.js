@@ -10,6 +10,11 @@ import {
   initializeApp 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 
+// ✅ ADDED: Import getAuth
+import { 
+  getAuth 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
 import { 
   getFirestore, 
   collection, 
@@ -47,7 +52,9 @@ export async function initFirebase() {
     const app = initializeApp(config);
     const db = getFirestore(app);
     const storage = getStorage(app);
-    const auth = null; // Auth handled in auth.js via getAuth(app)
+    
+    // ✅ FIXED: Initialize Auth here so UI.auth is populated
+    const auth = getAuth(app); 
 
     try {
       await enableIndexedDbPersistence(db);
@@ -303,7 +310,7 @@ export async function loadLibrary() {
 
     listEl.innerHTML = "";
     
-    // ✅ NEW: Use direct binding for click handlers
+    // ✅ Use direct binding for click handlers
     snap.forEach((d) => {
       const v = d.data();
       const id = d.id;
@@ -387,7 +394,6 @@ export async function deleteVideo(id) {
 
 // ⚠️ DEPRECATED/REMOVED: handleOpenLocalVideo 
 // Logic moved inside UI.openScoringForVideo for consistency.
-// If you need a raw file picker for non-library files, add it to ui.js or record.js.
 export function handleOpenLocalVideo(title) {
     UI.toast("Please use the 'Open File' button on a library card.", "info");
 }
@@ -397,7 +403,5 @@ export function handleOpenLocalVideo(title) {
 /* -------------------------------------------------------------------------- */
 export async function handleScoringSubmit(data) {
   // Logic is now handled inside record.js (the Save Score button listener)
-  // This function is kept only if main.js calls it, but main.js should now be
-  // delegating to record.js listeners.
   console.warn("handleScoringSubmit called via DB but should be handled by Record.js listener.");
 }
