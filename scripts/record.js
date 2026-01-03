@@ -775,6 +775,9 @@ export async function handleMetadataSubmit(e) {
     recordedAt: new Date().toISOString(),
     tags: currentTags,
     
+    // ✅ ADD THIS LINE:
+    hasScore: true,  // <--- Forces library to see this as "Scored"
+
     // ✅ SAVE FULL SCORING DATA
     rubricId: activeRubric ? activeRubric.id : null,
     rubricTitle: activeRubric ? activeRubric.title : null,

@@ -582,9 +582,15 @@ export async function openScoringForVideo(videoId) {
       notes: video.rowNotes || {}
     };
 
-    // 4. Open Player
+        // 4. Open Player
     if (video.downloadURL) {
       openVideoPlayer(video.downloadURL, video.participant);
+    } else {
+      // ✅ ADD THIS ELSE BLOCK:
+      // If it's a local file, we can't auto-play it. 
+      // Open the player anyway so you can score, but show a warning.
+      openVideoPlayer("", video.participant + " (Local File)");
+      toast("Local file: Video cannot play automatically. Use a separate player if needed.", "info");
     }
 
     // 5. Render Shell (Title only) - ui.js job
