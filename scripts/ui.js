@@ -554,7 +554,7 @@ export async function openScoringForVideo(videoId) {
 
     const video = { id: snap.id, ...snap.data() };
 
-    // 1. Set Active Video ID (Critical for Save Button logic in Record.js)
+    // 1. Set Active Video ID
     Record.setCurrentLibraryVideoId(video.id);
 
     // 2. Resolve Rubric
@@ -582,49 +582,66 @@ export async function openScoringForVideo(videoId) {
       notes: video.rowNotes || {}
     };
 
-    // 4. Handle Video Loading (Cloud vs Local)
+    // 4. Define Render Logic (Inline to avoid missing function errors)
+    const launchPlayer = (url, titleSuffix = "") => {
+        openVideoPlayer(url, `${video.participant}${titleSuffix}`);
+        
+        // Render Scoring Shell
+        renderScoringUI({ rubric });
+
+        // Render Buttons
+        if (Record.renderLiveScoringFromRubric) {
+            Record.renderLiveScoringFromRubric(existingScores);
+        } else {
+            console.error("❌ Record.renderLiveScoringFromRubric not found!");
+        }
+
+        const playerScreen = document.getElementById("player-screen");
+        if (playerScreen) playerScreen.classList.remove("hidden");
+    };
+
+    // 5. Handle Video Loading (Cloud vs Local)
     if (video.downloadURL) {
-      // ✅ CLOUD: Play immediately
-      openVideoPlayer(video.downloadURL, video.participant);
-      launchScoringView(rubric, existingScores);
+      // ✅ CLOUD
+      launchPlayer(video.downloadURL);
     } else {
-      // ✅ LOCAL: Trigger File Picker first
+      // ✅ LOCAL
       toast("Select the local video file to play.", "info");
       
-      // Use modern File System Access API if available
-      if (window.showOpenFilePicker) {
-         try {
+      try {
+        if (window.showOpenFilePicker) {
            const [fileHandle] = await window.showOpenFilePicker({
              types: [{ description: 'Video Files', accept: {'video/*': ['.webm', '.mp4', '.mov']} }],
              multiple: false
            });
            const file = await fileHandle.getFile();
            const objectUrl = URL.createObjectURL(file);
-           openVideoPlayer(objectUrl, video.participant + " (Local)");
-           launchScoringView(rubric, existingScores);
-         } catch (err) {
-           if (err.name !== 'AbortError') console.error("File picker error:", err);
-         }
-      } else {
-         // Fallback for older browsers / mobile
-         let input = document.getElementById('hidden-file-input');
-         if (!input) {
-           input = document.createElement('input');
-           input.type = 'file';
-           input.id = 'hidden-file-input';
-           input.accept = 'video/*';
-           input.style.display = 'none';
-           document.body.appendChild(input);
-         }
-         input.onchange = (e) => {
-           const file = e.target.files[0];
-           if (file) {
-             const objectUrl = URL.createObjectURL(file);
-             openVideoPlayer(objectUrl, video.participant + " (Local)");
-             launchScoringView(rubric, existingScores);
+           launchPlayer(objectUrl, " (Local)");
+        } else {
+           // Fallback for older browsers
+           let input = document.getElementById('hidden-file-input');
+           if (!input) {
+             input = document.createElement('input');
+             input.type = 'file';
+             input.id = 'hidden-file-input';
+             input.accept = 'video/*';
+             input.style.display = 'none';
+             document.body.appendChild(input);
            }
-         };
-         input.click();
+           input.onchange = (e) => {
+             const file = e.target.files[0];
+             if (file) {
+               const objectUrl = URL.createObjectURL(file);
+               launchPlayer(objectUrl, " (Local)");
+             }
+           };
+           input.click();
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.error("File picker error:", err);
+            toast("Failed to open local file.", "error");
+        }
       }
     }
 
@@ -632,20 +649,4 @@ export async function openScoringForVideo(videoId) {
     console.error("Error opening scoring:", e);
     toast("Could not open scoring.", "error");
   }
-}
-
-// Helper to actually show the screen once video is ready
-function launchScoringView(rubric, existingScores) {
-    // 5. Render Shell (Title only)
-    renderScoringUI({ rubric });
-
-    // 6. DELEGATE TO RECORD.JS (Renderer)
-    if (Record.renderLiveScoringFromRubric) {
-        Record.renderLiveScoringFromRubric(existingScores);
-    } else {
-        console.error("❌ Record.renderLiveScoringFromRubric not found!");
-    }
-
-    const playerScreen = document.getElementById("player-screen");
-    if (playerScreen) playerScreen.classList.remove("hidden");
 }
