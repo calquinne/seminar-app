@@ -565,14 +565,14 @@ export async function openScoringForVideo(videoId) {
     }
 
     if (!rubric) {
-    rubric = Rubrics.getActiveRubric();
-    if (!rubric) {
+      rubric = Rubrics.getActiveRubric();
+      if (!rubric) {
         toast("No rubric selected. Please select one in the Rubrics tab.", "warn");
-        return; // Stop execution
-    } else {
+        return; 
+      } else {
         toast("Using currently active rubric (Video had none attached).", "info");
+      }
     }
-}
 
     // 3. Set Active State
     Rubrics.setActiveRubric(rubric.id, rubric);
@@ -582,22 +582,64 @@ export async function openScoringForVideo(videoId) {
       notes: video.rowNotes || {}
     };
 
-        // 4. Open Player
+    // 4. Handle Video Loading (Cloud vs Local)
     if (video.downloadURL) {
+      // ✅ CLOUD: Play immediately
       openVideoPlayer(video.downloadURL, video.participant);
+      launchScoringView(rubric, existingScores);
     } else {
-      // ✅ ADD THIS ELSE BLOCK:
-      // If it's a local file, we can't auto-play it. 
-      // Open the player anyway so you can score, but show a warning.
-      openVideoPlayer("", video.participant + " (Local File)");
-      toast("Local file: Video cannot play automatically. Use a separate player if needed.", "info");
+      // ✅ LOCAL: Trigger File Picker first
+      toast("Select the local video file to play.", "info");
+      
+      // Use modern File System Access API if available
+      if (window.showOpenFilePicker) {
+         try {
+           const [fileHandle] = await window.showOpenFilePicker({
+             types: [{ description: 'Video Files', accept: {'video/*': ['.webm', '.mp4', '.mov']} }],
+             multiple: false
+           });
+           const file = await fileHandle.getFile();
+           const objectUrl = URL.createObjectURL(file);
+           openVideoPlayer(objectUrl, video.participant + " (Local)");
+           launchScoringView(rubric, existingScores);
+         } catch (err) {
+           if (err.name !== 'AbortError') console.error("File picker error:", err);
+         }
+      } else {
+         // Fallback for older browsers / mobile
+         let input = document.getElementById('hidden-file-input');
+         if (!input) {
+           input = document.createElement('input');
+           input.type = 'file';
+           input.id = 'hidden-file-input';
+           input.accept = 'video/*';
+           input.style.display = 'none';
+           document.body.appendChild(input);
+         }
+         input.onchange = (e) => {
+           const file = e.target.files[0];
+           if (file) {
+             const objectUrl = URL.createObjectURL(file);
+             openVideoPlayer(objectUrl, video.participant + " (Local)");
+             launchScoringView(rubric, existingScores);
+           }
+         };
+         input.click();
+      }
     }
 
-    // 5. Render Shell (Title only) - ui.js job
+  } catch (e) {
+    console.error("Error opening scoring:", e);
+    toast("Could not open scoring.", "error");
+  }
+}
+
+// Helper to actually show the screen once video is ready
+function launchScoringView(rubric, existingScores) {
+    // 5. Render Shell (Title only)
     renderScoringUI({ rubric });
 
-    // 6. DELEGATE TO RECORD.JS (Renderer) - record.js job
-    // This is what actually draws the buttons and handles the "Loading..." fix
+    // 6. DELEGATE TO RECORD.JS (Renderer)
     if (Record.renderLiveScoringFromRubric) {
         Record.renderLiveScoringFromRubric(existingScores);
     } else {
@@ -606,9 +648,4 @@ export async function openScoringForVideo(videoId) {
 
     const playerScreen = document.getElementById("player-screen");
     if (playerScreen) playerScreen.classList.remove("hidden");
-
-  } catch (e) {
-    console.error("Error opening scoring:", e);
-    toast("Could not open scoring.", "error");
-  }
 }
