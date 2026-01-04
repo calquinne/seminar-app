@@ -210,12 +210,24 @@ function setupEventListeners() {
     }
   };
 
- // 9. Scoring Dialog / Player View
-  const scoringCancel = UI.$("#playback-close-btn"); // Renamed ID
-  if (scoringCancel) scoringCancel.onclick = () => UI.closeVideoPlayer();
-  if (scoringCancel) scoringCancel.onclick = () => UI.closeVideoPlayer();
-  if (scoringClose) scoringClose.onclick = () => UI.closeVideoPlayer();
+ // 9. Scoring Dialog / Player View (Updated for Playback IDs)
+  // -----------------------------------------------------------------------
+  // Listen for the NEW ID we added to index.html
+  const playbackCloseBtn = UI.$("#playback-close-btn");
+  
+  if (playbackCloseBtn) {
+      playbackCloseBtn.onclick = () => {
+          UI.closeVideoPlayer();
+      };
+  }
 
+  // Also listen for the old legacy ID just in case (safety)
+  const legacyCloseBtn = UI.$("#player-close-btn");
+  if (legacyCloseBtn) {
+      legacyCloseBtn.onclick = () => {
+          UI.closeVideoPlayer();
+      };
+  }
   // 10. Library Click Handler - REMOVED
   // Rationale: Logic is now handled via direct button binding in firestore.js (loadLibrary)
   // to ensure Single Source of Truth for opening videos.
