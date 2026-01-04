@@ -25,8 +25,9 @@ export function setCurrentLibraryVideoId(id) {
 }
 
 // ✅ GLOBAL LISTENER: Handles "Save Score" button click in Library View
+// Updated to listen for the new ID: #playback-save-btn
 document.addEventListener("click", async (e) => {
-  const btn = e.target.closest("#scoring-save-btn");
+  const btn = e.target.closest("#playback-save-btn, #scoring-save-btn");
   if (btn) {
       if (!currentLibraryVideoId) {
           UI.toast("No active library video to save.", "error");
@@ -88,10 +89,9 @@ document.addEventListener("click", async (e) => {
 });
 
 /* ========================================================================== */
-/* ✅ LIVE SCORING UI (STYLES & RENDERER)
+/* ✅ DUAL-MODE SCORING RENDERER (LIVE vs PLAYBACK)
 /* ========================================================================== */
 
-// Inject styles for tooltips once
 const styleId = "rubric-tooltip-styles";
 if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
@@ -112,56 +112,59 @@ if (!document.getElementById(styleId)) {
     document.head.appendChild(style);
 }
 
-// ✅ RENDERER: HYDRATION & BUTTON CREATION
-export function renderLiveScoringFromRubric(input = {}) {
-  const rowsContainer = UI.$("#live-scoring-rows");
+// ✅ RENDERER: Now accepts 'context' ("live" or "playback")
+export function renderLiveScoringFromRubric(input = {}, context = "live") {
+  
+  // 1. Determine IDs based on context
+  const prefix = context === "playback" ? "playback" : "live";
+  const rowsContainer = UI.$(`#${prefix}-scoring-rows`);
+  const titleEl = UI.$(`#${prefix}-rubric-title`) || UI.$(`#${prefix}-scoring-rubric-title`);
+  const totalEl = UI.$(`#${prefix}-score-total`);
+
   if (!rowsContainer) {
-      console.warn("renderLiveScoringFromRubric: Container #live-scoring-rows not found.");
+      console.warn(`renderLiveScoringFromRubric: Container #${prefix}-scoring-rows not found.`);
       return;
   }
 
-  // 1. Reset Rendering Container
+  // 2. Reset Rendering Container
   rowsContainer.innerHTML = "";
   
-  // 2. Normalize Input
+  // 3. Normalize Input
   const existingScores = input.finalScores || input.scores || input.existingScores?.scores || input || {};
   const existingNotes = input.rowNotes || input.notes || input.existingScores?.notes || {};
   const isHydrating = Object.keys(existingScores).length > 0;
 
-  // 3. Manage State
+  // 4. Manage State (Clear only if we aren't hydrating)
   if (!isHydrating) {
-      liveScores = [];
+      if (context === "live") liveScores = [];
       latestRowScores.clear();
-      const totalEl = UI.$("#live-score-total");
       if(totalEl) totalEl.textContent = "0";
   }
 
-  // 4. Get active rubric
+  // 5. Get active rubric
   const rubric = Rubrics.getActiveRubric();
 
   if (!rubric || !rubric.rows || rubric.rows.length === 0) {
       rowsContainer.innerHTML = `
         <div class="p-4 bg-white/5 rounded-lg border border-white/10 text-center">
             <p class="text-sm text-gray-400 mb-2">No rubric selected.</p>
-            <button onclick="document.querySelector('[data-tab=tab-rubrics]').click()" 
+            ${context === "live" ? 
+            `<button onclick="document.querySelector('[data-tab=tab-rubrics]').click()" 
                     class="text-xs bg-primary-600 hover:bg-primary-500 text-white px-3 py-1.5 rounded">
                 Go to Rubrics Tab
-            </button>
+            </button>` : ''}
         </div>`;
       
-      // Update title to show "No Rubric"
-      const titleEl = UI.$("#live-scoring-rubric-title");
       if(titleEl) titleEl.textContent = "No Rubric Selected";
       return;
   }
 
-  // 5. Update Title
-  const titleEl = UI.$("#live-scoring-rubric-title");
+  // 6. Update Title
   if(titleEl) titleEl.textContent = rubric.title;
 
   let initialTotal = 0;
 
-  // 6. Build Rows
+  // 7. Build Rows
   rubric.rows.forEach((row, index) => {
       let savedScore = existingScores[row.id];
       let savedNote = existingNotes[row.id] || "";
@@ -210,6 +213,7 @@ export function renderLiveScoringFromRubric(input = {}) {
                     class="live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none ${btnClass}"
                     data-score="${val}"
                     data-row-id="${row.id}"
+                    data-context="${prefix}"
                 >
                     ${val}
                 </button>
@@ -234,17 +238,16 @@ export function renderLiveScoringFromRubric(input = {}) {
       rowsContainer.appendChild(rowEl);
   });
 
-  // 7. Attach Event Listeners
+  // 8. Attach Event Listeners
   rowsContainer.querySelectorAll(".live-score-btn").forEach((btn) => {
-    btn.onclick = () => handleScoreClick(btn);
+    btn.onclick = () => handleScoreClick(btn, prefix);
   });
 
-  // 8. Update Total Display Immediately
-  const totalEl = UI.$("#live-score-total");
+  // 9. Update Total Display Immediately
   if (totalEl) totalEl.textContent = initialTotal;
 }
 
-function handleScoreClick(btnElement) {
+function handleScoreClick(btnElement, prefix) {
     const container = btnElement.closest('.live-score-row'); 
     if (!container) return;
 
@@ -259,19 +262,19 @@ function handleScoreClick(btnElement) {
     
     btnElement.className = "live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none bg-primary-600 text-white border-primary-400 font-bold scale-110 shadow-md";
     
-    // 2. Record Event (only if recording)
-    if (UI.mediaRecorder && (UI.mediaRecorder.state === 'recording' || UI.mediaRecorder.state === 'paused')) {
+    // 2. Record Event (only if recording AND in live mode)
+    if (prefix === 'live' && UI.mediaRecorder && (UI.mediaRecorder.state === 'recording' || UI.mediaRecorder.state === 'paused')) {
         const timestamp = UI.secondsElapsed;
         liveScores.push({ rowId, score, timestamp });
         UI.toast(`Scored ${score} pts`, "success");
     }
     
-    // 3. Update Live Total (Always)
+    // 3. Update Total (Targeting the correct element)
     latestRowScores.set(rowId, score);
     let total = 0;
     latestRowScores.forEach(val => total += val);
     
-    const totalEl = UI.$("#live-score-total");
+    const totalEl = UI.$(`#${prefix}-score-total`);
     if(totalEl) {
         totalEl.style.transform = "scale(1.2)";
         totalEl.textContent = total;
@@ -280,7 +283,7 @@ function handleScoreClick(btnElement) {
 }
 
 /* ========================================================================== */
-/* CORE: PREVIEW & RECORDING & METADATA
+/* RECORDING / PREVIEW (Context: "live")
 /* ========================================================================== */
 
 function clearTagList() {
@@ -311,9 +314,7 @@ export function handleTagButtonClick() {
 
 export async function startPreviewSafely() {
   const recordTab = UI.$("[data-tab='tab-record']");
-  if (!recordTab || recordTab.classList.contains("hidden")) {
-    return;
-  }
+  if (!recordTab || recordTab.classList.contains("hidden")) return;
 
   if (previewLock) return;
   previewLock = true;
@@ -342,12 +343,10 @@ export async function startPreviewSafely() {
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
   clearTagList();
-  
-  // Clear library context so clicking "Save" doesn't overwrite a random file
   currentLibraryVideoId = null;
   
-  // Reset UI (Recording Mode - Empty)
-  renderLiveScoringFromRubric({}); 
+  // ✅ RENDER FOR LIVE CONTEXT
+  renderLiveScoringFromRubric({}, "live"); 
 
   if (UI.timerInterval) clearInterval(UI.timerInterval);
   UI.setSecondsElapsed(0);
@@ -358,19 +357,13 @@ export async function startPreviewSafely() {
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: UI.currentFacingMode },
       audio: true
     };
-
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     UI.setMediaStream(stream);
-
     previewVideo.srcObject = stream;
     stream.getAudioTracks().forEach(t => (t.enabled = false));
-
     await previewVideo.play().catch(err => console.warn("Autoplay blocked", err));
-
     previewScreen.classList.remove("hidden");
-    
     UI.toast("🎥 Preview active.", "info");
-
   } catch (err) {
     console.error("Camera error:", err);
     UI.toast("Camera or microphone access denied.", "error");
@@ -380,17 +373,12 @@ export async function startPreviewSafely() {
 export function stopPreview() {
     const previewScreen = UI.$("#preview-screen");
     const previewVideo = UI.$("#preview-player");
-    
     if (UI.mediaStream) {
         UI.mediaStream.getTracks().forEach(t => t.stop());
         UI.setMediaStream(null);
     }
-    if (previewVideo) {
-        previewVideo.srcObject = null;
-    }
-    if (previewScreen) {
-        previewScreen.classList.add("hidden");
-    }
+    if (previewVideo) previewVideo.srcObject = null;
+    if (previewScreen) previewScreen.classList.add("hidden");
 }
 
 export async function startRecording() {
@@ -398,7 +386,6 @@ export async function startRecording() {
     UI.toast("Recording disabled.", "error");
     return;
   }
-
   if (!UI.mediaStream) {
     await startPreviewSafely();
     if (!UI.mediaStream) return;
@@ -409,12 +396,11 @@ export async function startRecording() {
   UI.setCurrentRecordingBlob(null);
   clearTagList();
   
-  // Reset for recording
-  renderLiveScoringFromRubric({});
+  // ✅ RENDER FOR LIVE CONTEXT
+  renderLiveScoringFromRubric({}, "live");
 
   try {
     UI.mediaStream.getAudioTracks().forEach((track) => (track.enabled = true));
-
     let mime = "video/webm;codecs=vp9,opus";
     if (!MediaRecorder.isTypeSupported(mime)) mime = "video/webm";
 
@@ -430,7 +416,6 @@ export async function startRecording() {
         UI.mediaStream.getTracks().forEach((track) => track.stop());
         UI.setMediaStream(null);
       }
-      
       const previewVideo = UI.$("#preview-player");
       if (previewVideo) previewVideo.srcObject = null;
 
@@ -446,7 +431,6 @@ export async function startRecording() {
     };
 
     recorder.start(1000);
-
     UI.setSecondsElapsed(0);
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.$("#rec-timer").textContent = "00:00";
@@ -454,9 +438,7 @@ export async function startRecording() {
         UI.setSecondsElapsed(UI.secondsElapsed + 1);
         UI.$("#rec-timer").textContent = new Date(UI.secondsElapsed * 1000).toISOString().substr(14, 5);
     }, 1000));
-
     UI.toast("Recording started!", "success");
-
   } catch (err) {
     console.error("Start recording failed:", err);
     UI.toast("Error starting recording.", "error");
@@ -466,7 +448,6 @@ export async function startRecording() {
 
 export function pauseOrResumeRecording() {
   if (!UI.mediaRecorder) return;
-
   if (UI.mediaRecorder.state === "recording") {
     UI.mediaRecorder.pause();
     if (UI.timerInterval) clearInterval(UI.timerInterval);
@@ -503,9 +484,7 @@ export async function discardRecording() {
     UI.mediaRecorder.stop();
     UI.setMediaRecorder(null);
   }
-
   stopPreview();
-  
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
   if (UI.timerInterval) clearInterval(UI.timerInterval);
@@ -513,7 +492,6 @@ export async function discardRecording() {
   UI.$("#rec-timer").textContent = "00:00";
   UI.updateRecordingUI("idle");
   clearTagList();
-  
   const manualPreviewBtn = UI.$("#manual-preview-btn");
   if(manualPreviewBtn) manualPreviewBtn.textContent = "Start Preview";
 }
@@ -547,12 +525,10 @@ export function handleMetadataClassChange(e) {
   const classId = e.target.value;
   const participantSelect = UI.$("#meta-participant");
   participantSelect.innerHTML = '<option value="">Select a participant...</option>';
-
   if (!classId || !UI.classData[classId]) {
     participantSelect.disabled = true;
     return;
   }
-
   const participants = UI.classData[classId].participants || [];
   participants.forEach((name) => {
     const opt = document.createElement("option");
@@ -560,7 +536,6 @@ export function handleMetadataClassChange(e) {
     opt.textContent = name;
     participantSelect.appendChild(opt);
   });
-
   const addNewOpt = document.createElement("option");
   addNewOpt.value = "--ADD_NEW--";
   addNewOpt.textContent = "-- Add New Participant --";
@@ -580,7 +555,6 @@ export async function handleAddNewParticipant() {
     UI.toast("Enter a name.", "error");
     return;
   }
-  
   const currentParticipants = UI.classData[classId].participants || [];
   if (!currentParticipants.includes(newName)) {
       currentParticipants.push(newName);
@@ -589,7 +563,6 @@ export async function handleAddNewParticipant() {
       UI.classData[classId].participants = currentParticipants;
       UI.toast(`Added ${newName}!`, "success");
   }
-
   const opt = document.createElement("option");
   opt.value = newName;
   opt.textContent = newName;
@@ -605,44 +578,27 @@ export async function exportToLocal(metadata) {
       UI.toast("No recording available to export.", "error");
       return;
     }
-
-    const safeClass = (metadata.classEventTitle || "presentation")
-      .replace(/[^\w\d-_]+/g, "_")
-      .replace(/^_+|_+$/g, "") 
-      .trim();
-
-    const safeParticipant = (metadata.participant || "student")
-      .replace(/[^\w\d-_]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .trim();
-
+    const safeClass = (metadata.classEventTitle || "presentation").replace(/[^\w\d-_]+/g, "_").trim();
+    const safeParticipant = (metadata.participant || "student").replace(/[^\w\d-_]+/g, "_").trim();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const fileName = `${safeClass}_${safeParticipant}_${timestamp}.webm`;
 
     let savedViaPicker = false;
-
     if (window.showSaveFilePicker) {
       try {
         const handle = await window.showSaveFilePicker({
           suggestedName: fileName,
-          types: [{
-            description: 'WebM Video',
-            accept: { 'video/webm': ['.webm'] },
-          }],
+          types: [{ description: 'WebM Video', accept: { 'video/webm': ['.webm'] } }],
         });
         const writable = await handle.createWritable();
         await writable.write(blob);
         await writable.close();
         savedViaPicker = true;
       } catch (err) {
-        if (err.name === 'AbortError') {
-          UI.toast("Save cancelled.", "info");
-          return; 
-        }
+        if (err.name === 'AbortError') { UI.toast("Save cancelled.", "info"); return; }
         console.warn("Picker failed, using fallback:", err);
       }
     }
-
     if (!savedViaPicker) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -653,41 +609,27 @@ export async function exportToLocal(metadata) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
-
     UI.toast("Saved to local device!", "success");
-
     metadata.storagePath = "local";
     metadata.downloadURL = null;
     metadata.savedAs = fileName;
     metadata.isLocal = true;
-
-    // ✅ NOTE: Passing null for blob ensures uploadFile handles this as "Metadata Only"
-    // This allows the card to be saved to the library without trying to upload the video bytes.
     await uploadFile(null, metadata); 
-
     stopPreview();
-    
     const previewScreen = UI.$("#preview-screen");
     if (previewScreen) previewScreen.classList.add("hidden");
-    
     const manualPreviewBtn = UI.$("#manual-preview-btn");
     if(manualPreviewBtn) manualPreviewBtn.textContent = "Start Preview";
-
     UI.setRecordedChunks([]);
     UI.setCurrentRecordingBlob(null);
     UI.updateRecordingUI("idle");
     clearTagList();
-    
-    // Reset Live Scoring
-    renderLiveScoringFromRubric({});
-
+    renderLiveScoringFromRubric({}, "live");
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.setSecondsElapsed(0);
     UI.$("#rec-timer").textContent = "00:00";
-
     const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
     if (manageTabBtn) manageTabBtn.click();
-
   } catch (err) {
     console.error("Local export error:", err);
     UI.toast(`Export failed: ${err.message}`, "error");
@@ -696,32 +638,23 @@ export async function exportToLocal(metadata) {
 
 export async function handleMetadataSubmit(e) {
   e.preventDefault();
-
   if (!UI.currentRecordingBlob) {
     UI.toast("No recording to save.", "error");
     return;
   }
-
   const metaClassEl = UI.$("#meta-class");
   const selectedClassText = metaClassEl.options[metaClassEl.selectedIndex]?.text || "N/A";
-
   const activeRubric = Rubrics.getActiveRubric();
-
-  if (!activeRubric) {
-    UI.toast("Warning: No rubric selected. Scoring data will be empty.", "info");
-  }
+  if (!activeRubric) UI.toast("Warning: No rubric selected.", "info");
 
   const noteElements = document.querySelectorAll('[data-note-row-id]');
   const capturedNotes = {};
   noteElements.forEach(el => {
-      if (el.value.trim()) {
-          capturedNotes[el.dataset.noteRowId] = el.value.trim();
-      }
+      if (el.value.trim()) capturedNotes[el.dataset.noteRowId] = el.value.trim();
   });
 
   const finalScores = {};
   let totalScore = 0;
-  
   latestRowScores.forEach((score, rowId) => {
       finalScores[rowId] = score;
       totalScore += score;
@@ -740,10 +673,7 @@ export async function handleMetadataSubmit(e) {
     duration: UI.secondsElapsed,
     recordedAt: new Date().toISOString(),
     tags: currentTags,
-    
-    // ✅ ADDED: Flag to show checkmark in Library
-    hasScore: true,  
-
+    hasScore: true, 
     rubricId: activeRubric ? activeRubric.id : null,
     rubricTitle: activeRubric ? activeRubric.title : null,
     scoreEvents: liveScores,      
@@ -761,14 +691,11 @@ export async function handleMetadataSubmit(e) {
   UI.toast("Saving… please wait", "info");
 
   const storageChoice = UI.getStorageChoice(); 
-
   if (storageChoice === "local") {
     await exportToLocal(metadata);
-  }
-  else if (storageChoice === "gdrive") {
+  } else if (storageChoice === "gdrive") {
     UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
-  }
-  else if (storageChoice === "firebase") {
+  } else if (storageChoice === "firebase") {
     await uploadFile(UI.currentRecordingBlob, metadata);
     UI.toast("Uploaded to cloud successfully!", "success");
     stopPreview();

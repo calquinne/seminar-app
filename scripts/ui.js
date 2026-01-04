@@ -584,16 +584,13 @@ export async function openScoringForVideo(videoId) {
       notes: video.rowNotes || {}
     };
 
-    // 4. Define Render Logic (Inline to avoid missing function errors)
+    // 4. Define Render Logic
     const launchPlayer = (url, titleSuffix = "") => {
         openVideoPlayer(url, `${video.participant}${titleSuffix}`);
         
-        // Render Scoring Shell
-        renderScoringUI({ rubric });
-
-        // Render Buttons
+        // ✅ Render Buttons to the PLAYBACK ID (This is the key fix)
         if (Record.renderLiveScoringFromRubric) {
-            Record.renderLiveScoringFromRubric(existingScores);
+            Record.renderLiveScoringFromRubric(existingScores, "playback");
         } else {
             console.error("❌ Record.renderLiveScoringFromRubric not found!");
         }

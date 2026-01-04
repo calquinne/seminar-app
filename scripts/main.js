@@ -210,10 +210,9 @@ function setupEventListeners() {
     }
   };
 
-  // 9. Scoring Dialog / Player View
-  const scoringCancel = UI.$("#scoring-cancel-btn");
-  const scoringClose = UI.$("#scoring-close-btn");
-
+ // 9. Scoring Dialog / Player View
+  const scoringCancel = UI.$("#playback-close-btn"); // Renamed ID
+  if (scoringCancel) scoringCancel.onclick = () => UI.closeVideoPlayer();
   if (scoringCancel) scoringCancel.onclick = () => UI.closeVideoPlayer();
   if (scoringClose) scoringClose.onclick = () => UI.closeVideoPlayer();
 
