@@ -43,7 +43,7 @@ export function setSecondsElapsed(s) { secondsElapsed = s; }
 export function setCurrentFacingMode(m) { currentFacingMode = m; }
 
 /* -------------------------------------------------------------- */
-/* Storage Choice (firebase | gdrive | local)                     */
+/* Storage Choice (firebase | gdrive | local)                     */
 /* -------------------------------------------------------------- */
 export function getStorageChoice() {
   return localStorage.getItem(LS.STORE) || "firebase";
@@ -483,6 +483,8 @@ export function openVideoPlayer(url, title = "Video Playback") {
   video.src = url;
 
   if (titleEl) titleEl.textContent = title;
+  
+  // ✅ IMPORTANT: Correctly reveal the div (remove hidden class)
   container.classList.remove("hidden");
 }
 
@@ -578,7 +580,7 @@ export async function openScoringForVideo(videoId) {
     Rubrics.setActiveRubric(rubric.id, rubric);
 
     const existingScores = {
-      scores: video.finalScores || {},
+      finalScores: video.finalScores || {}, // Use correct key
       notes: video.rowNotes || {}
     };
 

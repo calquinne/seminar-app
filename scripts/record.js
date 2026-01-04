@@ -26,7 +26,9 @@ export function setCurrentLibraryVideoId(id) {
 
 // ✅ GLOBAL LISTENER: Handles "Save Score" button click in Library View
 document.addEventListener("click", async (e) => {
-  if (e.target && e.target.id === "scoring-save-btn") {
+  // Use closest to catch clicks on the icon inside the button too
+  const btn = e.target.closest("#scoring-save-btn");
+  if (btn) {
       
       if (!currentLibraryVideoId) {
           UI.toast("No active library video to save.", "error");
@@ -53,8 +55,7 @@ document.addEventListener("click", async (e) => {
       const rubric = Rubrics.getActiveRubric();
 
       // 4. Update Firestore
-      const btn = e.target;
-      const originalText = btn.textContent;
+      const originalText = btn.innerHTML;
       btn.textContent = "Saving...";
       btn.disabled = true;
 
@@ -69,11 +70,10 @@ document.addEventListener("click", async (e) => {
               finalScores,
               rowNotes,
               totalScore,
-              hasScore: true,
+              hasScore: true, // ✅ CRITICAL: Marks video as scored in library
               lastScore: totalScore,
               rubricId: rubric?.id || null,
               rubricTitle: rubric?.title || null,
-              rubricRowIds: rubric?.rows?.map(r => r.id) || [], 
               lastScoredAt: serverTimestamp()
           });
 
@@ -83,7 +83,7 @@ document.addEventListener("click", async (e) => {
           console.error("Score save failed:", err);
           UI.toast("Failed to save scores.", "error");
       } finally {
-          btn.textContent = originalText;
+          btn.innerHTML = originalText;
           btn.disabled = false;
       }
   }
@@ -99,54 +99,17 @@ if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-        .score-btn-wrapper {
-            position: relative;
-            display: inline-block;
-            overflow: visible;
-        }
-
+        .score-btn-wrapper { position: relative; display: inline-block; overflow: visible; }
         .rubric-tooltip {
-            visibility: hidden;
-            position: absolute;
-            z-index: 9999; 
-
-            bottom: calc(100% + 8px);
-            left: 0;
-            
-            width: max-content;
-            max-width: 300px;
-            min-width: 150px;
-            white-space: normal;
-            text-align: left;
-            line-height: 1.4;
-
-            background-color: #0f172a;
-            color: #e5e7eb;
-            font-size: 11px;
-            border-radius: 6px;
-            padding: 8px 12px;
-            
-            opacity: 0;
-            transition: opacity 0.15s ease-in-out;
-            pointer-events: none;
+            visibility: hidden; position: absolute; z-index: 9999; 
+            bottom: calc(100% + 8px); left: 0; width: max-content; max-width: 300px;
+            background-color: #0f172a; color: #e5e7eb; font-size: 11px;
+            border-radius: 6px; padding: 8px 12px; opacity: 0;
+            transition: opacity 0.15s ease-in-out; pointer-events: none;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
             border: 1px solid rgba(255,255,255,0.1);
         }
-
-        .rubric-tooltip::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 12px;
-            border-width: 6px;
-            border-style: solid;
-            border-color: #0f172a transparent transparent transparent;
-        }
-
-        .score-btn-wrapper:hover .rubric-tooltip {
-            visibility: visible;
-            opacity: 1;
-        }
+        .score-btn-wrapper:hover .rubric-tooltip { visibility: visible; opacity: 1; }
     `;
     document.head.appendChild(style);
 }
@@ -154,26 +117,25 @@ if (!document.getElementById(styleId)) {
 // ✅ RENDERER: HYDRATION & BUTTON CREATION
 export function renderLiveScoringFromRubric(input = {}) {
   const rowsContainer = UI.$("#live-scoring-rows");
-  if (!rowsContainer) return;
+  if (!rowsContainer) {
+      console.warn("renderLiveScoringFromRubric: Container #live-scoring-rows not found.");
+      return;
+  }
 
   // 1. Reset Rendering Container
   rowsContainer.innerHTML = "";
   
   // 2. Normalize Input
-  // If 'input' has scores, we are in Library Mode. If empty, we are in Recording Mode.
   const existingScores = input.finalScores || input.scores || input.existingScores?.scores || input || {};
-  const existingNotes = input.notes || input.existingScores?.notes || {};
+  const existingNotes = input.rowNotes || input.notes || input.existingScores?.notes || {};
   const isHydrating = Object.keys(existingScores).length > 0;
 
   // 3. Manage State
-  if (isHydrating) {
-      // Library Mode: Don't wipe liveScores, just load the map
-      // (liveScores are for recording timeline, not relevant here)
-  } else {
-      // Recording Mode: Wipe everything
+  if (!isHydrating) {
       liveScores = [];
       latestRowScores.clear();
-      UI.$("#live-score-total").textContent = "0";
+      const totalEl = UI.$("#live-score-total");
+      if(totalEl) totalEl.textContent = "0";
   }
 
   // 4. Get active rubric
@@ -188,6 +150,10 @@ export function renderLiveScoringFromRubric(input = {}) {
                 Go to Rubrics Tab
             </button>
         </div>`;
+      
+      // Update title to show "No Rubric"
+      const titleEl = UI.$("#live-scoring-rubric-title");
+      if(titleEl) titleEl.textContent = "No Rubric Selected";
       return;
   }
 
@@ -775,7 +741,7 @@ export async function handleMetadataSubmit(e) {
     recordedAt: new Date().toISOString(),
     tags: currentTags,
     
-    // ✅ ADDED: This flag tells the library to show the green checkmark
+    // ✅ ADDED: Flag to show checkmark in Library
     hasScore: true,  
 
     rubricId: activeRubric ? activeRubric.id : null,
