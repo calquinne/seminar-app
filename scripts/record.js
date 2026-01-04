@@ -26,10 +26,8 @@ export function setCurrentLibraryVideoId(id) {
 
 // ✅ GLOBAL LISTENER: Handles "Save Score" button click in Library View
 document.addEventListener("click", async (e) => {
-  // Use closest to catch clicks on the icon inside the button too
   const btn = e.target.closest("#scoring-save-btn");
   if (btn) {
-      
       if (!currentLibraryVideoId) {
           UI.toast("No active library video to save.", "error");
           return;
@@ -70,7 +68,7 @@ document.addEventListener("click", async (e) => {
               finalScores,
               rowNotes,
               totalScore,
-              hasScore: true, // ✅ CRITICAL: Marks video as scored in library
+              hasScore: true, // ✅ CRITICAL: Marks video as scored
               lastScore: totalScore,
               rubricId: rubric?.id || null,
               rubricTitle: rubric?.title || null,
@@ -663,6 +661,8 @@ export async function exportToLocal(metadata) {
     metadata.savedAs = fileName;
     metadata.isLocal = true;
 
+    // ✅ NOTE: Passing null for blob ensures uploadFile handles this as "Metadata Only"
+    // This allows the card to be saved to the library without trying to upload the video bytes.
     await uploadFile(null, metadata); 
 
     stopPreview();
