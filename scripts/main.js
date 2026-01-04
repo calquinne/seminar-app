@@ -8,6 +8,7 @@ import * as Auth from "./auth.js";
 import * as DB from "./firestore.js";
 import * as Record from "./record.js";
 import * as Rubrics from "./rubrics.js"; 
+import * as Analytics from "./analytics.js";
 
 /** Global app version (used for cache-busting and SW sync) */
 export const APP_VERSION = "v14";
@@ -74,14 +75,21 @@ function setupEventListeners() {
 
   // 4. Main App Tabs
   UI.$$(".app-tab").forEach((btn) => {
-    btn.onclick = (e) =>
+    btn.onclick = (e) => {
+      // 1. Standard UI Switching (Keep your existing helpers)
       UI.handleTabClick(
         e,
-        DB.refreshClassesList,      // Manage Tab
-        Rubrics.loadSavedRubrics,   // Rubrics Tab
-        Record.startPreviewSafely,  // Record Tab
-        DB.loadLibrary              // Library Tab
+        DB.refreshClassesList,      // Matches your existing code
+        Rubrics.loadSavedRubrics,   // Matches your existing code
+        Record.startPreviewSafely,  // Matches your existing code
+        DB.loadLibrary              // Matches your existing code
       );
+
+      // 2. ✅ ADDED: Analytics Trigger
+      if (btn.dataset.tab === "tab-analytics") {
+          Analytics.loadAnalytics();
+      }
+    };
   });
   
   // Rubric Sub-tabs (if any)
