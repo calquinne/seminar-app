@@ -131,139 +131,142 @@ if (!document.getElementById(styleId)) {
     document.head.appendChild(style);
 }
 
-// ✅ RENDERER: Now accepts 'context' ("live" or "playback")
-export function renderLiveScoringFromRubric(input = {}, context = "live") {
+// ✅ MAIN RENDERER: Dispatches to Read-Only or Interactive helper
+export function renderLiveScoringFromRubric(input = {}, context = "live", options = {}) {
+  const prefix = context;
   
-  // 1. Determine IDs based on context
-  const prefix = context === "playback" ? "playback" : "live";
-  const rowsContainer = UI.$(`#${prefix}-scoring-rows`);
-  const titleEl = UI.$(`#${prefix}-rubric-title`) || UI.$(`#${prefix}-scoring-rubric-title`);
-  const totalEl = UI.$(`#${prefix}-score-total`);
+  // 1. Determine Container (Support Modals via options.container)
+  const rowsContainer = options.container || UI.$(`#${prefix}-scoring-rows`);
+  const titleEl = !options.container ? (UI.$(`#${prefix}-rubric-title`) || UI.$(`#${prefix}-scoring-rubric-title`)) : null;
+  const totalEl = !options.container ? UI.$(`#${prefix}-score-total`) : null;
 
+  // 2. Safety Check (Logs warning instead of crashing)
   if (!rowsContainer) {
-      console.warn(`renderLiveScoringFromRubric: Container #${prefix}-scoring-rows not found.`);
+      // Only warn if we expect it to be there (ignore if tab is hidden)
+      if (!options.container) console.warn(`[Record] Container not found for context: ${context}. Tab might be hidden.`);
       return;
   }
 
-  // 2. Reset Rendering Container
   rowsContainer.innerHTML = "";
   
   // 3. Normalize Input
   const existingScores = input.finalScores || input.scores || input.existingScores?.scores || input || {};
   const existingNotes = input.rowNotes || input.notes || input.existingScores?.notes || {};
-  const isHydrating = Object.keys(existingScores).length > 0;
-
-  // 4. Manage State (Clear only if we aren't hydrating)
-  if (!isHydrating) {
-      if (context === "live") liveScores = [];
-      latestRowScores.clear();
-      if(totalEl) totalEl.textContent = "0";
-  }
-
-  // 5. Get active rubric
-  const rubric = Rubrics.getActiveRubric();
+  
+  // 4. Get Active Rubric
+  const rubric = input.rubricSnapshot || Rubrics.getActiveRubric();
+  let initialTotal = 0;
 
   if (!rubric || !rubric.rows || rubric.rows.length === 0) {
-      rowsContainer.innerHTML = `
-        <div class="p-4 bg-white/5 rounded-lg border border-white/10 text-center">
-            <p class="text-sm text-gray-400 mb-2">No rubric selected.</p>
-            ${context === "live" ? 
-            `<button onclick="document.querySelector('[data-tab=tab-rubrics]').click()" 
-                    class="text-xs bg-primary-600 hover:bg-primary-500 text-white px-3 py-1.5 rounded">
-                Go to Rubrics Tab
-            </button>` : ''}
-        </div>`;
-      
-      if(titleEl) titleEl.textContent = "No Rubric Selected";
+      rowsContainer.innerHTML = `<div class="p-4 text-center text-sm text-gray-500">No rubric data available.</div>`;
+      if(titleEl) titleEl.textContent = "No Rubric";
       return;
   }
 
-  // 6. Update Title
   if(titleEl) titleEl.textContent = rubric.title;
 
-  let initialTotal = 0;
-
-  // 7. Build Rows
+  // 5. Build Rows
   rubric.rows.forEach((row, index) => {
       let savedScore = existingScores[row.id];
       let savedNote = existingNotes[row.id] || "";
 
-      // Hydrate Map & Total if we have data
       if (savedScore !== undefined && savedScore !== null) {
-          latestRowScores.set(row.id, Number(savedScore));
+          if (context !== "analytics") latestRowScores.set(row.id, Number(savedScore));
           initialTotal += Number(savedScore);
       }
 
       const rowEl = document.createElement("div");
-      rowEl.className = "mb-5 pb-4 border-b border-white/10 last:border-0 live-score-row overflow-visible";
+      rowEl.className = "mb-4 pb-3 border-b border-white/10 last:border-0 overflow-visible";
 
-      // Header
-      let html = `
+      // Render Header
+      rowEl.innerHTML = `
         <div class="flex justify-between items-end mb-2">
           <span class="text-sm font-medium text-white">
             <span class="text-primary-400 mr-1">${index + 1}.</span> ${row.label}
           </span>
           <span class="text-[10px] text-gray-500 uppercase tracking-wide">Max: ${row.maxPoints}</span>
         </div>
-        <div class="flex flex-wrap gap-1 mb-2">
       `;
 
-      // Buttons
-      let scoresToRender = row.allowedScores;
-      if (!scoresToRender || scoresToRender.length === 0) {
-          const max = row.maxPoints || 5;
-          scoresToRender = [];
-          for(let i=0; i<=max; i++) scoresToRender.push({ value: i, label: '' });
+      // ✅ DISPATCH: Split Logic for Read-Only vs Interactive
+      if (options.readOnly) {
+          rowEl.innerHTML += _renderReadOnlyRow(row, savedScore, savedNote);
+      } else {
+          rowEl.innerHTML += _renderInteractiveRow(row, savedScore, savedNote, prefix);
       }
 
-      scoresToRender.forEach(opt => {
-          const val = opt.value;
-          const label = opt.label || '';
-          const isActive = (val === (savedScore !== null ? Number(savedScore) : null));
-          
-          const btnClass = isActive 
-            ? "bg-primary-600 text-white border-primary-400 font-bold scale-110 shadow-md"
-            : "bg-white/10 text-gray-300 hover:bg-white/20 border-transparent";
-
-          html += `
-            <div class="score-btn-wrapper">
-                <button
-                    type="button"
-                    class="live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none ${btnClass}"
-                    data-score="${val}"
-                    data-row-id="${row.id}"
-                    data-context="${prefix}"
-                >
-                    ${val}
-                </button>
-                ${label ? `<div class="rubric-tooltip">${label}</div>` : ''}
-            </div>
-          `;
-      });
-
-      html += `</div>`;
-
-      // Notes
-      html += `
-        <textarea
-          class="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-gray-300 focus:border-primary-500 focus:outline-none resize-none placeholder-gray-600"
-          rows="1"
-          placeholder="Add a note for ${row.label}..."
-          data-note-row-id="${row.id}"
-        >${savedNote}</textarea>
-      `;
-
-      rowEl.innerHTML = html;
       rowsContainer.appendChild(rowEl);
   });
 
-  // 8. Attach Event Listeners
-  rowsContainer.querySelectorAll(".live-score-btn").forEach((btn) => {
-    btn.onclick = () => handleScoreClick(btn, prefix);
-  });
+  // 6. Attach Listeners (Interactive Only)
+  if (!options.readOnly) {
+      rowsContainer.querySelectorAll(".live-score-btn").forEach((btn) => {
+        btn.onclick = () => handleScoreClick(btn, prefix);
+      });
+  }
 
-  // 9. Update Total Display Immediately
   if (totalEl) totalEl.textContent = initialTotal;
+}
+
+// 🔒 Helper: Read-Only View (The "Scorecard")
+function _renderReadOnlyRow(row, savedScore, savedNote) {
+    const scoreDisplay = savedScore !== undefined ? savedScore : "-";
+    const max = row.maxPoints;
+    const pct = (Number(scoreDisplay) || 0) / max * 100;
+    
+    let colorClass = "bg-primary-600";
+    if(pct < 50) colorClass = "bg-red-600";
+    else if(pct < 80) colorClass = "bg-yellow-500";
+
+    return `
+        <div class="flex items-center gap-3">
+            <div class="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full ${colorClass}" style="width: ${pct}%"></div>
+            </div>
+            <div class="text-sm font-bold text-white w-8 text-right">${scoreDisplay}</div>
+        </div>
+        ${savedNote ? `<div class="mt-2 text-xs text-gray-400 italic border-l-2 border-white/10 pl-2">"${savedNote}"</div>` : ''}
+    `;
+}
+
+// 🔓 Helper: Interactive View (Buttons & Textarea)
+function _renderInteractiveRow(row, savedScore, savedNote, prefix) {
+    let html = `<div class="flex flex-wrap gap-1 mb-2">`;
+    
+    let scoresToRender = row.allowedScores;
+    if (!scoresToRender || scoresToRender.length === 0) {
+        const max = row.maxPoints || 5;
+        scoresToRender = [];
+        for(let i=0; i<=max; i++) scoresToRender.push({ value: i, label: '' });
+    }
+
+    scoresToRender.forEach(opt => {
+        const val = opt.value;
+        const label = opt.label || '';
+        const isActive = (val === (savedScore !== null ? Number(savedScore) : null));
+        
+        const btnClass = isActive 
+        ? "bg-primary-600 text-white border-primary-400 font-bold scale-110 shadow-md"
+        : "bg-white/10 text-gray-300 hover:bg-white/20 border-transparent";
+
+        html += `
+        <div class="score-btn-wrapper">
+            <button type="button" class="live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none ${btnClass}"
+                data-score="${val}" data-row-id="${row.id}" data-context="${prefix}">
+                ${val}
+            </button>
+            ${label ? `<div class="rubric-tooltip">${label}</div>` : ''}
+        </div>
+        `;
+    });
+    html += `</div>`;
+    
+    html += `
+    <textarea class="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-gray-300 focus:border-primary-500 focus:outline-none resize-none placeholder-gray-600"
+        rows="1" placeholder="Add a note..." data-note-row-id="${row.id}">${savedNote}</textarea>
+    `;
+    
+    return html;
 }
 
 function handleScoreClick(btnElement, prefix) {
