@@ -100,39 +100,33 @@ if (!document.getElementById(styleId)) {
     style.textContent = `
         .score-btn-wrapper { position: relative; display: inline-block; overflow: visible; }
         
-        /* Default: Tooltip pops UP (Standard) */
+        /* --- DEFAULT TOOLTIP (Pops UP, Aligned Left) --- */
         .rubric-tooltip {
             visibility: hidden; position: absolute; z-index: 9999; 
-            bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%); 
+            
+            /* Position ABOVE the button */
+            bottom: calc(100% + 8px); 
+            
+            /* Align left edge with button left edge (Prevents left-side clipping) */
+            left: 0; 
+            
             width: max-content; max-width: 250px;
             background-color: #0f172a; color: #e5e7eb; font-size: 11px; line-height: 1.4;
             border-radius: 6px; padding: 8px 12px; opacity: 0;
             transition: opacity 0.15s ease-in-out; pointer-events: none;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
             border: 1px solid rgba(255,255,255,0.1);
-            white-space: normal; text-align: center;
-        }
-
-        /* Tiny Arrow pointing DOWN (Default) */
-        .rubric-tooltip::after {
-            content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px;
-            border-width: 5px; border-style: solid;
-            border-color: #0f172a transparent transparent transparent;
-        }
-
-        /* ✅ FIX: For the FIRST row only, make tooltip pop DOWN */
-        .live-score-row:first-child .rubric-tooltip {
-            bottom: auto;
-            top: calc(100% + 12px);
-        }
-        
-        /* Flip the arrow to point UP for the first row */
-        .live-score-row:first-child .rubric-tooltip::after {
-            top: auto; bottom: 100%;
-            border-color: transparent transparent #0f172a transparent;
+            white-space: normal; text-align: left;
         }
 
         .score-btn-wrapper:hover .rubric-tooltip { visibility: visible; opacity: 1; }
+
+        /* --- FIX: TOP ROW ONLY (Pops DOWN) --- */
+        /* This detects the first row and flips the tooltip to the bottom */
+        .live-score-row:first-child .rubric-tooltip {
+            bottom: auto;
+            top: calc(100% + 8px);
+        }
     `;
     document.head.appendChild(style);
 }
