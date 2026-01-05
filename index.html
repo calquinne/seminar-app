@@ -697,7 +697,54 @@
 
         </div>
       </div>
-    </div>
+    <div class="mt-8 pt-6 border-t border-white/10">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+           <div>
+              <h3 class="text-lg font-semibold text-white">Rubric Breakdown</h3>
+              <p class="text-sm text-gray-400">Analyze performance by specific rubric rows.</p>
+           </div>
+           
+           <div class="flex gap-2">
+              <select id="analytics-rubric-select" class="bg-black/30 border border-white/10 rounded-lg text-xs p-2 text-white outline-none focus:border-primary-500">
+                 <option value="">Loading Rubrics...</option>
+              </select>
+              <select id="analytics-class-filter" class="bg-black/30 border border-white/10 rounded-lg text-xs p-2 text-white outline-none focus:border-primary-500">
+                 <option value="all">All Classes</option>
+              </select>
+           </div>
+        </div>
+
+        <div id="rubric-analysis-container" class="space-y-4">
+           <div class="text-sm text-gray-500 italic p-4 text-center border border-white/5 rounded-xl">
+              Select a rubric above to see the breakdown.
+           </div>
+        </div>
+      </div>
+
+    </div> <dialog id="score-breakdown-modal" 
+            class="backdrop:bg-black/80 bg-gray-900 text-gray-100 rounded-2xl shadow-2xl w-full max-w-sm border border-white/10 p-0">
+        
+        <div class="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+            <div>
+               <h3 class="font-bold text-white text-sm" id="breakdown-modal-title">Rubric Row</h3>
+               <div class="text-xs text-primary-400 font-mono" id="breakdown-modal-subtitle">Score: - pts</div>
+            </div>
+            <button onclick="document.getElementById('score-breakdown-modal').close()" class="text-gray-400 hover:text-white">✕</button>
+        </div>
+
+        <div class="p-4">
+            <div class="text-xs text-gray-500 mb-2 uppercase tracking-wide">Students</div>
+            <ul id="breakdown-student-list" class="space-y-2 max-h-60 overflow-y-auto">
+               </ul>
+        </div>
+        
+        <div class="p-3 border-t border-white/10 bg-black/20 text-center">
+             <button onclick="document.getElementById('score-breakdown-modal').close()" 
+                     class="w-full px-4 py-2 text-xs rounded-lg bg-white/10 hover:bg-white/20">
+                 Close
+             </button>
+        </div>
+    </dialog>
 
   </section>
     </div> <!-- end of analytics tab -->
