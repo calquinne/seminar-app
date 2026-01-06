@@ -5,7 +5,13 @@
 
 import * as UI from "./ui.js";
 import { uploadFile } from "./firestore.js";
-import { doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import {
+  doc,
+  collection,
+  setDoc,
+  updateDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import * as Rubrics from "./rubrics.js"; 
 
 // ✅ LOCAL STATE
