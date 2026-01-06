@@ -164,14 +164,6 @@ export async function handleArchiveClass() {
   }
 }
 
-import { 
-    getStorage, ref, uploadBytesResumable, getDownloadURL 
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-import { 
-    collection, doc, setDoc, serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import * as UI from "./ui.js";
-
 /* -------------------------------------------------------------------------- */
 /* File Upload & Metadata (Final Production Version)
 /* -------------------------------------------------------------------------- */
