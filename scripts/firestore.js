@@ -53,7 +53,7 @@ export async function initFirebase() {
     const db = getFirestore(app);
     const storage = getStorage(app);
     
-    // ✅ FIXED: Initialize Auth here so UI.auth is populated
+    // ✅ Initialize Auth here so UI.auth is populated
     const auth = getAuth(app); 
 
     try {
@@ -164,7 +164,7 @@ export async function handleArchiveClass() {
   }
 }
 
-//* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 /* File Upload & Metadata (Cloud Only)
 /* -------------------------------------------------------------------------- */
 export async function uploadFile(blob, metadata) {
@@ -221,7 +221,7 @@ export async function uploadFile(blob, metadata) {
         status: "ready"
     });
 
-    return { id: videoId, storagePath, downloadURL };
+    return { id: videoId, storagePath: storagePath, downloadURL };
 
   } catch (error) {
     console.error("Upload/Save failed:", error);
@@ -277,6 +277,9 @@ export async function flushOfflineQueue() {
       clearTx.objectStore(UI.IDB_STORE).clear();
 
       for (const item of items) {
+        // ✅ FIX #1: Skip "local" items in offline queue so they don't crash uploadFile
+        if (item.metadata?.storagePath === "local") continue;
+
         await uploadFile(item.blob, item.metadata);
       }
     };
@@ -319,9 +322,12 @@ export async function loadLibrary() {
       title.className = "font-semibold text-white";
       title.textContent = `${v.classEventTitle || "Untitled"} — ${v.participant || "Unknown"}`;
       
+      // ✅ FIX #2: Safe date handling to prevent crashes
+      const dateStr = v.recordedAt ? new Date(v.recordedAt).toLocaleDateString() : "Unknown Date";
+      
       const meta = document.createElement("div");
       meta.className = "text-xs text-gray-400";
-      meta.textContent = `${new Date(v.recordedAt).toLocaleDateString()} • ${(v.fileSize / 1024 / 1024).toFixed(1)} MB`;
+      meta.textContent = `${dateStr} • ${(v.fileSize / 1024 / 1024).toFixed(1)} MB`;
       
       const actions = document.createElement("div");
       actions.className = "flex items-center gap-4 mt-2";
