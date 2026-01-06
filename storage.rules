@@ -1,21 +1,14 @@
 rules_version = '2';
-
 service firebase.storage {
-  // Must always use {bucket}, NOT the literal bucket name
   match /b/{bucket}/o {
-
-    /* ------------------------------ */
-    /*      Allowed File Types        */
-    /* ------------------------------ */
+    
     function isAllowedContentType() {
-      return request.resource.contentType.matches('video/.*') ||
-             request.resource.contentType.matches('image/.*') ||
-             request.resource.contentType.matches('application/pdf');
+      return request.resource.contentType.matches('video/.*') 
+          || request.resource.contentType.matches('image/.*') 
+          || request.resource.contentType.matches('application/pdf');
     }
-
-    /* ------------------------------ */
-    /*      Admin Role Checker        */
-    /* ------------------------------ */
+    
+    // ✅ REFINEMENT 2: Restored strict Admin check (matches your original rules)
     function isAdmin(appId) {
       let userDoc = firestore.get(
         /databases/(default)/documents/artifacts/$(appId)/users/$(request.auth.uid)
@@ -23,22 +16,20 @@ service firebase.storage {
       return userDoc.data != null && userDoc.data.role == 'admin';
     }
 
-    /* ------------------------------ */
-    /*     Main Artifact Structure    */
-    /* ------------------------------ */
+    // LEGACY: Allow reading old videos
+    match /users/{userId}/{allPaths=**} {
+      allow get, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // NEW: Artifacts structure
     match /artifacts/{appId}/users/{userId}/{allPaths=**} {
-
-      // Upload/update only your own files
-      allow create, update: if request.auth != null
-                            && request.auth.uid == userId
-                            && isAllowedContentType();
-
-      // Read/delete only your own files
-      allow get, delete: if request.auth != null
-                         && request.auth.uid == userId;
-
-      // Admins can read everything
-      allow get: if isAdmin(appId);
+       allow create, update: if request.auth != null 
+                             && request.auth.uid == userId 
+                             && isAllowedContentType();
+                             
+       allow get, delete: if request.auth != null && request.auth.uid == userId;
+       
+       allow get: if isAdmin(appId);
     }
   }
 }

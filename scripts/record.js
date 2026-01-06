@@ -660,23 +660,32 @@ export async function exportToLocal(metadata) {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Metadata Submit Handler (Safe Version)
+/* -------------------------------------------------------------------------- */
 export async function handleMetadataSubmit(e) {
   e.preventDefault();
+
   if (!UI.currentRecordingBlob) {
     UI.toast("No recording to save.", "error");
     return;
   }
+
+  // --- Gather Metadata ---
   const metaClassEl = UI.$("#meta-class");
   const selectedClassText = metaClassEl.options[metaClassEl.selectedIndex]?.text || "N/A";
   const activeRubric = Rubrics.getActiveRubric();
+  
   if (!activeRubric) UI.toast("Warning: No rubric selected.", "info");
 
+  // Capture Notes
   const noteElements = document.querySelectorAll('[data-note-row-id]');
   const capturedNotes = {};
   noteElements.forEach(el => {
       if (el.value.trim()) capturedNotes[el.dataset.noteRowId] = el.value.trim();
   });
 
+  // Capture Scores
   const finalScores = {};
   let totalScore = 0;
   latestRowScores.forEach((score, rowId) => {
@@ -696,11 +705,11 @@ export async function handleMetadataSubmit(e) {
     fileSize: UI.currentRecordingBlob.size,
     duration: UI.secondsElapsed,
     recordedAt: new Date().toISOString(),
-    tags: currentTags,
+    tags: currentTags, // Uses global variable from record.js
     hasScore: true, 
     rubricId: activeRubric ? activeRubric.id : null,
     rubricTitle: activeRubric ? activeRubric.title : null,
-    scoreEvents: liveScores,      
+    scoreEvents: liveScores, // Uses global variable from record.js
     finalScores: finalScores,     
     totalScore: totalScore,       
     rowNotes: capturedNotes       
@@ -711,19 +720,42 @@ export async function handleMetadataSubmit(e) {
     return;
   }
 
+  // --- START SAVING ---
   UI.$("#metadata-screen").close();
   UI.toast("Saving… please wait", "info");
 
   const storageChoice = UI.getStorageChoice(); 
-  if (storageChoice === "local") {
-    await exportToLocal(metadata);
-  } else if (storageChoice === "gdrive") {
-    UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
-  } else if (storageChoice === "firebase") {
-    await uploadFile(UI.currentRecordingBlob, metadata);
-    UI.toast("Uploaded to cloud successfully!", "success");
-    stopPreview();
-    const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
-    if (manageTabBtn) manageTabBtn.click();
+
+  try {
+      if (storageChoice === "local") {
+        await exportToLocal(metadata);
+      } else if (storageChoice === "gdrive") {
+        await UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
+      } else if (storageChoice === "firebase") {
+        // This now waits for the full upload AND metadata save
+        await uploadFile(UI.currentRecordingBlob, metadata);
+      }
+
+      // --- SUCCESS ---
+      UI.toast("Saved successfully!", "success");
+      stopPreview();
+      
+      const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
+      if (manageTabBtn) manageTabBtn.click();
+
+  } catch (err) {
+      // --- FAILURE SAFETY NET ---
+      console.error("Save pipeline failed:", err);
+      
+      // Stop the "Saving..." UI and show a real error
+      let msg = "Save failed. ";
+      if (err.code === "storage/unauthorized") {
+        msg += "Permission denied (Rules Mismatch).";
+      } else {
+        msg += "Check your connection.";
+      }
+      UI.toast(msg, "error");
+      
+      // We do NOT navigate away, so the user can try again without losing data.
   }
 }

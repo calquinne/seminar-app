@@ -164,74 +164,81 @@ export async function handleArchiveClass() {
   }
 }
 
+import { 
+    getStorage, ref, uploadBytesResumable, getDownloadURL 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { 
+    collection, doc, setDoc, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import * as UI from "./ui.js";
+
 /* -------------------------------------------------------------------------- */
-/* File Upload & Metadata
+/* File Upload & Metadata (Final Production Version)
 /* -------------------------------------------------------------------------- */
 export async function uploadFile(blob, metadata) {
-  if (!UI.db || !UI.currentUser) {
-    UI.toast("Not signed in.", "error");
-    return;
-  }
+  if (!UI.db || !UI.currentUser) throw new Error("Not signed in.");
 
-  // Generate ID locally first
-  const newRef = doc(collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`));
-  const videoId = newRef.id;
+  const appId = UI.getAppId();
+  if (!appId) throw new Error("CRITICAL: App ID missing. Cannot determine storage path.");
+
+  // 1. Generate ID FIRST (Stable ID for both Storage and Firestore)
+  const newDocRef = doc(collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`));
+  const videoId = newDocRef.id;
+
+  // 2. Construct Correct Path (Matches Rules: artifacts/...)
+  const filename = `${videoId}_${Date.now()}.webm`;
+  const storagePath = `artifacts/${appId}/users/${UI.currentUser.uid}/videos/${filename}`;
+  
+  // 3. Set Content Type (Required by Rules)
+  const contentType = blob.type || "video/webm";
+  const uploadMeta = { contentType };
+
+  UI.$("#upload-progress-container")?.classList.remove("hidden");
 
   try {
     let downloadURL = null;
-    let storagePath = null;
+    let finalStoragePath = null;
 
-    // If there is a blob, upload to Storage
-    if (blob) {
-      if (metadata.storagePath === "local") {
-         // It's a local file save, so no cloud storage path needed
-         downloadURL = null;
-         storagePath = "local";
-      } else {
-         // Cloud Upload
-         const path = `users/${UI.currentUser.uid}/videos/${videoId}_${Date.now()}.webm`;
-         const storageRef = ref(UI.storage, path);
-         const uploadTask = uploadBytesResumable(storageRef, blob);
+    if (blob && metadata.storagePath !== "local") {
+        const storageRef = ref(UI.storage, storagePath);
+        const uploadTask = uploadBytesResumable(storageRef, blob, uploadMeta);
 
-         UI.$("#upload-progress-container").classList.remove("hidden");
+        await new Promise((resolve, reject) => {
+            uploadTask.on('state_changed', 
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    const bar = UI.$("#upload-progress");
+                    if (bar) bar.style.width = `${progress}%`;
+                },
+                (error) => reject(error),
+                async () => resolve()
+            );
+        });
 
-         await new Promise((resolve, reject) => {
-           uploadTask.on(
-             "state_changed",
-             (snapshot) => {
-               const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-               UI.$("#upload-progress").style.width = `${progress}%`;
-             },
-             (error) => reject(error),
-             async () => {
-               downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-               storagePath = path;
-               resolve();
-             }
-           );
-         });
-         
-         UI.$("#upload-progress-container").classList.add("hidden");
-         
-         // Mock storage usage update
-         UI.mockUpdateStorageUsage((UI.userDoc.storageUsedBytes || 0) + blob.size);
-      }
+        downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        finalStoragePath = storagePath;
     }
 
-    // Save Metadata to Firestore
-    await setDoc(newRef, {
-      ...metadata,
-      downloadURL,
-      storagePath,
-      id: videoId,
-      createdAt: serverTimestamp()
+    // 4. Save Metadata to Firestore (Atomic Behavior)
+    await setDoc(newDocRef, {
+        ...metadata,
+        id: videoId,
+        storagePath: finalStoragePath || "local",
+        downloadURL: downloadURL,
+        createdAt: serverTimestamp(),
+        status: "ready"
     });
 
-  } catch (e) {
-    console.error("Upload error:", e);
-    UI.toast("Upload failed. Saving to offline queue.", "error");
-    saveToOfflineQueue(blob, metadata);
-    UI.$("#upload-progress-container").classList.add("hidden");
+    return { id: videoId, storagePath: finalStoragePath, downloadURL };
+
+  } catch (error) {
+    console.error("Upload/Save failed:", error);
+    // 5. CRITICAL: Throw error so the UI stops the "Saving..." spinner
+    throw error;
+
+  } finally {
+    // 6. Always clean up the progress bar
+    UI.$("#upload-progress-container")?.classList.add("hidden");
   }
 }
 
