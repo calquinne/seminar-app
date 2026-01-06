@@ -135,14 +135,13 @@ if (!document.getElementById(styleId)) {
 export function renderLiveScoringFromRubric(input = {}, context = "live", options = {}) {
   const prefix = context;
   
-  // 1. Determine Container (Support Modals via options.container)
+  // 1. Determine Container
   const rowsContainer = options.container || UI.$(`#${prefix}-scoring-rows`);
   const titleEl = !options.container ? (UI.$(`#${prefix}-rubric-title`) || UI.$(`#${prefix}-scoring-rubric-title`)) : null;
   const totalEl = !options.container ? UI.$(`#${prefix}-score-total`) : null;
 
-  // 2. Safety Check (Logs warning instead of crashing)
+  // 2. Safety Check
   if (!rowsContainer) {
-      // Only warn if we expect it to be there (ignore if tab is hidden)
       if (!options.container) console.warn(`[Record] Container not found for context: ${context}. Tab might be hidden.`);
       return;
   }
@@ -153,7 +152,7 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
   const existingScores = input.finalScores || input.scores || input.existingScores?.scores || input || {};
   const existingNotes = input.rowNotes || input.notes || input.existingScores?.notes || {};
   
-  // 4. Get Active Rubric
+  // 4. Get Active Rubric (Fixed Numbering)
   const rubric = input.rubricSnapshot || Rubrics.getActiveRubric();
   let initialTotal = 0;
 
@@ -176,7 +175,9 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
       }
 
       const rowEl = document.createElement("div");
-      rowEl.className = "mb-4 pb-3 border-b border-white/10 last:border-0 overflow-visible";
+      // ✅ CLASS RESTORED: 'live-score-row' (Fixes tooltips)
+      // ✅ SIZING RESTORED: 'mb-5 pb-4' (Fixes layout balance)
+      rowEl.className = "mb-5 pb-4 border-b border-white/10 last:border-0 overflow-visible live-score-row";
 
       // Render Header
       rowEl.innerHTML = `
@@ -188,7 +189,7 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
         </div>
       `;
 
-      // ✅ DISPATCH: Split Logic for Read-Only vs Interactive
+      // Dispatch
       if (options.readOnly) {
           rowEl.innerHTML += _renderReadOnlyRow(row, savedScore, savedNote);
       } else {
@@ -198,7 +199,7 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
       rowsContainer.appendChild(rowEl);
   });
 
-  // 6. Attach Listeners (Interactive Only)
+  // 6. Attach Listeners
   if (!options.readOnly) {
       rowsContainer.querySelectorAll(".live-score-btn").forEach((btn) => {
         btn.onclick = () => handleScoreClick(btn, prefix);
@@ -208,7 +209,7 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
   if (totalEl) totalEl.textContent = initialTotal;
 }
 
-// 🔒 Helper: Read-Only View (The "Scorecard")
+// 🔒 Helper: Read-Only View
 function _renderReadOnlyRow(row, savedScore, savedNote) {
     const scoreDisplay = savedScore !== undefined ? savedScore : "-";
     const max = row.maxPoints;
@@ -229,7 +230,7 @@ function _renderReadOnlyRow(row, savedScore, savedNote) {
     `;
 }
 
-// 🔓 Helper: Interactive View (Buttons & Textarea)
+// 🔓 Helper: Interactive View
 function _renderInteractiveRow(row, savedScore, savedNote, prefix) {
     let html = `<div class="flex flex-wrap gap-1 mb-2">`;
     
@@ -261,9 +262,10 @@ function _renderInteractiveRow(row, savedScore, savedNote, prefix) {
     });
     html += `</div>`;
     
+    // ✅ SIZING RESTORED: rows="2" (Fixes tiny text box)
     html += `
     <textarea class="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-gray-300 focus:border-primary-500 focus:outline-none resize-none placeholder-gray-600"
-        rows="1" placeholder="Add a note..." data-note-row-id="${row.id}">${savedNote}</textarea>
+        rows="2" placeholder="Add a note..." data-note-row-id="${row.id}">${savedNote}</textarea>
     `;
     
     return html;
