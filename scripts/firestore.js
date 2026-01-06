@@ -6,15 +6,11 @@
 // ✅ IMPORT UI TO HANDLE SCORING/PLAYBACK DELEGATION
 import * as UI from "./ui.js"; 
 
-import { 
-    doc, updateDoc, serverTimestamp, collection, setDoc 
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+// ✅ FIREBASE IMPORTS (Consolidated to prevent "Already Declared" errors)
 import { 
   initializeApp 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 
-// ✅ ADDED: Import getAuth
 import { 
   getAuth 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -22,9 +18,9 @@ import {
 import { 
   getFirestore, 
   collection, 
+  doc, 
   addDoc, 
   setDoc, 
-  doc, 
   getDoc, 
   getDocs, 
   updateDoc, 
