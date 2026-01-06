@@ -7,6 +7,10 @@
 import * as UI from "./ui.js"; 
 
 import { 
+    doc, updateDoc, serverTimestamp, collection, setDoc 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+import { 
   initializeApp 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 
@@ -164,72 +168,70 @@ export async function handleArchiveClass() {
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* File Upload & Metadata (Final Production Version)
+//* -------------------------------------------------------------------------- */
+/* File Upload & Metadata (Cloud Only)
 /* -------------------------------------------------------------------------- */
 export async function uploadFile(blob, metadata) {
   if (!UI.db || !UI.currentUser) throw new Error("Not signed in.");
 
-  const appId = UI.getAppId();
-  if (!appId) throw new Error("CRITICAL: App ID missing. Cannot determine storage path.");
+  // ✅ SAFETY GUARD: This function is for Cloud Uploads ONLY.
+  if (!blob) {
+      throw new Error("CRITICAL: uploadFile called without a file blob. Use exportToLocal for local saves.");
+  }
 
-  // 1. Generate ID FIRST (Stable ID for both Storage and Firestore)
+  const appId = UI.getAppId();
+  if (!appId) throw new Error("CRITICAL: App ID missing.");
+
+  // 1. Generate ID
   const newDocRef = doc(collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`));
   const videoId = newDocRef.id;
 
-  // 2. Construct Correct Path (Matches Rules: artifacts/...)
+  // 2. Construct Path
   const filename = `${videoId}_${Date.now()}.webm`;
   const storagePath = `artifacts/${appId}/users/${UI.currentUser.uid}/videos/${filename}`;
   
-  // 3. Set Content Type (Required by Rules)
+  // 3. Set Content Type
   const contentType = blob.type || "video/webm";
   const uploadMeta = { contentType };
 
   UI.$("#upload-progress-container")?.classList.remove("hidden");
 
   try {
-    let downloadURL = null;
-    let finalStoragePath = null;
+    // 4. Upload to Cloud
+    const storageRef = ref(UI.storage, storagePath);
+    const uploadTask = uploadBytesResumable(storageRef, blob, uploadMeta);
 
-    if (blob && metadata.storagePath !== "local") {
-        const storageRef = ref(UI.storage, storagePath);
-        const uploadTask = uploadBytesResumable(storageRef, blob, uploadMeta);
+    await new Promise((resolve, reject) => {
+        uploadTask.on('state_changed', 
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                const bar = UI.$("#upload-progress");
+                if (bar) bar.style.width = `${progress}%`;
+            },
+            (error) => reject(error),
+            async () => resolve()
+        );
+    });
 
-        await new Promise((resolve, reject) => {
-            uploadTask.on('state_changed', 
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    const bar = UI.$("#upload-progress");
-                    if (bar) bar.style.width = `${progress}%`;
-                },
-                (error) => reject(error),
-                async () => resolve()
-            );
-        });
+    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-        downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        finalStoragePath = storagePath;
-    }
-
-    // 4. Save Metadata to Firestore (Atomic Behavior)
+    // 5. Save Metadata
     await setDoc(newDocRef, {
         ...metadata,
         id: videoId,
-        storagePath: finalStoragePath || "local",
+        storagePath: storagePath,
         downloadURL: downloadURL,
         createdAt: serverTimestamp(),
         status: "ready"
     });
 
-    return { id: videoId, storagePath: finalStoragePath, downloadURL };
+    return { id: videoId, storagePath, downloadURL };
 
   } catch (error) {
     console.error("Upload/Save failed:", error);
-    // 5. CRITICAL: Throw error so the UI stops the "Saving..." spinner
     throw error;
 
   } finally {
-    // 6. Always clean up the progress bar
     UI.$("#upload-progress-container")?.classList.add("hidden");
   }
 }

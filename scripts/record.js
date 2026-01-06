@@ -595,19 +595,27 @@ export async function handleAddNewParticipant() {
   UI.$("#add-participant-container").classList.add("hidden");
 }
 
-export async function exportToLocal(metadata) {
+/* -------------------------------------------------------------------------- */
+/* Export to Local (Corrected & Complete)
+/* -------------------------------------------------------------------------- */
+async function exportToLocal(metadata) {
   try {
     const blob = UI.currentRecordingBlob;
     if (!blob) {
       UI.toast("No recording available to export.", "error");
       return;
     }
+
+    // 1. Prepare Filename
     const safeClass = (metadata.classEventTitle || "presentation").replace(/[^\w\d-_]+/g, "_").trim();
     const safeParticipant = (metadata.participant || "student").replace(/[^\w\d-_]+/g, "_").trim();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const fileName = `${safeClass}_${safeParticipant}_${timestamp}.webm`;
 
+    // 2. Save File to User's Device
     let savedViaPicker = false;
+    
+    // Attempt Modern File System Access API
     if (window.showSaveFilePicker) {
       try {
         const handle = await window.showSaveFilePicker({
@@ -619,44 +627,78 @@ export async function exportToLocal(metadata) {
         await writable.close();
         savedViaPicker = true;
       } catch (err) {
-        if (err.name === 'AbortError') { UI.toast("Save cancelled.", "info"); return; }
+        if (err.name === 'AbortError') { 
+            UI.toast("Save cancelled.", "info"); 
+            return; // Exit if user cancelled the picker
+        }
         console.warn("Picker failed, using fallback:", err);
       }
     }
+
+    // Fallback to "Download" anchor method
     if (!savedViaPicker) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
+      a.style.display = "none";
       a.href = url;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      
+      setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+      }, 100);
     }
+
     UI.toast("Saved to local device!", "success");
-    metadata.storagePath = "local";
-    metadata.downloadURL = null;
-    metadata.savedAs = fileName;
-    metadata.isLocal = true;
-    await uploadFile(null, metadata); 
+
+    // 3. Save Metadata Directly to Firestore (Bypassing uploadFile)
+    const appId = UI.getAppId();
+    if (appId && UI.currentUser) {
+        const newRef = doc(collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`));
+        
+        await setDoc(newRef, {
+            ...metadata,
+            id: newRef.id,
+            storagePath: "local",
+            downloadURL: null,
+            savedAs: fileName,
+            isLocal: true,
+            createdAt: serverTimestamp(),
+            status: "ready"
+        });
+    }
+
+    // 4. Cleanup & Reset UI
     stopPreview();
     const previewScreen = UI.$("#preview-screen");
     if (previewScreen) previewScreen.classList.add("hidden");
+    
     const manualPreviewBtn = UI.$("#manual-preview-btn");
     if(manualPreviewBtn) manualPreviewBtn.textContent = "Start Preview";
+    
     UI.setRecordedChunks([]);
     UI.setCurrentRecordingBlob(null);
     UI.updateRecordingUI("idle");
     clearTagList();
+    
+    // Reset Scoring UI
     renderLiveScoringFromRubric({}, "live");
+    
+    // Reset Timer
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.setSecondsElapsed(0);
     UI.$("#rec-timer").textContent = "00:00";
+
+    // 5. Navigate to Library/Manage
     const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
     if (manageTabBtn) manageTabBtn.click();
+
   } catch (err) {
     console.error("Local export error:", err);
     UI.toast(`Export failed: ${err.message}`, "error");
+    throw err; // Re-throw so handleMetadataSubmit knows it failed
   }
 }
 
