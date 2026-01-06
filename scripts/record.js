@@ -230,7 +230,7 @@ function _renderReadOnlyRow(row, savedScore, savedNote) {
     `;
 }
 
-// 🔓 Helper: Interactive View
+// 🔓 Helper: Interactive View (Buttons & Textarea)
 function _renderInteractiveRow(row, savedScore, savedNote, prefix) {
     let html = `<div class="flex flex-wrap gap-1 mb-2">`;
     
@@ -262,10 +262,10 @@ function _renderInteractiveRow(row, savedScore, savedNote, prefix) {
     });
     html += `</div>`;
     
-    // ✅ SIZING RESTORED: rows="2" (Fixes tiny text box)
+    // ✅ FIX: Added 'min-h-[50px]' to force height on all browsers
     html += `
-    <textarea class="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-gray-300 focus:border-primary-500 focus:outline-none resize-none placeholder-gray-600"
-        rows="2" placeholder="Add a note..." data-note-row-id="${row.id}">${savedNote}</textarea>
+    <textarea class="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-gray-300 focus:border-primary-500 focus:outline-none resize-none placeholder-gray-600 min-h-[50px]"
+        placeholder="Add a note..." data-note-row-id="${row.id}">${savedNote}</textarea>
     `;
     
     return html;
