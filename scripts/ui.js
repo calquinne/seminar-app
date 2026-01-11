@@ -503,15 +503,15 @@ export function closeVideoPlayer() {
 /* -------------------------------------------------------------------------- */
 /* Fullscreen Button
 /* -------------------------------------------------------------------------- */
-document.addEventListener("DOMContentLoaded", () => {
+export function initUIExtras() {
   const previewFS = document.getElementById("preview-fullscreen-btn");
   if (previewFS) {
     previewFS.onclick = () => {
       const v = document.getElementById("preview-player");
-      if (v?.requestFullscreen) v.requestFullscreen().catch(() => {});
+      if (v?.requestFullscreen) v.requestFullscreen();
     };
   }
-});
+}
 
 /* ========================================================================== */
 /* ✅ SCORING UI: SHELL ONLY

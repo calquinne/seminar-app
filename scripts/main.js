@@ -10,94 +10,108 @@ import * as Record from "./record.js";
 import * as Rubrics from "./rubrics.js"; 
 import * as Analytics from "./analytics.js";
 
+// DEV MODE flag from URL: ?dev=1
+window.__DEV_ANALYTICS__ = new URLSearchParams(window.location.search).get("dev") === "1";
+
+console.log("DEV FLAG =", window.__DEV_ANALYTICS__, window.location.href);
+
 /** Global app version (used for cache-busting and SW sync) */
 export const APP_VERSION = "v14";
 
 /* -------------------------------------------------------------------------- */
 /* Event Listeners Setup
 /* -------------------------------------------------------------------------- */
-
 function setupEventListeners() {
   console.log("Setting up event listeners...");
 
   // 1. Header Navigation
   const helpBtn = UI.$("#nav-help");
   if (helpBtn) helpBtn.onclick = () => UI.$("#help-faq-screen").showModal();
-  
+
   const accountBtn = UI.$("#nav-account");
   if (accountBtn) accountBtn.onclick = () => {
     const manageTabButton = UI.$(".app-tab[data-tab='tab-manage']");
     if (manageTabButton) manageTabButton.click();
   };
-  
+
   const signoutBtn = UI.$("#signout-btn");
   if (signoutBtn) signoutBtn.onclick = Auth.handleSignOut;
 
-  // 2. Setup Screen
+  // 2. Setup Screen: Save Button
   const setupSave = UI.$("#setup-save");
-  if (setupSave) setupSave.onclick = () => {
-    try {
-      const configStr =
-        UI.$("#firebase-config-json").value.trim() ||
-        UI.$("#firebase-config-json").placeholder;
-      const cfg = JSON.parse(configStr);
-      localStorage.setItem(UI.LS.CFG, JSON.stringify(cfg));
-      localStorage.setItem(UI.LS.APP, UI.$("#app-id-input").value || "seminar-cloud");
-      UI.setStorageChoice(UI.$("input[name='storageChoice']:checked").value);
-
-      if (DB.initFirebase()) {
-        Auth.onAuthReady();
-      } else {
-        UI.toast("Firebase config appears invalid.", "error");
+  if (setupSave) {
+    setupSave.onclick = () => {
+      const rawConfig = UI.$("#setup-config").value.trim();
+      if (!rawConfig) {
+        UI.toast("Please paste a JSON config.", "error");
+        return;
       }
-    } catch (e) {
-      UI.toast("Bad config JSON. " + e.message, "error");
-    }
-  };
 
+      try {
+        JSON.parse(rawConfig);
+        localStorage.setItem(UI.LS.CFG, rawConfig);
+        
+        // Define storageChoiceEl before using it
+        const storageChoiceEl = UI.$("#setup-storage-choice"); 
+        const choice = (storageChoiceEl && storageChoiceEl.checked) ? storageChoiceEl.value : "firebase";
+        UI.setStorageChoice(choice);
+
+        UI.toast("Config saved. Reloading...", "success");
+        setTimeout(() => window.location.reload(), 1000);
+      } catch (e) {
+        UI.toast("Invalid JSON format.", "error");
+      }
+    };
+  }
+
+  // 3. Setup Screen: Offline Button
   const setupOffline = UI.$("#setup-offline");
-  if (setupOffline) setupOffline.onclick = () => {
-    localStorage.removeItem(UI.LS.CFG);
-    UI.setStorageChoice("firebase");
-    UI.showScreen("auth-screen");
-    UI.toast("Testing in offline mode. Firebase is disabled.", "info");
-  };
+  if (setupOffline) {
+    setupOffline.onclick = () => {
+      localStorage.removeItem(UI.LS.CFG);
+      UI.setStorageChoice("firebase"); // Default fallback
+      UI.toast("Offline mode enabled.", "info");
+      
+      // Attempt to reload or let Auth handle the "no config" state
+      window.location.reload();
+    };
+  }
 
-  // 3. Auth Screen
+  // 4. Auth Forms
   const authForm = UI.$("#auth-form");
-  if (authForm) authForm.onsubmit = (e) => Auth.handleAuthFormSubmit(e);
-  
+  if (authForm) authForm.onsubmit = Auth.handleAuthFormSubmit;
+
   const googleBtn = UI.$("#auth-google-btn");
   if (googleBtn) googleBtn.onclick = Auth.handleGoogleSignIn;
-  
-  const signupForm = UI.$("#signup-form");
-  if (signupForm) signupForm.onsubmit = (e) => Auth.handleAuthFormSubmit(e);
 
-  // 4. Main App Tabs
+  const signupForm = UI.$("#signup-form");
+  if (signupForm) signupForm.onsubmit = Auth.handleAuthFormSubmit;
+
+  // 5. Main App Tabs
   UI.$$(".app-tab").forEach((btn) => {
     btn.onclick = (e) => {
-      // 1. Standard UI Switching (Keep your existing helpers)
+      // Standard UI Switching
       UI.handleTabClick(
         e,
-        DB.refreshClassesList,      // Matches your existing code
-        Rubrics.loadSavedRubrics,   // Matches your existing code
-        Record.startPreviewSafely,  // Matches your existing code
-        DB.loadLibrary              // Matches your existing code
+        DB.refreshClassesList,      
+        Rubrics.loadSavedRubrics,   
+        Record.startPreviewSafely,  
+        DB.loadLibrary              
       );
 
-      // 2. ✅ ADDED: Analytics Trigger
+      // Analytics Trigger
       if (btn.dataset.tab === "tab-analytics") {
           Analytics.loadAnalytics();
       }
     };
   });
   
-  // Rubric Sub-tabs (if any)
+  // Rubric Sub-tabs
   UI.$$(".sub-tab").forEach((btn) => {
       btn.onclick = UI.handleRubricTabClick;
   });
 
-  // 5. Rubric Builder
+  // 6. Rubric Builder
   const addRowBtn = UI.$("#add-rubric-row-btn");
   if (addRowBtn) addRowBtn.onclick = () => Rubrics.addBuilderRow();
   
@@ -109,7 +123,7 @@ function setupEventListeners() {
       Rubrics.addBuilderRow();
   }
 
-  // 6. Class / Event Manager
+  // 7. Class / Event Manager
   const newClassBtn = UI.$("#new-class-btn");
   if (newClassBtn) newClassBtn.onclick = UI.clearClassEditor;
   
@@ -125,7 +139,7 @@ function setupEventListeners() {
   const storageProvider = UI.$("#storage-provider");
   if (storageProvider) storageProvider.onchange = async (e) => {
     const confirmed = await UI.showConfirm(
-      "Changing providers will hide all files from the old location in the app. This is for a 'fresh start' and does not move old data.",
+      "Changing providers will hide all files from the old location in the app.",
       "Are you sure?",
       "Change"
     );
@@ -137,7 +151,7 @@ function setupEventListeners() {
     }
   };
 
-  // 7. Record Tab Controls
+  // 8. Record Tab Controls
   const startBtn = UI.$("#start-rec-btn");
   if (startBtn) startBtn.onclick = Record.startRecording;
   
@@ -167,7 +181,6 @@ function setupEventListeners() {
         await Record.startPreviewSafely();
         manualPreviewBtn.textContent = "Stop Preview";
       } else {
-        // Safe stop logic
         const video = UI.$("#preview-player");
         if (video) {
             video.srcObject = null;
@@ -192,7 +205,7 @@ function setupEventListeners() {
     };
   }
 
-  // 8. Metadata Screen (After Recording)
+  // 9. Metadata Screen
   const metaForm = UI.$("#metadata-form");
   if (metaForm) metaForm.onsubmit = (e) => Record.handleMetadataSubmit(e);
   
@@ -208,7 +221,7 @@ function setupEventListeners() {
   const cancelUploadBtn = UI.$("#cancel-upload-btn");
   if (cancelUploadBtn) cancelUploadBtn.onclick = async () => {
     const confirmed = await UI.showConfirm(
-      "Are you sure you want to cancel and discard this recording?",
+      "Discard recording?",
       "Cancel Upload?",
       "Discard"
     );
@@ -218,67 +231,40 @@ function setupEventListeners() {
     }
   };
 
- // 9. Scoring Dialog / Player View (Updated for Playback IDs)
-  // -----------------------------------------------------------------------
-  // Listen for the NEW ID we added to index.html
+  // 10. Video Player Controls
   const playbackCloseBtn = UI.$("#playback-close-btn");
-  
-  if (playbackCloseBtn) {
-      playbackCloseBtn.onclick = () => {
-          UI.closeVideoPlayer();
-      };
-  }
+  if (playbackCloseBtn) playbackCloseBtn.onclick = () => UI.closeVideoPlayer();
 
-  // Also listen for the old legacy ID just in case (safety)
   const legacyCloseBtn = UI.$("#player-close-btn");
-  if (legacyCloseBtn) {
-      legacyCloseBtn.onclick = () => {
-          UI.closeVideoPlayer();
-      };
-  }
-  // 10. Library Click Handler - REMOVED
-  // Rationale: Logic is now handled via direct button binding in firestore.js (loadLibrary)
-  // to ensure Single Source of Truth for opening videos.
+  if (legacyCloseBtn) legacyCloseBtn.onclick = () => UI.closeVideoPlayer();
 
-  // 11. Video Player Controls
   const getMainPlayer = () => UI.$("#main-player");
   
-  const vpClose = UI.$("#player-close-btn");
-  if (vpClose) vpClose.onclick = () => UI.closeVideoPlayer();
-
   const vpBack = UI.$("#player-back-10");
-  if (vpBack) {
-    vpBack.onclick = () => {
+  if (vpBack) vpBack.onclick = () => {
       const v = getMainPlayer();
       if (v) v.currentTime = Math.max(0, v.currentTime - 10);
-    };
-  }
+  };
 
   const vpFwd = UI.$("#player-fwd-10");
-  if (vpFwd) {
-    vpFwd.onclick = () => {
+  if (vpFwd) vpFwd.onclick = () => {
       const v = getMainPlayer();
       if (v) v.currentTime = Math.min(v.duration, v.currentTime + 10);
-    };
-  }
+  };
 
   const vpSpeed = UI.$("#player-speed");
-  if (vpSpeed) {
-    vpSpeed.onchange = () => {
+  if (vpSpeed) vpSpeed.onchange = () => {
       const v = getMainPlayer();
       if (v) v.playbackRate = parseFloat(vpSpeed.value) || 1;
-    };
-  }
+  };
 
   const vpFullscreen = UI.$("#player-fullscreen-btn");
-  if (vpFullscreen) {
-    vpFullscreen.onclick = () => {
+  if (vpFullscreen) vpFullscreen.onclick = () => {
       const v = getMainPlayer();
       if (v?.requestFullscreen) v.requestFullscreen();
-    };
-  }
+  };
 
-  // 12. Network Events
+  // 11. Network Events
   window.addEventListener("online", () => {
     UI.toast("You're back online!", "success");
     DB.flushOfflineQueue();
@@ -288,52 +274,69 @@ function setupEventListeners() {
     UI.toast("You're offline. Recordings will be queued for upload.", "info");
   });
 
+  // 12. Global Helpers
   UI.setupGlobalErrorHandlers();
   Auth.initAuthUI();
 
   console.log("Event listeners attached.");
-}
+} // <--- ✅ THIS IS THE FINAL CLOSING BRACE
 
 /* -------------------------------------------------------------------------- */
-/* Main App Boot Sequence
+/* APPLICATION BOOTSTRAP — SINGLE ENTRY POINT
 /* -------------------------------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", async () => {
+  console.log("🚀 DOM Loaded. Starting App...");
 
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM loaded.");
-
+  // 1. Wire UI (Synchronous)
   setupEventListeners();
-  UI.registerSW();
+  if (UI.registerSW) UI.registerSW();
 
-  (async () => {
-    const appVersion = APP_VERSION;
-    const storedVersion = localStorage.getItem("appVersion");
+  // 2. 🚧 DEV MODE — HARD SHORT CIRCUIT
+  if (window.__DEV_ANALYTICS__) {
+    console.warn("[DEV] 🚧 Bypassing Firebase & Auth (DEV Mode Active)");
 
-    if (storedVersion !== appVersion) {
-      console.log(`Cache mismatch. Stored: ${storedVersion}, New: ${appVersion}. Clearing cache…`);
-      if (window.caches) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
+    const fakeUser = {
+      uid: "dev-user",
+      email: "dev@local",
+      displayName: "DEV USER"
+    };
+
+    // Mock UI for dev
+    UI.updateUIAfterAuth(fakeUser, {
+      role: "admin",
+      activeSubscription: true,
+      storageUsedBytes: 0,
+      planStorageLimit: Infinity,
+      planTier: "dev",
+      isAdmin: true
+    });
+
+    UI.showScreen("main-app");
+    return; // ⛔ STOP HERE. Do not Init Firebase.
+  }
+
+  // 3. Normal Boot
+  UI.showScreen("loading-screen");
+
+  // Check LocalStorage for config
+  const config = localStorage.getItem(UI.LS.CFG);
+  if (!config) {
+    console.log("ℹ️ No config found. Redirecting to Setup.");
+    UI.showScreen("setup-screen");
+    return;
+  }
+
+  // Initialize Firebase
+  try {
+      const firebaseReady = await DB.initFirebase();
+      if (!firebaseReady) {
+        throw new Error("Init returned false");
       }
-      localStorage.setItem("appVersion", appVersion);
-      if (!sessionStorage.getItem("reloadDone")) {
-        sessionStorage.setItem("reloadDone", "true");
-        window.location.reload();
-        return;
-      }
-    }
-    sessionStorage.removeItem("reloadDone");
-
-    UI.showScreen("loading-screen");
-
-    const config = localStorage.getItem(UI.LS.CFG);
-    if (config) {
-      if (await DB.initFirebase()) {
-        Auth.onAuthReady();
-      } else {
-        UI.showScreen("setup-screen");
-      }
-    } else {
-      UI.showScreen("setup-screen");
-    }
-  })();
+      // Start Auth Listener
+      console.log("✅ Firebase Ready. Waiting for Auth...");
+      Auth.onAuthReady();
+  } catch (e) {
+    console.error("❌ Boot Failed:", e);
+    UI.showScreen("setup-screen");
+  }
 });

@@ -1,5 +1,5 @@
 /* ========================================================================== */
-/* MODULE: record.js
+/* MODULE: record.js (Final: Safe + Correct State + Cancel Support)
 /* Exports all MediaRecorder, Preview, and Metadata/Scoring logic.
 /* ========================================================================== */
 
@@ -25,16 +25,20 @@ let previewLock = false;              // Prevents double-taps
 /* LIBRARY CONTEXT & SAVE HANDLER
 /* ========================================================================== */
 
-// Called by ui.js when opening a video
 export function setCurrentLibraryVideoId(id) {
   currentLibraryVideoId = id;
 }
 
 // ✅ GLOBAL LISTENER: Handles "Save Score" button click in Library View
-// Updated to listen for the new ID: #playback-save-btn
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest("#playback-save-btn, #scoring-save-btn");
   if (btn) {
+      // ✅ SAFETY GUARD: Prevent save attempts if DB isn't ready
+      if (!UI.db || !UI.currentUser) {
+          UI.toast("Database not ready. Please wait or sign in.", "error");
+          return;
+      }
+
       if (!currentLibraryVideoId) {
           UI.toast("No active library video to save.", "error");
           return;
@@ -75,7 +79,7 @@ document.addEventListener("click", async (e) => {
               finalScores,
               rowNotes,
               totalScore,
-              hasScore: true, // ✅ CRITICAL: Marks video as scored
+              hasScore: true,
               lastScore: totalScore,
               rubricId: rubric?.id || null,
               rubricTitle: rubric?.title || null,
@@ -98,25 +102,15 @@ document.addEventListener("click", async (e) => {
 /* ✅ DUAL-MODE SCORING RENDERER (LIVE vs PLAYBACK)
 /* ========================================================================== */
 
-// Inject styles for tooltips once
 const styleId = "rubric-tooltip-styles";
 if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
         .score-btn-wrapper { position: relative; display: inline-block; overflow: visible; }
-        
-        /* --- DEFAULT TOOLTIP (Pops UP, Aligned Left) --- */
         .rubric-tooltip {
             visibility: hidden; position: absolute; z-index: 9999; 
-            
-            /* Position ABOVE the button */
-            bottom: calc(100% + 8px); 
-            
-            /* Align left edge with button left edge (Prevents left-side clipping) */
-            left: 0; 
-            
-            width: max-content; max-width: 250px;
+            bottom: calc(100% + 8px); left: 0; width: max-content; max-width: 250px;
             background-color: #0f172a; color: #e5e7eb; font-size: 11px; line-height: 1.4;
             border-radius: 6px; padding: 8px 12px; opacity: 0;
             transition: opacity 0.15s ease-in-out; pointer-events: none;
@@ -124,41 +118,56 @@ if (!document.getElementById(styleId)) {
             border: 1px solid rgba(255,255,255,0.1);
             white-space: normal; text-align: left;
         }
-
         .score-btn-wrapper:hover .rubric-tooltip { visibility: visible; opacity: 1; }
-
-        /* --- FIX: TOP ROW ONLY (Pops DOWN) --- */
-        /* This detects the first row and flips the tooltip to the bottom */
-        .live-score-row:first-child .rubric-tooltip {
-            bottom: auto;
-            top: calc(100% + 8px);
-        }
+        .live-score-row:first-child .rubric-tooltip { bottom: auto; top: calc(100% + 8px); }
     `;
     document.head.appendChild(style);
 }
 
-// ✅ MAIN RENDERER: Dispatches to Read-Only or Interactive helper
+// ✅ MAIN RENDERER
 export function renderLiveScoringFromRubric(input = {}, context = "live", options = {}) {
   const prefix = context;
   
-  // 1. Determine Container
   const rowsContainer = options.container || UI.$(`#${prefix}-scoring-rows`);
   const titleEl = !options.container ? (UI.$(`#${prefix}-rubric-title`) || UI.$(`#${prefix}-scoring-rubric-title`)) : null;
   const totalEl = !options.container ? UI.$(`#${prefix}-score-total`) : null;
 
-  // 2. Safety Check
   if (!rowsContainer) {
       if (!options.container) console.warn(`[Record] Container not found for context: ${context}. Tab might be hidden.`);
       return;
   }
 
+  // ✅ CORRECTNESS FIX: Clear old scores before drawing new ones (unless Read Only)
+  if (!options.readOnly && context !== "analytics") {
+      latestRowScores.clear();
+  }
+
+  // ✅ SCROLL FIX: Delay slightly to allow the screen to become visible first
+  // Browsers cannot scroll "hidden" elements. The 150ms delay ensures the 
+  // 'hidden' class is removed and the layout is painted before we scroll.
+  setTimeout(() => {
+      // 1. Try the container itself
+      if (rowsContainer) rowsContainer.scrollTop = 0;
+
+      // 2. Walk up the tree to find the scrolling parent
+      let parent = rowsContainer ? rowsContainer.parentElement : null;
+      for (let i = 0; i < 6 && parent; i++) {
+          if (parent.scrollTop > 0) parent.scrollTop = 0;
+          parent = parent.parentElement;
+      }
+
+      // 3. Nuclear Option: Reset ANY sidebar or scrollable area on the screen
+      // This catches the specific <aside> or div that holds the scrollbar
+      document.querySelectorAll('aside, .overflow-y-auto').forEach(el => {
+          if (el.scrollTop > 0) el.scrollTop = 0;
+      });
+  }, 150); 
+
   rowsContainer.innerHTML = "";
   
-  // 3. Normalize Input
   const existingScores = input.finalScores || input.scores || input.existingScores?.scores || input || {};
   const existingNotes = input.rowNotes || input.notes || input.existingScores?.notes || {};
   
-  // 4. Get Active Rubric (Fixed Numbering)
   const rubric = input.rubricSnapshot || Rubrics.getActiveRubric();
   let initialTotal = 0;
 
@@ -170,7 +179,6 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
 
   if(titleEl) titleEl.textContent = rubric.title;
 
-  // 5. Build Rows
   rubric.rows.forEach((row, index) => {
       let savedScore = existingScores[row.id];
       let savedNote = existingNotes[row.id] || "";
@@ -181,11 +189,8 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
       }
 
       const rowEl = document.createElement("div");
-      // ✅ CLASS RESTORED: 'live-score-row' (Fixes tooltips)
-      // ✅ SIZING RESTORED: 'mb-5 pb-4' (Fixes layout balance)
       rowEl.className = "mb-5 pb-4 border-b border-white/10 last:border-0 overflow-visible live-score-row";
 
-      // Render Header
       rowEl.innerHTML = `
         <div class="flex justify-between items-end mb-2">
           <span class="text-sm font-medium text-white">
@@ -195,7 +200,6 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
         </div>
       `;
 
-      // Dispatch
       if (options.readOnly) {
           rowEl.innerHTML += _renderReadOnlyRow(row, savedScore, savedNote);
       } else {
@@ -205,7 +209,6 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
       rowsContainer.appendChild(rowEl);
   });
 
-  // 6. Attach Listeners
   if (!options.readOnly) {
       rowsContainer.querySelectorAll(".live-score-btn").forEach((btn) => {
         btn.onclick = () => handleScoreClick(btn, prefix);
@@ -214,8 +217,6 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
 
   if (totalEl) totalEl.textContent = initialTotal;
 }
-
-// 🔒 Helper: Read-Only View
 function _renderReadOnlyRow(row, savedScore, savedNote) {
     const scoreDisplay = savedScore !== undefined ? savedScore : "-";
     const max = row.maxPoints;
@@ -236,7 +237,6 @@ function _renderReadOnlyRow(row, savedScore, savedNote) {
     `;
 }
 
-// 🔓 Helper: Interactive View (Buttons & Textarea)
 function _renderInteractiveRow(row, savedScore, savedNote, prefix) {
     let html = `<div class="flex flex-wrap gap-1 mb-2">`;
     
@@ -268,7 +268,6 @@ function _renderInteractiveRow(row, savedScore, savedNote, prefix) {
     });
     html += `</div>`;
     
-    // ✅ FIX: Added 'min-h-[50px]' to force height on all browsers
     html += `
     <textarea class="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-gray-300 focus:border-primary-500 focus:outline-none resize-none placeholder-gray-600 min-h-[50px]"
         placeholder="Add a note..." data-note-row-id="${row.id}">${savedNote}</textarea>
@@ -284,7 +283,6 @@ function handleScoreClick(btnElement, prefix) {
     const rowId = btnElement.dataset.rowId;
     const score = Number(btnElement.dataset.score);
     
-    // 1. Visual Update
     const allBtns = container.querySelectorAll(".live-score-btn");
     allBtns.forEach(b => {
         b.className = "live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none bg-white/10 text-gray-300 hover:bg-white/20 border-transparent";
@@ -292,14 +290,12 @@ function handleScoreClick(btnElement, prefix) {
     
     btnElement.className = "live-score-btn w-8 h-8 text-xs rounded transition-all border focus:outline-none bg-primary-600 text-white border-primary-400 font-bold scale-110 shadow-md";
     
-    // 2. Record Event (only if recording AND in live mode)
     if (prefix === 'live' && UI.mediaRecorder && (UI.mediaRecorder.state === 'recording' || UI.mediaRecorder.state === 'paused')) {
         const timestamp = UI.secondsElapsed;
         liveScores.push({ rowId, score, timestamp });
         UI.toast(`Scored ${score} pts`, "success");
     }
     
-    // 3. Update Total (Targeting the correct element)
     latestRowScores.set(rowId, score);
     let total = 0;
     latestRowScores.forEach(val => total += val);
@@ -313,7 +309,7 @@ function handleScoreClick(btnElement, prefix) {
 }
 
 /* ========================================================================== */
-/* RECORDING / PREVIEW (Context: "live")
+/* RECORDING / PREVIEW
 /* ========================================================================== */
 
 function clearTagList() {
@@ -360,6 +356,10 @@ export async function startPreviewSafely() {
 
   if (!previewVideo || !previewScreen) return;
 
+  // ✅ CORRECTNESS FIX: Clear session state on new preview
+  liveScores = [];
+  latestRowScores.clear();
+
   previewScreen.classList.remove("recording-active");
   previewVideo.muted = true;
   previewVideo.playsInline = true;
@@ -375,7 +375,6 @@ export async function startPreviewSafely() {
   clearTagList();
   currentLibraryVideoId = null;
   
-  // ✅ RENDER FOR LIVE CONTEXT
   renderLiveScoringFromRubric({}, "live"); 
 
   if (UI.timerInterval) clearInterval(UI.timerInterval);
@@ -421,12 +420,15 @@ export async function startRecording() {
     if (!UI.mediaStream) return;
   }
 
+  // ✅ CORRECTNESS FIX: Clear session state on recording start
+  liveScores = [];
+  latestRowScores.clear();
+
   UI.updateRecordingUI("recording");
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
   clearTagList();
   
-  // ✅ RENDER FOR LIVE CONTEXT
   renderLiveScoringFromRubric({}, "live");
 
   try {
@@ -514,6 +516,11 @@ export async function discardRecording() {
     UI.mediaRecorder.stop();
     UI.setMediaRecorder(null);
   }
+  
+  // ✅ CORRECTNESS FIX: Clear session state on discard
+  liveScores = [];
+  latestRowScores.clear();
+
   stopPreview();
   UI.setRecordedChunks([]);
   UI.setCurrentRecordingBlob(null);
@@ -602,7 +609,7 @@ export async function handleAddNewParticipant() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Export to Local (Corrected & Complete)
+/* Export to Local (UPDATED: Throws on Cancel)
 /* -------------------------------------------------------------------------- */
 async function exportToLocal(metadata) {
   try {
@@ -612,13 +619,11 @@ async function exportToLocal(metadata) {
       return;
     }
 
-    // 1. Prepare Filename
     const safeClass = (metadata.classEventTitle || "presentation").replace(/[^\w\d-_]+/g, "_").trim();
     const safeParticipant = (metadata.participant || "student").replace(/[^\w\d-_]+/g, "_").trim();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const fileName = `${safeClass}_${safeParticipant}_${timestamp}.webm`;
 
-    // 2. Save File to User's Device
     let savedViaPicker = false;
     
     // Attempt Modern File System Access API
@@ -634,14 +639,14 @@ async function exportToLocal(metadata) {
         savedViaPicker = true;
       } catch (err) {
         if (err.name === 'AbortError') { 
-            UI.toast("Save cancelled.", "info"); 
-            return; // Exit if user cancelled the picker
+            // ✅ CRITICAL SAFETY FIX: Throw error so caller knows we cancelled
+            throw new Error("CANCELLED"); 
         }
         console.warn("Picker failed, using fallback:", err);
       }
     }
 
-    // Fallback to "Download" anchor method
+    // Fallback to "Download" anchor method (If picker unavailable, not cancelled)
     if (!savedViaPicker) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -659,7 +664,7 @@ async function exportToLocal(metadata) {
 
     UI.toast("Saved to local device!", "success");
 
-    // 3. Save Metadata Directly to Firestore (Bypassing uploadFile)
+    // Save Metadata to Firestore (Record of the save)
     const appId = UI.getAppId();
     if (appId && UI.currentUser) {
         const newRef = doc(collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`));
@@ -676,7 +681,7 @@ async function exportToLocal(metadata) {
         });
     }
 
-    // 4. Cleanup & Reset UI
+    // ✅ CLEANUP (Only runs if we didn't throw an error)
     stopPreview();
     const previewScreen = UI.$("#preview-screen");
     if (previewScreen) previewScreen.classList.add("hidden");
@@ -689,27 +694,27 @@ async function exportToLocal(metadata) {
     UI.updateRecordingUI("idle");
     clearTagList();
     
-    // Reset Scoring UI
     renderLiveScoringFromRubric({}, "live");
     
-    // Reset Timer
     if (UI.timerInterval) clearInterval(UI.timerInterval);
     UI.setSecondsElapsed(0);
     UI.$("#rec-timer").textContent = "00:00";
 
-    // 5. Navigate to Library/Manage
     const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
     if (manageTabBtn) manageTabBtn.click();
 
   } catch (err) {
+    if (err.message === "CANCELLED") {
+        throw err; // Bubble up to submit handler
+    }
     console.error("Local export error:", err);
     UI.toast(`Export failed: ${err.message}`, "error");
-    throw err; // Re-throw so handleMetadataSubmit knows it failed
+    throw err;
   }
 }
 
 /* -------------------------------------------------------------------------- */
-/* Metadata Submit Handler (Safe Version)
+/* Metadata Submit Handler (With Participant Confirmation Guard)
 /* -------------------------------------------------------------------------- */
 export async function handleMetadataSubmit(e) {
   e.preventDefault();
@@ -719,21 +724,18 @@ export async function handleMetadataSubmit(e) {
     return;
   }
 
-  // --- Gather Metadata ---
   const metaClassEl = UI.$("#meta-class");
   const selectedClassText = metaClassEl.options[metaClassEl.selectedIndex]?.text || "N/A";
   const activeRubric = Rubrics.getActiveRubric();
   
   if (!activeRubric) UI.toast("Warning: No rubric selected.", "info");
 
-  // Capture Notes
   const noteElements = document.querySelectorAll('[data-note-row-id]');
   const capturedNotes = {};
   noteElements.forEach(el => {
       if (el.value.trim()) capturedNotes[el.dataset.noteRowId] = el.value.trim();
   });
 
-  // Capture Scores
   const finalScores = {};
   let totalScore = 0;
   latestRowScores.forEach((score, rowId) => {
@@ -753,11 +755,11 @@ export async function handleMetadataSubmit(e) {
     fileSize: UI.currentRecordingBlob.size,
     duration: UI.secondsElapsed,
     recordedAt: new Date().toISOString(),
-    tags: currentTags, // Uses global variable from record.js
+    tags: currentTags,
     hasScore: true, 
     rubricId: activeRubric ? activeRubric.id : null,
     rubricTitle: activeRubric ? activeRubric.title : null,
-    scoreEvents: liveScores, // Uses global variable from record.js
+    scoreEvents: liveScores, 
     finalScores: finalScores,     
     totalScore: totalScore,       
     rowNotes: capturedNotes       
@@ -768,8 +770,20 @@ export async function handleMetadataSubmit(e) {
     return;
   }
 
-  // --- START SAVING ---
-  UI.$("#metadata-screen").close();
+  // ✅ SAFETY FIX: FORCE CONFIRMATION BEFORE SAVE
+  // This uses your existing UI.showConfirm utility
+  const confirmMsg = `You are saving this assessment for:\n\n👤 ${metadata.participant}\n📂 ${selectedClassText}\n\nIs this correct?`;
+  
+  const confirmed = await UI.showConfirm(confirmMsg, "Confirm Participant", "Yes, Save");
+  
+  if (!confirmed) {
+      // User clicked Cancel. 
+      // We do nothing. Modal stays open. Data is safe. Teacher can fix the name.
+      return; 
+  }
+
+  // --- START SAVING (Only happens if confirmed) ---
+  // UI.$("#metadata-screen").close(); // Don't close immediately! Wait for success.
   UI.toast("Saving… please wait", "info");
 
   const storageChoice = UI.getStorageChoice(); 
@@ -780,22 +794,28 @@ export async function handleMetadataSubmit(e) {
       } else if (storageChoice === "gdrive") {
         await UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
       } else if (storageChoice === "firebase") {
-        // This now waits for the full upload AND metadata save
         await uploadFile(UI.currentRecordingBlob, metadata);
       }
 
       // --- SUCCESS ---
+      UI.$("#metadata-screen").close(); // Close only on success
       UI.toast("Saved successfully!", "success");
-      stopPreview();
       
-      const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
-      if (manageTabBtn) manageTabBtn.click();
+      // Cleanup for non-local (Local handles its own cleanup to support cancel)
+      if (storageChoice !== "local") {
+          stopPreview();
+          const manageTabBtn = document.querySelector('[data-tab="tab-manage"]');
+          if (manageTabBtn) manageTabBtn.click();
+      }
 
   } catch (err) {
-      // --- FAILURE SAFETY NET ---
+      // ✅ SAFETY CHECK: If user cancelled the Local File Picker, do NOTHING.
+      if (err.message === "CANCELLED") {
+          UI.toast("Save cancelled. Video kept.", "info");
+          return; // Stop execution. Keep metadata window open. Keep blob.
+      }
+
       console.error("Save pipeline failed:", err);
-      
-      // Stop the "Saving..." UI and show a real error
       let msg = "Save failed. ";
       if (err.code === "storage/unauthorized") {
         msg += "Permission denied (Rules Mismatch).";
@@ -803,7 +823,5 @@ export async function handleMetadataSubmit(e) {
         msg += "Check your connection.";
       }
       UI.toast(msg, "error");
-      
-      // We do NOT navigate away, so the user can try again without losing data.
   }
 }

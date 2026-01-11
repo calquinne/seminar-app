@@ -1,5 +1,5 @@
 /* ========================================================================== */
-/* MODULE: auth.js (v2.1)
+/* MODULE: auth.js (v2.3 - Final Production)
 /* Authentication + profile wiring for Seminar Cloud App.
 /* ========================================================================== */
 
@@ -34,6 +34,23 @@ import { flushOfflineQueue } from "./firestore.js";
 
 let unsubscribeUserSnap = null;
 let currentUserUid = null;
+let authListenerAttached = false; // Prevents duplicate auth listeners
+
+/* -------------------------------------------------------------------------- */
+/* State Management Helpers (New!)
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Resets internal auth state.
+ * Call this ONLY when manually tearing down Firebase (e.g. switching to offline mode).
+ * Do NOT call this during normal sign-out.
+ */
+export function resetAuthState() {
+  authListenerAttached = false;
+  cleanupUserSnapshotListener();
+  currentUserUid = null;
+  console.warn("[Auth] Internal auth state explicitly reset.");
+}
 
 /* -------------------------------------------------------------------------- */
 /* Helpers
@@ -66,6 +83,7 @@ function cleanupUserSnapshotListener() {
   if (unsubscribeUserSnap) {
     try {
       unsubscribeUserSnap();
+      console.log("[Auth] User snapshot listener detached.");
     } catch (err) {
       console.warn("[Auth] Error while unsubscribing user snapshot:", err);
     }
@@ -80,11 +98,16 @@ function cleanupUserSnapshotListener() {
 async function handleUserFound(user) {
   console.log("[Auth] handleUserFound: User found", user.uid);
 
+  // ✅ GUARD: Ensure Firestore is actually ready (Hardening)
+  if (!UI.db) {
+    console.warn("[Auth] Firestore instance missing. Aborting profile load.");
+    return;
+  }
+
   currentUserUid = user.uid;
   cleanupUserSnapshotListener();
 
   const appId = typeof UI.getAppId === "function" ? UI.getAppId() : "default-app";
-
   const ref = doc(UI.db, `artifacts/${appId}/users/${user.uid}`);
 
   try {
@@ -162,45 +185,70 @@ async function handleUserFound(user) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Auth Initialization
-/* -------------------------------------------------------------------------- */
-
 export async function onAuthReady() {
-  console.log("[Auth] Initializing auth state listener...");
+  // --------------------------------------------------
+  // DEV MODE: bypass auth + firestore completely
+  // --------------------------------------------------
+  if (window.__DEV_ANALYTICS__) {
+    console.warn("[DEV] Auth bypass enabled (UI only)");
 
-  onAuthStateChanged(
-    UI.auth,
-    async (user) => {
-      if (user) {
-        console.log("[Auth] onAuthStateChanged: User is signed in:", user.uid);
-        currentUserUid = user.uid;
+    const fakeUser = {
+      uid: "dev-user",
+      displayName: "DEV USER",
+      email: "dev@local.test"
+    };
 
-        UI.toast(`Signed in as ${user.displayName || user.email}`, "success");
+    UI.updateUIAfterAuth(fakeUser, {
+      role: "admin",
+      activeSubscription: true,
+      storageUsedBytes: 0,
+      planStorageLimit: Infinity,
+      planTier: "dev",
+      isAdmin: true
+    });
 
-        await handleUserFound(user);
-      } else {
-        console.log("[Auth] onAuthStateChanged: No user signed in.");
-        currentUserUid = null;
-        cleanupUserSnapshotListener();
+    UI.showScreen("main-app");
 
-        UI.updateUIAfterAuth(null, {
-          role: "user",
-          activeSubscription: false,
-          storageUsedBytes: 0,
-          planStorageLimit: 0,
-          planTier: "free",
-          isAdmin: false
-        });
+    // Auto-open Analytics tab
+    const analyticsTab = document.querySelector(
+      ".app-tab[data-tab='tab-analytics']"
+    );
+    if (analyticsTab) analyticsTab.click();
 
-        UI.showScreen("auth-screen");
-      }
-    },
-    (error) => {
-      console.error("[Auth] Error in onAuthStateChanged:", error);
-      UI.toast("Authentication system error. Please reload the app.", "error");
+    return; // ⛔ STOP HERE — no Firebase, no snapshots
+  }
+
+  // --------------------------------------------------
+  // PROD AUTH
+  // --------------------------------------------------
+  
+  // ✅ EDGE CASE FIX: Prevent double-wiring listeners
+  if (authListenerAttached) {
+    console.warn("[Auth] Auth listener already attached. Skipping.");
+    return;
+  }
+  authListenerAttached = true;
+
+  onAuthStateChanged(UI.auth, async (user) => {
+    if (user) {
+      await handleUserFound(user);
+    } else {
+      // ✅ SAFETY: Ensure everything is clean when logged out
+      cleanupUserSnapshotListener(); 
+      currentUserUid = null;
+
+      UI.updateUIAfterAuth(null, {
+        role: "user",
+        activeSubscription: false,
+        storageUsedBytes: 0,
+        planStorageLimit: 0,
+        planTier: "free",
+        isAdmin: false
+      });
+
+      UI.showScreen("auth-screen");
     }
-  );
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -306,6 +354,10 @@ export async function sendPasswordReset(email) {
 
 export async function handleSignOut() {
   try {
+    // ✅ SAFETY: Detach listener BEFORE signing out
+    cleanupUserSnapshotListener();
+    currentUserUid = null;
+    
     await signOut(UI.auth);
     UI.toast("Signed out.", "info");
   } catch (e) {
@@ -320,6 +372,12 @@ export async function handleSignOut() {
 /* -------------------------------------------------------------------------- */
 
 export function initAuthUI() {
+  // 🚫 DEV MODE: Skip auth UI entirely
+  if (window.__DEV_ANALYTICS__) {
+    console.warn("[DEV] Skipping auth UI wiring");
+    return;
+  }
+
   console.log("[Auth] Wiring auth UI…");
 
   const loginScreen = document.getElementById("auth-screen");

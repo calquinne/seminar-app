@@ -277,10 +277,15 @@ export async function flushOfflineQueue() {
       clearTx.objectStore(UI.IDB_STORE).clear();
 
       for (const item of items) {
-        // ✅ FIX #1: Skip "local" items in offline queue so they don't crash uploadFile
-        if (item.metadata?.storagePath === "local") continue;
+        try {
+            // ✅ FIX: Skip "local" items in offline queue so they don't crash uploadFile
+            if (item.metadata?.storagePath === "local") continue;
 
-        await uploadFile(item.blob, item.metadata);
+            await uploadFile(item.blob, item.metadata);
+        } catch (err) {
+            console.error("Offline item upload failed:", err);
+            // Optional: You could re-add to IDB here if critical
+        }
       }
     };
   };
@@ -322,8 +327,13 @@ export async function loadLibrary() {
       title.className = "font-semibold text-white";
       title.textContent = `${v.classEventTitle || "Untitled"} — ${v.participant || "Unknown"}`;
       
-      // ✅ FIX #2: Safe date handling to prevent crashes
-      const dateStr = v.recordedAt ? new Date(v.recordedAt).toLocaleDateString() : "Unknown Date";
+      // ✅ FIX: Safe date handling (supports Timestamp or JS Date)
+      let dateStr = "Unknown Date";
+      if (v.recordedAt) {
+          // Firestore Timestamp .toDate() vs standard Date
+          const dateObj = v.recordedAt.toDate ? v.recordedAt.toDate() : new Date(v.recordedAt);
+          dateStr = dateObj.toLocaleDateString();
+      }
       
       const meta = document.createElement("div");
       meta.className = "text-xs text-gray-400";
