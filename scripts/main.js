@@ -53,7 +53,7 @@ function setupEventListeners() {
         
         // Define storageChoiceEl before using it
         const storageChoiceEl = UI.$("#setup-storage-choice"); 
-        const choice = (storageChoiceEl && storageChoiceEl.checked) ? storageChoiceEl.value : "firebase";
+        const choice = (storageChoiceEl && storageChoiceEl.checked) ? storageChoiceEl.value : "local";
         UI.setStorageChoice(choice);
 
         UI.toast("Config saved. Reloading...", "success");
@@ -69,7 +69,7 @@ function setupEventListeners() {
   if (setupOffline) {
     setupOffline.onclick = () => {
       localStorage.removeItem(UI.LS.CFG);
-      UI.setStorageChoice("firebase"); // Default fallback
+      UI.setStorageChoice("local"); // Default fallback
       UI.toast("Offline mode enabled.", "info");
       
       // Attempt to reload or let Auth handle the "no config" state
