@@ -54,74 +54,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-<!-- Styles -->
-<style>
-  :root { color-scheme: dark; }
-  body { font-family: 'Inter', sans-serif; }
 
-/* Fix: Make dropdown options dark so text is visible */
-  select option {
-    background-color: #232e44; 
-    color: #ffffff;
-  }
-  
-  /* Scrollbars */
-  ::-webkit-scrollbar { width:10px; height:10px }
-  ::-webkit-scrollbar-thumb { background:#374151; border-radius:8px }
-  ::-webkit-scrollbar-track { background:#111827 }
-
-  /* Animations */
-  .fade { transition: opacity .3s ease; }
-  .fade.hidden { opacity:0; pointer-events:none; }
-  .fade:not(.hidden) { opacity:1; }
-
-  dialog::backdrop { background:rgba(0,0,0,.6); }
-
-  .app-tab[aria-selected="true"] {
-    background-color: rgba(255, 255, 255, 0.1);
-    font-weight: 600;
-    color: #FFFFFF;
-  }
-  .app-tab { color:#9ca3af; }
-
-  .sub-tab[aria-selected="true"] {
-    border-color:#06b6d4;
-    color:#67e8f9;
-  }
-  .sub-tab {
-    border-color:transparent;
-    color:#9ca3af;
-  }
-
-  video#preview-player {
-    background-color: #000;
-    width:100%;
-    height:auto;
-    aspect-ratio:16/9;
-    object-fit:cover;
-  }
-
-  /* 🔴 Pulsing red border when actively recording */
-  .recording-active {
-    border: 3px solid rgb(255, 30, 0);
-    animation: recordPulse 1s infinite ease-in-out;
-    border-radius: 10px;
-  }
-
-  @keyframes recordPulse {
-    0%   { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-    50%  { box-shadow: 0 0 20px 6px rgba(255, 0, 0, 0.4); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-  }
-
-  /* 🟡 Yellow border when PAUSED */
-  .paused-border {
-    border: 3px solid #facc15; /* Tailwind amber-400 */
-    box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);
-    border-radius: 10px;
-  }
-
-</style>
 
 </head>
 
@@ -698,10 +631,12 @@
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Export CSV
             </button>
-            <button onclick="document.querySelector('[data-tab=tab-analytics]').click()" 
-                    class="text-xs bg-white/10 hover:bg-white/20 p-2 rounded-lg text-gray-300 transition-all">
-              ↻ Refresh
-            </button>
+            <button id="analytics-refresh-btn" class="text-xs bg-white/10 hover:bg-white/20 p-2 rounded-lg text-gray-300 transition-colors" type="button">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 inline-block mr-1">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+    </svg>
+    Refresh
+</button>
         </div>
       </div>
 
@@ -815,8 +750,8 @@
         </div>
     </dialog>
 
-    <dialog id="analytics-scorecard-modal" 
-            class="backdrop:bg-black/80 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-lg border border-white/10 p-0">
+   <dialog id="analytics-scorecard-modal" 
+            class="backdrop:bg-black/80 bg-gray-900 text-gray-100 rounded-2xl shadow-xl w-full max-w-3xl border border-white/10 p-0">
         
         <div class="flex items-center justify-between p-5 border-b border-white/10">
             <div>
@@ -833,11 +768,21 @@
             <div id="analytics-scorecard-body"></div>
         </div>
         
-        <div class="p-4 border-t border-white/10 bg-black/20 flex justify-end gap-2">
-             <button onclick="document.getElementById('analytics-scorecard-modal').close()" 
-                     class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">
-                 Close
-             </button>
+        <div class="p-4 border-t border-white/10 bg-black/20 flex justify-between items-center rounded-b-2xl no-print">
+            <div class="text-xs text-gray-500 font-mono">Official Report</div>
+            <div class="flex gap-3">
+              
+               <button id="scorecard-pdf-btn" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors flex items-center gap-2 border border-white/10">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 9.75V1.5m0 0 9 9m-9-9-9 9" />
+    </svg>
+    Download PDF
+</button>
+
+                <button onclick="document.getElementById('analytics-scorecard-modal').close()" class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors">
+                    Close
+                </button>
+            </div>
         </div>
     </dialog>
 
@@ -921,26 +866,26 @@
           <div>
             <label class="block text-xs text-gray-400">Organization</label>
             <input id="meta-org" type="text" readonly
-                   class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm">
+                   class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm text-gray-400">
           </div>
 
           <div>
             <label class="block text-xs text-gray-400">Instructor</label>
             <input id="meta-instructor" type="text" readonly
-                   class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm">
+                   class="w-full mt-1 rounded-lg bg-black/30 border-none p-2 text-sm text-gray-400">
           </div>
         </div>
 
         <div>
           <label class="block text-sm text-gray-300 mb-1">Class / Event</label>
           <select id="meta-class" required
-                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
+                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm focus:border-primary-500 outline-none"></select>
         </div>
 
         <div>
           <label class="block text-sm text-gray-300 mb-1">Participant</label>
-          <select id="meta-participant" required disabled
-                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
+          <select id="metadata-student-select" required disabled
+                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm focus:border-primary-500 outline-none">
             <option value="">Select a class/event first...</option>
           </select>
 
@@ -948,7 +893,6 @@
             <input id="new-participant-name" type="text"
                    class="flex-1 rounded-lg bg-black/40 border border-white/10 p-2 text-sm"
                    placeholder="New Participant Name...">
-
             <button id="add-participant-btn" type="button"
                     class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-sm">
               Add
@@ -956,25 +900,38 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div id="group-participant-container" class="hidden mt-2">
+            <label class="block text-sm font-medium text-gray-300 mb-2">
+                Select Group Participants <span class="text-xs text-gray-500">(Check all that apply)</span>
+            </label>
+            
+            <div class="border border-white/10 rounded-lg bg-black/20 max-h-48 overflow-y-auto p-2">
+                <div class="flex items-center p-2 hover:bg-white/5 rounded cursor-pointer border-b border-white/10 mb-1">
+                    <input type="checkbox" id="group-select-all" class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-primary-500">
+                    <label for="group-select-all" class="ml-3 text-sm text-primary-400 font-bold cursor-pointer w-full">
+                        Select All
+                    </label>
+                </div>
 
+                <div id="group-participant-list" class="space-y-1">
+                    </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm text-gray-300 mb-1">Recording Type</label>
-            <select id="meta-type"
-                    class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-              <option value="mock">mock</option>
-              <option value="tmp">tmp</option>
-              <option value="imp">imp</option>
-              <option value="rehearsal">rehearsal</option>
-              <option value="final">final</option>
-              <option value="other">other</option>
+            <label class="block text-sm text-gray-300 mb-1">Assessment Type</label>
+            <select id="metadata-recording-type" 
+                    class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm text-gray-200 focus:border-primary-500 outline-none">
+              <option value="individual">Individual</option>
+              <option value="group">Group Project</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-sm text-gray-300 mb-1">Group / Tag</label>
-            <input id="meta-group" type="text"
-                   class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
+            <label class="block text-sm text-gray-300 mb-1">Group Name</label>
+            <input id="metadata-group-tag" type="text"
+                   class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm text-gray-200 placeholder-gray-500 focus:border-primary-500 outline-none"
                    placeholder="e.g., Group 1">
           </div>
         </div>
@@ -982,23 +939,25 @@
         <div>
           <label class="block text-sm text-gray-300 mb-1">General Notes</label>
           <textarea id="meta-notes" rows="3"
-                    class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
+                    class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm focus:border-primary-500 outline-none"
                     placeholder="Optional notes..."></textarea>
         </div>
 
       </div>
 
-      <div class="p-5 border-t border-white/10 flex justify-between items-center">
+      <div class="p-5 border-t border-white/10 flex justify-between items-center bg-black/20">
         <span class="text-sm">
           File Size: <span id="meta-file-size" class="font-medium text-gray-300">0 MB</span>
         </span>
 
         <div>
-          <button id="cancel-upload-btn" type="reset"
-                  class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20">Cancel</button>
+          <button id="cancel-upload-btn" type="button"
+                  class="px-4 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 transition-colors">
+            Cancel
+          </button>
 
           <button id="save-upload-btn" type="submit"
-                  class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 ml-2">
+                  class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 text-white ml-2 shadow-lg shadow-primary-900/20 transition-all">
             Save & Upload
           </button>
         </div>
@@ -1186,8 +1145,15 @@
 
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <script src="scripts/analytics.js" type="module"></script>
+</body>
+
 <!-- ENTRY POINT -->
 <script type="module" src="./scripts/main.js"></script>
+
 
 </body>
 </html>

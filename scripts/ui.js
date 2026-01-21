@@ -303,7 +303,7 @@ export function showConfirm(message, title = "Are you sure?", confirmText = "OK"
   const yesBtn = $("#confirm-btn-yes");
   const noBtn = $("#confirm-btn-no");
 
-  msgEl.textContent = message;
+  msgEl.innerHTML = message;
   titleEl.textContent = title;
   yesBtn.textContent = confirmText;
 

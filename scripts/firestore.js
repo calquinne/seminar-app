@@ -1,5 +1,5 @@
 /* ========================================================================== */
-/* MODULE: firestore.js
+/* MODULE: firestore.js (Updated: Shows Rubric Title in Library)
 /* Handles all Firestore interactions (read/write/upload) & Library rendering.
 /* ========================================================================== */
 
@@ -233,6 +233,67 @@ export async function uploadFile(blob, metadata) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Smart Save (CORRECT: Identity-Safe Fan-Out)
+/* -------------------------------------------------------------------------- */
+export async function saveRecording(meta, blob) {
+  // ==========================
+  // INDIVIDUAL MODE
+  // ==========================
+  if (!Array.isArray(meta.participants) || meta.participants.length === 0) {
+    return await uploadFile(blob, meta);
+  }
+
+  // ==========================
+  // GROUP MODE
+  // ==========================
+  const uniqueParticipants = [...new Set(
+    meta.participants.map(p => p?.trim()).filter(Boolean)
+  )];
+
+  if (uniqueParticipants.length < 2) {
+    throw new Error("GROUP_REQUIRES_2");
+  }
+
+  const appId = UI.getAppId();
+  const userUid = UI.currentUser.uid;
+  const colRef = collection(UI.db, `artifacts/${appId}/users/${userUid}/videos`);
+
+  // Upload ONCE (primary student only)
+  const primaryStudent = uniqueParticipants[0];
+
+  // ✅ CORRECT FIX: Remove 'participants' key entirely
+  // (Setting it to 'undefined' causes Firebase to crash)
+  const { participants, ...safeMeta } = meta;
+
+  const baseMeta = {
+    ...safeMeta, // This copy has NO participants array
+    participant: primaryStudent,
+    isGroup: true
+  };
+
+  const uploadResult = await uploadFile(blob, baseMeta);
+
+  // Fan-out remaining students (Using the clean baseMeta)
+  const remaining = uniqueParticipants.slice(1);
+
+  const writes = remaining.map(student => {
+    const ref = doc(colRef);
+    return setDoc(ref, {
+      ...baseMeta,
+      participant: student,
+      id: ref.id,
+      storagePath: uploadResult.storagePath,
+      downloadURL: uploadResult.downloadURL,
+      createdAt: serverTimestamp(),
+      status: "ready"
+    });
+  });
+
+  await Promise.all(writes);
+  return uploadResult;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Offline Handling (IndexedDB wrapper)
 /* -------------------------------------------------------------------------- */
 async function saveToOfflineQueue(blob, metadata) {
@@ -292,7 +353,7 @@ export async function flushOfflineQueue() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Library Management
+/* Library Management (Updated: Shows Rubric Title)
 /* -------------------------------------------------------------------------- */
 export async function loadLibrary() {
   if (!UI.db || !UI.currentUser) return;
@@ -302,12 +363,24 @@ export async function loadLibrary() {
   listEl.innerHTML = '<p class="text-center text-gray-400">Loading library...</p>';
 
   try {
+    // 1. Fetch Videos (Sorted)
     const q = query(
       collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`), 
-      orderBy("createdAt", "desc")
+      orderBy("recordedAt", "desc") 
     );
     const snap = await getDocs(q);
     
+    // 2. NEW: Fetch Rubric Definitions to map IDs to Titles
+    const rubricMap = {};
+    try {
+        const rSnap = await getDocs(collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/rubrics`));
+        rSnap.forEach(d => {
+            rubricMap[d.id] = d.data().title || "Untitled Rubric";
+        });
+    } catch (rubricErr) {
+        console.warn("Library: Could not fetch rubrics", rubricErr);
+    }
+
     if (snap.empty) {
       listEl.innerHTML = '<p class="text-center text-gray-500">No recordings found.</p>';
       return;
@@ -315,7 +388,6 @@ export async function loadLibrary() {
 
     listEl.innerHTML = "";
     
-    // ✅ Use direct binding for click handlers
     snap.forEach((d) => {
       const v = d.data();
       const id = d.id;
@@ -325,42 +397,55 @@ export async function loadLibrary() {
       
       const title = document.createElement("div");
       title.className = "font-semibold text-white";
-      title.textContent = `${v.classEventTitle || "Untitled"} — ${v.participant || "Unknown"}`;
       
-      // ✅ FIX: Safe date handling (supports Timestamp or JS Date)
+      // Identity vs Context Logic
+      const primaryName = v.participant || "Unknown";
+      let groupBadge = "";
+      const gName = v.groupName || v.group;
+      if ((v.isGroup || v.recordingType === 'group') && gName) {
+          groupBadge = ` <span class="ml-2 text-xs text-primary-400 font-normal bg-primary-500/10 px-1.5 py-0.5 rounded">👥 ${gName}</span>`;
+      }
+
+      title.innerHTML = `${v.classEventTitle || "Untitled"} — ${primaryName}${groupBadge}`;
+      
+      // Date Logic
       let dateStr = "Unknown Date";
       if (v.recordedAt) {
-          // Firestore Timestamp .toDate() vs standard Date
           const dateObj = v.recordedAt.toDate ? v.recordedAt.toDate() : new Date(v.recordedAt);
           dateStr = dateObj.toLocaleDateString();
       }
       
+      // Rubric Title Logic
+      const rubricTitle = (v.rubricId && rubricMap[v.rubricId]) 
+         ? rubricMap[v.rubricId] 
+         : "No Rubric Selected";
+
       const meta = document.createElement("div");
-      meta.className = "text-xs text-gray-400";
-      meta.textContent = `${dateStr} • ${(v.fileSize / 1024 / 1024).toFixed(1)} MB`;
+      meta.className = "text-xs text-gray-400 flex items-center gap-2 flex-wrap";
+      
+      // ADDED: Rubric Title Badge in the metadata line
+      meta.innerHTML = `
+        <span class="text-primary-300 bg-primary-500/10 border border-primary-500/20 px-1.5 py-0.5 rounded font-medium">${rubricTitle}</span>
+        <span>•</span>
+        <span>${dateStr}</span> 
+        <span>•</span> 
+        <span>${(v.fileSize / 1024 / 1024).toFixed(1)} MB</span>
+      `;
       
       const actions = document.createElement("div");
       actions.className = "flex items-center gap-4 mt-2";
 
-      // 1. PLAY / OPEN BUTTON
+      // Buttons
       const playBtn = document.createElement("button");
       playBtn.className = "text-cyan-400 hover:underline text-sm";
       playBtn.textContent = v.downloadURL ? "▶ Play Video" : "📂 Open File";
-      playBtn.onclick = () => {
-        UI.openScoringForVideo(id); // <--- DIRECT CALL
-      };
+      playBtn.onclick = () => UI.openScoringForVideo(id);
 
-      // 2. SCORE BUTTON
       const scoreBtn = document.createElement("button");
       scoreBtn.className = "text-green-400 hover:underline text-sm";
-      scoreBtn.textContent = v.hasScore
-        ? `✓ Scored (${v.totalScore || v.lastScore || 0} pts)`
-        : "Score";
-      scoreBtn.onclick = () => {
-        UI.openScoringForVideo(id); // <--- DIRECT CALL
-      };
+      scoreBtn.textContent = v.hasScore ? `✓ Scored (${v.totalScore || 0} pts)` : "Score";
+      scoreBtn.onclick = () => UI.openScoringForVideo(id);
 
-      // 3. DELETE BUTTON
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "ml-auto text-red-400 hover:underline text-sm";
       deleteBtn.textContent = "Delete";
@@ -384,21 +469,40 @@ export async function loadLibrary() {
 }
 
 export async function deleteVideo(id) {
-  if (!await UI.showConfirm("Delete this recording permanently?", "Delete Video?", "Delete")) return;
+  // 1. Fetch document first to check if it is Local or Cloud
+  const docRef = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`, id);
+  const snap = await getDoc(docRef);
+  
+  if (!snap.exists()) {
+      UI.toast("Video already deleted.", "info");
+      loadLibrary();
+      return;
+  }
+
+  const data = snap.data();
+  const isLocal = data.storagePath === "local";
+
+  // 2. Custom Message based on storage type
+  let confirmMsg = "Delete this recording permanently?\n(Cannot be undone)";
+  if (isLocal) {
+      confirmMsg = "⚠️ Remove from App Library?\n\nThis will remove the data and score from Analytics, but the video file will REMAIN on your computer's hard drive.";
+  }
+
+  if (!await UI.showConfirm(confirmMsg, "Delete Video?", "Delete")) return;
 
   try {
-    const docRef = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`, id);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data.storagePath && data.storagePath !== "local") {
+    // 3. Delete Cloud File (if not local)
+    if (!isLocal && data.storagePath) {
          const sRef = ref(UI.storage, data.storagePath);
          await deleteObject(sRef).catch(e => console.warn("Storage delete failed", e));
-      }
     }
+
+    // 4. Delete Firestore Document
     await deleteDoc(docRef);
+    
     UI.toast("Video deleted.", "success");
-    loadLibrary();
+    loadLibrary(); // Refresh Library UI
+    
   } catch (e) {
     console.error("Delete failed:", e);
     UI.toast("Could not delete video.", "error");
@@ -417,4 +521,39 @@ export function handleOpenLocalVideo(title) {
 export async function handleScoringSubmit(data) {
   // Logic is now handled inside record.js (the Save Score button listener)
   console.warn("handleScoringSubmit called via DB but should be handled by Record.js listener.");
+}
+
+/* -------------------------------------------------------------------------- */
+/* NEW: Save Data Only (For Local Mode / Hybrid)
+/* -------------------------------------------------------------------------- */
+export async function saveLocalData(meta) {
+    if (!UI.db || !UI.currentUser) return;
+
+    const appId = UI.getAppId();
+    const userUid = UI.currentUser.uid;
+    const colRef = collection(UI.db, `artifacts/${appId}/users/${userUid}/videos`);
+
+    // Helper to create one document
+    const createDoc = async (participantName) => {
+        const newDocRef = doc(colRef);
+        await setDoc(newDocRef, {
+            ...meta,
+            participant: participantName,
+            id: newDocRef.id,
+            storagePath: "local", // Mark as local so app knows not to fetch from cloud
+            downloadURL: null,    // No cloud URL
+            createdAt: serverTimestamp(),
+            status: "ready"
+        });
+    };
+
+    // 1. GROUP MODE: Fan-Out to all students
+    if (meta.participants && meta.participants.length > 0) {
+        const promises = meta.participants.map(student => createDoc(student));
+        await Promise.all(promises);
+    } 
+    // 2. INDIVIDUAL MODE: Save just one
+    else {
+        await createDoc(meta.participant);
+    }
 }

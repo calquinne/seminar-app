@@ -99,7 +99,7 @@ function setupEventListeners() {
         DB.loadLibrary              
       );
 
-      // Analytics Trigger
+      // ✅ FIX: Force Analytics to Reload every time you click the tab
       if (btn.dataset.tab === "tab-analytics") {
           Analytics.loadAnalytics();
       }
@@ -110,7 +110,25 @@ function setupEventListeners() {
   UI.$$(".sub-tab").forEach((btn) => {
       btn.onclick = UI.handleRubricTabClick;
   });
-
+  // ----------------------------------------------------
+  // 5.5 Analytics Controls (Add this new section)
+  // ----------------------------------------------------
+  const exportCsvBtn = UI.$("#analytics-export-btn");
+  if (exportCsvBtn) {
+      exportCsvBtn.onclick = () => {
+          console.log("Exporting CSV..."); // Debug log to prove it clicks
+          Analytics.downloadCSV();
+      };
+  }
+  
+  // Refresh Button Logic
+  const refreshBtn = UI.$("#analytics-refresh-btn");
+  if (refreshBtn) {
+      refreshBtn.onclick = () => {
+          UI.toast("Refreshing analytics...", "info");
+          Analytics.loadAnalytics();
+      };
+  }
   // 6. Rubric Builder
   const addRowBtn = UI.$("#add-rubric-row-btn");
   if (addRowBtn) addRowBtn.onclick = () => Rubrics.addBuilderRow();
@@ -151,7 +169,94 @@ function setupEventListeners() {
     }
   };
 
-  // 8. Record Tab Controls
+  // ----------------------------------------------------
+  // 8. Recording / Metadata (NEW: Group Project Logic)
+  // ----------------------------------------------------
+  const assessmentTypeSelect = UI.$("#metadata-recording-type");
+  const individualDropdown = UI.$("#metadata-student-select");
+  const groupContainer = UI.$("#group-participant-container");
+  const groupListDiv = UI.$("#group-participant-list");
+  const selectAllCheckbox = UI.$("#group-select-all");
+  const groupNameInput = UI.$("#metadata-group-tag");
+  const addPartContainer = UI.$("#add-participant-container"); // Reference to "Add New" box
+
+  // A. Toggle between Individual and Group Mode
+  if (assessmentTypeSelect) {
+    assessmentTypeSelect.onchange = (e) => {
+      const isGroupMode = e.target.value === "group";
+      
+      if (isGroupMode) {
+        // GROUP MODE:
+        // 1. Hide Individual Dropdown & Stop Validating it
+        if (individualDropdown) {
+             individualDropdown.classList.add("hidden");
+             individualDropdown.required = false; 
+        }
+        // 2. Hide "Add Participant" Box (Clean UI)
+        if (addPartContainer) addPartContainer.classList.add("hidden");
+
+        // 3. Show Group List & Require Group Name
+        if (groupContainer) groupContainer.classList.remove("hidden");
+        if (groupNameInput) groupNameInput.required = true;
+        
+        populateGroupChecklist();
+      } else {
+        // INDIVIDUAL MODE:
+        // 1. Show Individual Dropdown & Require it
+        if (individualDropdown) {
+            individualDropdown.classList.remove("hidden");
+            individualDropdown.required = true; 
+        }
+        // 2. Show "Add Participant" Box (Restore it)
+        if (addPartContainer) addPartContainer.classList.remove("hidden");
+
+        // 3. Hide Group List
+        if (groupContainer) groupContainer.classList.add("hidden");
+        if (groupNameInput) groupNameInput.required = false;
+      }
+    };
+  }
+
+  // B. Helper to Populate the Checklist
+  function populateGroupChecklist() {
+    if (!groupListDiv || !individualDropdown) return;
+    
+    // Clear old list
+    groupListDiv.innerHTML = "";
+
+    // Copy options from the existing dropdown
+    Array.from(individualDropdown.options).forEach(option => {
+      // Skip empty placeholders
+      if (!option.value || option.value === "" || option.disabled) return;
+
+      const studentName = option.value;
+      const studentLabel = option.text;
+
+      // Create Checkbox Row
+      const row = document.createElement("label");
+      row.className = "flex items-center p-2 hover:bg-white/5 rounded cursor-pointer border-b border-white/5";
+      row.innerHTML = `
+        <input type="checkbox" value="${studentName}" class="group-student-checkbox w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-primary-500">
+        <span class="ml-3 text-sm text-gray-200">${studentLabel}</span>
+      `;
+      groupListDiv.appendChild(row);
+    });
+  }
+  // ✅ Make this global so record.js can call it when class changes
+  window.populateGroupChecklist = populateGroupChecklist;
+
+  // C. "Select All" Toggle Logic
+  if (selectAllCheckbox) {
+    selectAllCheckbox.onchange = (e) => {
+      const isChecked = e.target.checked;
+      const allCheckboxes = document.querySelectorAll(".group-student-checkbox");
+      allCheckboxes.forEach(cb => cb.checked = isChecked);
+    };
+  }
+
+  // ----------------------------------------------------
+  // 9. Record Controls (Stop/Start/Preview)
+  // ----------------------------------------------------
   const startBtn = UI.$("#start-rec-btn");
   if (startBtn) startBtn.onclick = Record.startRecording;
   
@@ -195,8 +300,8 @@ function setupEventListeners() {
       }
     };
   }
-
-  // Preview Fullscreen
+  
+  // Preview Fullscreen Button
   const previewFS = UI.$("#preview-fullscreen-btn");
   if (previewFS) {
     previewFS.onclick = () => {
@@ -205,14 +310,16 @@ function setupEventListeners() {
     };
   }
 
-  // 9. Metadata Screen
+  // ----------------------------------------------------
+  // 10. Metadata Form Handling
+  // ----------------------------------------------------
   const metaForm = UI.$("#metadata-form");
   if (metaForm) metaForm.onsubmit = (e) => Record.handleMetadataSubmit(e);
   
   const metaClass = UI.$("#meta-class");
   if (metaClass) metaClass.onchange = Record.handleMetadataClassChange;
   
-  const metaPart = UI.$("#meta-participant");
+  const metaPart = UI.$("#metadata-student-select");
   if (metaPart) metaPart.onchange = Record.handleMetadataParticipantChange;
   
   const addPartBtn = UI.$("#add-participant-btn");
@@ -231,7 +338,9 @@ function setupEventListeners() {
     }
   };
 
-  // 10. Video Player Controls
+  // ----------------------------------------------------
+  // 11. Video Player Controls (Library/Playback)
+  // ----------------------------------------------------
   const playbackCloseBtn = UI.$("#playback-close-btn");
   if (playbackCloseBtn) playbackCloseBtn.onclick = () => UI.closeVideoPlayer();
 
@@ -264,7 +373,9 @@ function setupEventListeners() {
       if (v?.requestFullscreen) v.requestFullscreen();
   };
 
-  // 11. Network Events
+  // ----------------------------------------------------
+  // 12. Network & Global Events
+  // ----------------------------------------------------
   window.addEventListener("online", () => {
     UI.toast("You're back online!", "success");
     DB.flushOfflineQueue();
@@ -274,13 +385,12 @@ function setupEventListeners() {
     UI.toast("You're offline. Recordings will be queued for upload.", "info");
   });
 
-  // 12. Global Helpers
+  // Global Helpers
   UI.setupGlobalErrorHandlers();
   Auth.initAuthUI();
 
   console.log("Event listeners attached.");
-} // <--- ✅ THIS IS THE FINAL CLOSING BRACE
-
+}
 /* -------------------------------------------------------------------------- */
 /* APPLICATION BOOTSTRAP — SINGLE ENTRY POINT
 /* -------------------------------------------------------------------------- */
