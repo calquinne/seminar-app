@@ -5,7 +5,45 @@
   <script>
   const qp = new URLSearchParams(location.search);
   if (qp.get("dev") === "1") window.__DEV_ANALYTICS__ = true;
-</script>
+  </script>
+
+  <style>
+/* =========================================
+   GLOBAL DROPDOWN VISIBILITY FIX
+   ========================================= */
+
+/* Closed select (the input itself) */
+select {
+    background-color: #0f172a !important;   /* slate-900 */
+    color: #e5e7eb !important;              /* gray-200 */
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+/* Dropdown menu items */
+select option {
+    background-color: #1f2937 !important;   /* gray-800 */
+    color: #f9fafb !important;              /* near-white */
+}
+
+/* Hovered option */
+select option:hover,
+select option:focus {
+    background-color: #2563eb !important;   /* blue-600 */
+    color: white !important;
+}
+
+/* Selected option (when menu opens) */
+select option:checked {
+    background-color: #2563eb !important;
+    color: white !important;
+}
+
+/* Disabled placeholder options */
+select option[disabled] {
+    color: #9ca3af !important;              /* gray-400 */
+}
+</style>
+
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -586,6 +624,29 @@
     <!-- TAB: LIBRARY -->
     <div id="tab-library" class="hidden app-tab-content">
       <h2 class="text-xl font-semibold mb-4">Video Library</h2>
+      
+      <div class="flex flex-wrap gap-4 mb-6 items-end animate-slide-up">
+  
+  <div>
+    <label class="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">Class / Event</label>
+    <select id="lib-filter-class" onchange="window.renderLibraryFiltered()" class="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary-500 transition-colors min-w-[150px]">
+        <option value="all">All Classes</option>
+    </select>
+  </div>
+
+  <div>
+    <label class="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">Rubric</label>
+    <select id="lib-filter-rubric" onchange="window.renderLibraryFiltered()" class="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary-500 transition-colors min-w-[150px]">
+        <option value="all">All Rubrics</option>
+    </select>
+  </div>
+
+  <div>
+     <button onclick="window.resetLibraryFilters()" class="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-4 py-2 rounded-lg text-sm transition-colors h-[38px] font-medium flex items-center gap-2">
+        <span>↺</span> Most Recent
+     </button>
+  </div>
+</div>
 
       <div id="library-list" class="space-y-3">
         <p class="text-sm text-gray-400">Loading library...</p>

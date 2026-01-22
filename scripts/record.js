@@ -82,6 +82,40 @@ document.addEventListener("click", async (e) => {
 /* SCORING RENDERER (Restored: Tooltips & Allowed Scores)
 /* ========================================================================== */
 
+/* ===== FIX A: GLOBAL TOOLTIP (ANTI-CLIP) ===== */
+
+let GLOBAL_TOOLTIP;
+
+function ensureGlobalTooltip() {
+  if (GLOBAL_TOOLTIP) return;
+
+  GLOBAL_TOOLTIP = document.createElement("div");
+  GLOBAL_TOOLTIP.id = "global-rubric-tooltip";
+  GLOBAL_TOOLTIP.style.position = "fixed";
+  GLOBAL_TOOLTIP.style.zIndex = "10000";
+  GLOBAL_TOOLTIP.style.pointerEvents = "none";
+  GLOBAL_TOOLTIP.style.visibility = "hidden";
+  GLOBAL_TOOLTIP.style.opacity = "0";
+  GLOBAL_TOOLTIP.style.transition = "opacity 0.15s ease";
+
+  GLOBAL_TOOLTIP.style.background = "#0f172a";
+  GLOBAL_TOOLTIP.style.color = "#e5e7eb";
+  GLOBAL_TOOLTIP.style.padding = "8px 12px";
+  GLOBAL_TOOLTIP.style.borderRadius = "6px";
+  GLOBAL_TOOLTIP.style.fontSize = "11px";
+  GLOBAL_TOOLTIP.style.lineHeight = "1.4";
+  GLOBAL_TOOLTIP.style.maxWidth = "280px";
+  GLOBAL_TOOLTIP.style.boxShadow = "0 4px 12px rgba(0,0,0,0.5)";
+  GLOBAL_TOOLTIP.style.border = "1px solid rgba(255,255,255,0.1)";
+  GLOBAL_TOOLTIP.style.textAlign = "center";
+  GLOBAL_TOOLTIP.style.whiteSpace = "normal";
+
+  document.body.appendChild(GLOBAL_TOOLTIP);
+}
+
+/* ===== END FIX A GLOBAL TOOLTIP ===== */
+
+
 // Ensure styles are injected for Tooltips
 const styleId = "rubric-tooltip-styles";
 if (!document.getElementById(styleId)) {
@@ -208,12 +242,12 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
               
               // Render Wrapper
               btns += `
-                <div class="score-btn-wrapper">
+                <div class="score-btn-wrapper" data-tooltip="${tooltipText || ""}">
+
                     <button type="button" class="live-score-btn w-8 h-8 text-xs rounded border border-transparent transition-all ${cls}" 
                         data-score="${val}" data-row-id="${row.id}">
                         ${val}
                     </button>
-                    ${tooltipText ? `<div class="rubric-tooltip">${tooltipText}</div>` : ""}
                 </div>`;
           });
 
@@ -222,6 +256,36 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
           rowEl.innerHTML += btns;
       }
       rowsContainer.appendChild(rowEl);
+     rowsContainer.appendChild(rowEl);
+
+// ================================
+// FIX A: GLOBAL TOOLTIP BINDING
+// ================================
+rowEl.querySelectorAll(".score-btn-wrapper").forEach(wrapper => {
+    const tip = wrapper.dataset.tooltip;
+    if (!tip) return;
+
+    ensureGlobalTooltip();
+
+    wrapper.addEventListener("mouseenter", (e) => {
+        GLOBAL_TOOLTIP.textContent = tip;
+        GLOBAL_TOOLTIP.style.left = `${e.clientX}px`;
+        GLOBAL_TOOLTIP.style.top = `${e.clientY + 14}px`;
+        GLOBAL_TOOLTIP.style.visibility = "visible";
+        GLOBAL_TOOLTIP.style.opacity = "1";
+    });
+
+    wrapper.addEventListener("mousemove", (e) => {
+        GLOBAL_TOOLTIP.style.left = `${e.clientX}px`;
+        GLOBAL_TOOLTIP.style.top = `${e.clientY + 14}px`;
+    });
+
+    wrapper.addEventListener("mouseleave", () => {
+        GLOBAL_TOOLTIP.style.opacity = "0";
+        GLOBAL_TOOLTIP.style.visibility = "hidden";
+    });
+});
+ 
   });
 
   if (!options.readOnly) {
