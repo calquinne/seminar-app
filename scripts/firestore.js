@@ -59,77 +59,95 @@ export async function initFirebase() {
   }
 }
 
+export async function loadClasses() {
+  if (!UI.db || !UI.currentUser) return {};
+
+  const q = query(
+    collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`)
+  );
+
+  const snapshot = await getDocs(q);
+  const classes = {};
+
+  snapshot.forEach(docSnap => {
+    classes[docSnap.id] = {
+      id: docSnap.id,
+      ...docSnap.data()
+    };
+  });
+
+  console.log("[DB] loadClasses result:", classes);
+
+  return classes;
+}
+
+
 /* -------------------------------------------------------------------------- */
 /* Class / Event Management
 /* -------------------------------------------------------------------------- */
 export async function refreshClassesList() {
-  if (!UI.db || !UI.currentUser) return;
   const list = UI.$("#classes-list");
   if (!list) return;
 
   list.innerHTML = "<option>Loading...</option>";
-  
-  try {
-    const q = query(collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`));
-    const snapshot = await getDocs(q);
-    
-    list.innerHTML = '<option value="">-- Select a Class to Edit --</option>';
-    const classData = {};
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      classData[doc.id] = { id: doc.id, ...data };
+  try {
+    // 🔹 Get already-loaded class data (Firestore no longer renders UI)
+    const classData = UI.classData || {};
+
+    list.innerHTML = '<option value="">-- Select a Class to Edit --</option>';
+
+    Object.values(classData).forEach(cls => {
       const opt = document.createElement("option");
-      opt.value = doc.id;
-      opt.textContent = `${data.title} ${data.archived ? "(Archived)" : ""}`;
+      opt.value = cls.id;
+      opt.textContent = `${cls.title}${cls.archived ? " (Archived)" : ""}`;
       list.appendChild(opt);
     });
 
-    UI.setClassData(classData);
-    UI.refreshMetadataClassList();
   } catch (e) {
-    console.error("Error loading classes:", e);
+    console.error("Error rendering classes:", e);
     UI.toast("Failed to load classes.", "error");
   }
 }
 
-export async function handleSaveClass() {
-  const id = UI.$("#classes-list").value;
-  const title = UI.$("#class-title").value.trim();
-  const rosterStr = UI.$("#class-roster").value.trim();
-  
-  if (!title) { UI.toast("Class title is required.", "error"); return; }
-  const participants = rosterStr ? rosterStr.split("\n").map(s => s.trim()).filter(s => s) : [];
 
-  try {
-    const colRef = collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`);
-    if (id) {
-      await updateDoc(doc(colRef, id), { title, participants, updatedAt: serverTimestamp() });
-      UI.toast("Class updated!", "success");
-    } else {
-      await addDoc(colRef, { title, participants, archived: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-      UI.toast("Class created!", "success");
-    }
-    UI.clearClassEditor();
-    refreshClassesList();
-  } catch (e) {
-    console.error("Save class failed:", e);
-    UI.toast("Error saving class.", "error");
+export async function saveClass({ id, title, participants }) {
+  const colRef = collection(
+    db,
+    `artifacts/${getAppId()}/users/${currentUser.uid}/classes`
+  );
+
+  if (id) {
+    await updateDoc(doc(colRef, id), {
+      title,
+      participants,
+      updatedAt: serverTimestamp()
+    });
+  } else {
+    await addDoc(colRef, {
+      title,
+      participants,
+      archived: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
   }
 }
 
-export async function handleArchiveClass() {
-  const id = UI.$("#classes-list").value;
-  if (!id) return;
-  if (!await UI.showConfirm("Archive this class? It will be hidden from selection menus.", "Archive Class?")) return;
-  try {
-    await updateDoc(doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`, id), { archived: true });
-    UI.toast("Class archived.", "success");
-    refreshClassesList();
-  } catch (e) {
-    UI.toast("Error archiving class.", "error");
-  }
+
+// firestore.js
+export async function archiveClass({ db, appId, uid, id }) {
+  if (!db) throw new Error("archiveClass: db missing");
+  if (!appId) throw new Error("archiveClass: appId missing");
+  if (!uid) throw new Error("archiveClass: uid missing");
+  if (!id) throw new Error("archiveClass: id missing");
+
+  await updateDoc(
+    doc(db, `artifacts/${appId}/users/${uid}/classes`, id),
+    { archived: true }
+  );
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* File Upload & Metadata

@@ -26,6 +26,7 @@ import {
 import * as UI from "./ui.js";
 
 // Import Firestore module for db operations
+import * as DB from "./firestore.js";
 import { flushOfflineQueue } from "./firestore.js";
 
 /* -------------------------------------------------------------------------- */
@@ -230,25 +231,40 @@ export async function onAuthReady() {
   authListenerAttached = true;
 
   onAuthStateChanged(UI.auth, async (user) => {
-    if (user) {
-      await handleUserFound(user);
-    } else {
-      // ✅ SAFETY: Ensure everything is clean when logged out
-      cleanupUserSnapshotListener(); 
-      currentUserUid = null;
+  if (user) {
+    // Existing auth success handling
+    await handleUserFound(user);
+    UI.setCurrentUser(user);
 
-      UI.updateUIAfterAuth(null, {
-        role: "user",
-        activeSubscription: false,
-        storageUsedBytes: 0,
-        planStorageLimit: 0,
-        planTier: "free",
-        isAdmin: false
-      });
-
-      UI.showScreen("auth-screen");
+    // ✅ LOAD CLASSES AFTER AUTH IS CONFIRMED
+    try {
+      const classes = await DB.loadClasses();
+      UI.setClassData(classes);
+      DB.refreshClassesList?.();   // ✅ ADD THIS
+      UI.refreshMetadataClassList?.();
+    } catch (e) {
+      console.error("Failed to load classes after auth:", e);
+      UI.toast("Failed to load classes.", "error");
     }
-  });
+
+  } else {
+    // ✅ SAFETY: Ensure everything is clean when logged out
+    cleanupUserSnapshotListener();
+    currentUserUid = null;
+
+    UI.updateUIAfterAuth(null, {
+      role: "user",
+      activeSubscription: false,
+      storageUsedBytes: 0,
+      planStorageLimit: 0,
+      planTier: "free",
+      isAdmin: false
+    });
+
+    UI.showScreen("auth-screen");
+  }
+});
+
 }
 
 /* -------------------------------------------------------------------------- */

@@ -203,17 +203,29 @@ export function clearClassEditor() {
 
 export function refreshMetadataClassList() {
   const metaClassSelect = $("#meta-class");
-  metaClassSelect.innerHTML = '<option value="">-- Select a Class / Event --</option>';
-  
-  Object.values(classData).forEach(classDoc => {
+
+  // Reset dropdown
+  metaClassSelect.innerHTML =
+    '<option value="">-- Select a Class / Event --</option>';
+
+  Object.values(classData || {}).forEach(classDoc => {
     if (!classDoc.archived) {
-      const metaOpt = document.createElement("option");
-      metaOpt.value = classDoc.id;
-      metaOpt.textContent = classDoc.title || "Untitled";
-      metaClassSelect.appendChild(metaOpt);
+      const opt = document.createElement("option");
+      opt.value = classDoc.id;
+      opt.textContent = classDoc.title || "Untitled";
+      metaClassSelect.appendChild(opt);
     }
   });
+
+  // ➕ Sentinel option (THIS was missing before)
+  const addOpt = document.createElement("option");
+  addOpt.value = "__add__";
+  addOpt.textContent = "➕ Add new class / event…";
+  metaClassSelect.appendChild(addOpt);
 }
+
+
+
 
 /* -------------------------------------------------------------------------- */
 /* Global Event Handlers
@@ -649,3 +661,9 @@ export async function openScoringForVideo(videoId) {
     toast("Could not open scoring.", "error");
   }
 }
+
+window.__UI__ = {
+  get classData() {
+    return classData;
+  }
+};

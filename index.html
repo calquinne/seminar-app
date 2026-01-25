@@ -938,17 +938,38 @@ select option[disabled] {
         </div>
 
         <div>
-          <label class="block text-sm text-gray-300 mb-1">Class / Event</label>
-          <select id="meta-class" required
-                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm focus:border-primary-500 outline-none"></select>
-        </div>
+         <label class="block text-sm text-gray-300 mb-1">Class / Event</label>
+
+         <select id="meta-class" required
+           class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm focus:border-primary-500 outline-none">
+          <option value="">Select a class/event…</option>
+            <!-- populated dynamically -->
+          <option value="__add__">➕ Add new class/event…</option>
+         </select>
+
+         <div id="add-class-container" class="hidden flex gap-2 mt-2">
+           <input id="new-class-name" type="text"
+                  class="flex-1 rounded-lg bg-black/40 border border-white/10 p-2 text-sm"
+                  placeholder="New Class / Event Name…">
+           <button id="add-class-btn" type="button"
+                   class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-sm">
+             Add
+           </button>
+          </div>
+         </div>
+
 
         <div>
           <label class="block text-sm text-gray-300 mb-1">Participant</label>
           <select id="metadata-student-select" required disabled
-                  class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm focus:border-primary-500 outline-none">
-            <option value="">Select a class/event first...</option>
+            class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm focus:border-primary-500 outline-none">
+           <option value="">Select a participant…</option>
+
+             <!-- populated dynamically -->
+
+           <option value="__add__">➕ Add new participant…</option>
           </select>
+
 
           <div id="add-participant-container" class="hidden flex gap-2 mt-2">
             <input id="new-participant-name" type="text"

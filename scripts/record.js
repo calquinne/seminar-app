@@ -6,6 +6,7 @@ import * as UI from "./ui.js";
 import { uploadFile, saveRecording, saveLocalData } from "./firestore.js";
 import {
   doc,
+  addDoc,
   updateDoc,
   serverTimestamp,
   setDoc,       // ✅ ADDED THIS
@@ -511,6 +512,14 @@ function openMetadataScreen() {
   
   resetMetadataForm(); // ✅ Calls the rigorous reset above
 
+  // Wire Add Class button (safe init)
+const addClassBtn = UI.$("#add-class-btn");
+if (addClassBtn && !addClassBtn.dataset.bound) {
+  addClassBtn.addEventListener("click", handleAddNewClass);
+  addClassBtn.dataset.bound = "true"; // prevent double-binding
+}
+
+
   UI.$("#meta-org").value = UI.userDoc.organizationName || "Default Org";
   UI.$("#meta-instructor").value = UI.userDoc.instructorName || (UI.currentUser ? UI.currentUser.email : "Instructor");
   
@@ -520,48 +529,185 @@ function openMetadataScreen() {
   UI.$("#metadata-screen").showModal();
 }
 
-// ... (handleMetadataClassChange and handleMetadataParticipantChange are standard)
+// ================================
+// HANDLE CLASS CHANGE
+// ================================
 export function handleMetadataClassChange(e) {
   const classId = e.target.value;
-  const participantSelect = UI.$("#metadata-student-select"); 
-  participantSelect.innerHTML = '<option value="">Select a participant...</option>';
+  const classSelect = e.target;
+  const addClassUI = UI.$("#add-class-container");
+  const participantSelect = UI.$("#metadata-student-select");
+
+  // ── 1. Sentinel: Add New Class ─────────────────────────
+  if (classId === "__add__") {
+    addClassUI?.classList.remove("hidden");
+    UI.$("#new-class-name")?.focus();
+    classSelect.value = "";
+    return;
+  }
+
+  // Hide add-class UI otherwise
+  addClassUI?.classList.add("hidden");
+
+  // ── 2. Reset participant dropdown ──────────────────────
+  participantSelect.innerHTML =
+    '<option value="">Select a participant…</option>';
   participantSelect.disabled = true;
 
   if (!classId) return;
 
-  const classObj = UI.classData ? UI.classData[classId] : null;
-  if (classObj && classObj.participants) {
-      participantSelect.disabled = false;
-      classObj.participants.forEach(name => {
-          const opt = document.createElement("option");
-          opt.value = name;
-          opt.textContent = name;
-          participantSelect.appendChild(opt);
-      });
+  // ── 3. Populate participants ───────────────────────────
+  const classObj = UI.classData?.[classId];
+  if (classObj && Array.isArray(classObj.participants)) {
+    participantSelect.disabled = false;
+
+    classObj.participants.forEach(name => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      participantSelect.appendChild(opt);
+    });
+
+    const addOpt = document.createElement("option");
+    addOpt.value = "__add__";
+    addOpt.textContent = "➕ Add new participant…";
+    participantSelect.appendChild(addOpt);
   }
-  // Trigger checkbox rebuild
-  if (window.populateGroupChecklist) window.populateGroupChecklist();
+
+  // ── 4. Rebuild group checklist if needed ───────────────
+  if (window.populateGroupChecklist) {
+    window.populateGroupChecklist();
+  }
 }
 
+// ================================
+// ADD NEW CLASS / EVENT
+// ================================
+export async function handleAddNewClass() {
+  const input = UI.$("#new-class-name");
+  const title = input?.value?.trim();
+
+  if (!title) {
+    UI.toast("Enter a class/event name.", "error");
+    return;
+  }
+
+  // Prevent duplicates (case-insensitive, safe)
+  const existingTitles = Object.values(UI.classData || {})
+    .map(c => typeof c?.title === "string" ? c.title.toLowerCase() : null)
+    .filter(Boolean);
+
+  if (existingTitles.includes(title.toLowerCase())) {
+    UI.toast("Class already exists.", "warning");
+    return;
+  }
+
+  // Create Firestore document
+  const docRef = await addDoc(
+    collection(
+      UI.db,
+      `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`
+    ),
+    {
+      title,                // ✅ SINGLE SOURCE OF TRUTH
+      participants: [],
+      archived: false,
+      createdAt: serverTimestamp()
+    }
+  );
+
+  // Update local cache immediately (prevents Untitled / undefined)
+  UI.classData[docRef.id] = {
+    id: docRef.id,
+    title,
+    participants: [],
+    archived: false
+  };
+
+  // Refresh all class dropdowns
+  UI.refreshMetadataClassList();
+
+  // Auto-select new class in metadata UI
+  const select = UI.$("#meta-class");
+  if (select) {
+    select.value = docRef.id;
+    handleMetadataClassChange({ target: select });
+  }
+
+  // Reset UI
+  input.value = "";
+  UI.$("#add-class-container")?.classList.add("hidden");
+
+  UI.toast("Class added.", "success");
+}
+
+// ================================
+// HANDLE PARTICIPANT CHANGE
+// ================================
 export function handleMetadataParticipantChange(e) {
   const selected = e.target.value;
-  UI.$("#add-participant-container").classList.toggle("hidden", selected === "--ADD_NEW--");
+
+  // Show Add UI only when sentinel option is chosen
+  if (selected === "__add__") {
+    UI.$("#add-participant-container").classList.remove("hidden");
+    e.target.value = ""; // reset select so form validation is clean
+    return;
+  }
+
+  // Hide add UI otherwise
+  UI.$("#add-participant-container").classList.add("hidden");
 }
 
+
+// ================================
+// ADD NEW PARTICIPANT
+// ================================
 export async function handleAddNewParticipant() {
   const classId = UI.$("#meta-class").value;
-  const newName = UI.$("#new-participant-name").value.trim();
-  if(!classId || !newName) return;
-  
-  const current = UI.classData[classId].participants || [];
-  if(!current.includes(newName)) {
-      current.push(newName);
-      await updateDoc(doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`, classId), { participants: current });
-      UI.classData[classId].participants = current;
-      UI.toast("Added!", "success");
+  const input = UI.$("#new-participant-name");
+  const newName = input.value.trim();
+
+  if (!classId || !newName) {
+    UI.toast("Enter a participant name.", "error");
+    return;
   }
-  // Refresh UI logic here (omitted for brevity, handled by change listener usually)
+
+  const current = UI.classData[classId].participants || [];
+
+  // Prevent duplicates (case-insensitive)
+  if (current.some(p => p.toLowerCase() === newName.toLowerCase())) {
+    UI.toast("Participant already exists.", "warning");
+    return;
+  }
+
+  current.push(newName);
+
+  await updateDoc(
+    doc(
+      UI.db,
+      `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`,
+      classId
+    ),
+    { participants: current }
+  );
+
+  // Update local cache
+  UI.classData[classId].participants = current;
+
+  // Refresh dropdown cleanly
+  handleMetadataClassChange({ target: { value: classId } });
+
+  // Auto-select newly added participant
+  const select = UI.$("#metadata-student-select");
+  select.value = newName;
+
+  // Reset add UI
+  input.value = "";
+  UI.$("#add-participant-container").classList.add("hidden");
+
+  UI.toast("Participant added.", "success");
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* EXPORT TO LOCAL (File Download ONLY - No DB Write)
