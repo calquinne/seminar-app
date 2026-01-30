@@ -6,6 +6,7 @@ import * as Record from "./record.js";
 import * as Rubrics from "./rubrics.js"; 
 // Ensure Firestore functions are available
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { cancelAddClass } from "./record.js";
 
 /* -------------------------------------------------------------------------- */
 /* Constants
@@ -177,37 +178,61 @@ export function updateUIAfterAuth(u, docData) {
   $("#low-storage-banner").classList.toggle("hidden", percentUsed < 90);
 }
 
+// ================================
+// LOAD CLASS INTO EDITOR (EDIT ONLY)
+// ================================
 export function loadClassIntoEditor(classId) {
   const cls = classData[classId];
+
+  // If nothing selected, fully clear editor
   if (!cls) {
-    $("#class-title").value = "";
-    $("#class-archive-date").value = "";
-    $("#class-delete-date").value = "";
-    $("#class-roster").value = "";
+    clearClassEditor();
+
+    // Hide edit/delete controls
+    const dangerZone = document.getElementById("class-danger-zone");
+    if (dangerZone) dangerZone.classList.add("hidden");
+
     return;
   }
+
+  // Populate editor fields
   $("#class-title").value = cls.title || "";
   $("#class-archive-date").value = cls.archiveDate || "";
   $("#class-delete-date").value = cls.deleteDate || "";
-  $("#class-roster").value = (cls.participants || []).join('\n');
+  $("#class-roster").value = (cls.participants || []).join("\n");
+
+  // Show edit/delete controls when a class is selected
+  const dangerZone = document.getElementById("class-danger-zone");
+  if (dangerZone) dangerZone.classList.remove("hidden");
 }
 
+// ================================
+// CLEAR CLASS EDITOR (NEW / CANCEL)
+// NO DATA IS CREATED OR MUTATED HERE
+// ================================
 export function clearClassEditor() {
+  // Reset dropdown selection
   $("#classes-list").value = "";
+
+  // Clear form fields
   $("#class-title").value = "";
   $("#class-archive-date").value = "";
   $("#class-delete-date").value = "";
   $("#class-roster").value = "";
+
+  // Focus for UX
   $("#class-title").focus();
 }
 
 export function refreshMetadataClassList() {
   const metaClassSelect = $("#meta-class");
+  if (!metaClassSelect) return;
 
   // Reset dropdown
   metaClassSelect.innerHTML =
     '<option value="">-- Select a Class / Event --</option>';
 
+  // ✅ USE LOCAL MODULE STATE (NOT UI.)
   Object.values(classData || {}).forEach(classDoc => {
     if (!classDoc.archived) {
       const opt = document.createElement("option");
@@ -217,15 +242,12 @@ export function refreshMetadataClassList() {
     }
   });
 
-  // ➕ Sentinel option (THIS was missing before)
+  // Sentinel option
   const addOpt = document.createElement("option");
   addOpt.value = "__add__";
   addOpt.textContent = "➕ Add new class / event…";
   metaClassSelect.appendChild(addOpt);
 }
-
-
-
 
 /* -------------------------------------------------------------------------- */
 /* Global Event Handlers

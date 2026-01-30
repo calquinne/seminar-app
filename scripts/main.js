@@ -141,33 +141,105 @@ function setupEventListeners() {
       Rubrics.addBuilderRow();
   }
 
-  // 7. Class / Event Manager
-  const newClassBtn = UI.$("#new-class-btn");
-  if (newClassBtn) newClassBtn.onclick = UI.clearClassEditor;
-  
-  const saveClassBtn = UI.$("#save-class-btn");
-  if (saveClassBtn) saveClassBtn.onclick = DB.handleSaveClass;
-  
-  const archiveClassBtn = UI.$("#archive-class-btn");
-  if (archiveClassBtn) archiveClassBtn.onclick = DB.handleArchiveClass;
-  
-  const classesList = UI.$("#classes-list");
-  if (classesList) classesList.onchange = (e) => UI.loadClassIntoEditor(e.target.value);
+ // 7. Class / Event Manager
 
-  const storageProvider = UI.$("#storage-provider");
-  if (storageProvider) storageProvider.onchange = async (e) => {
-    const confirmed = await UI.showConfirm(
-      "Changing providers will hide all files from the old location in the app.",
-      "Are you sure?",
-      "Change"
-    );
-    if (confirmed) {
-      UI.setStorageChoice(e.target.value);
-      UI.toast(`Storage set to: ${e.target.value}`, "success");
-    } else {
-      e.target.value = UI.getStorageChoice();
+// New Class (clears editor for fresh entry)
+const newClassBtn = UI.$("#new-class-btn");
+if (newClassBtn) newClassBtn.onclick = UI.clearClassEditor;
+
+// Save / Update Class
+const saveClassBtn = UI.$("#save-class-btn");
+if (saveClassBtn) saveClassBtn.onclick = DB.handleSaveClass;
+
+// Archive Class (non-destructive)
+const archiveClassBtn = UI.$("#archive-class-btn");
+if (archiveClassBtn) archiveClassBtn.onclick = DB.handleArchiveClass;
+
+// Load selected class into editor
+const classesList = UI.$("#classes-list");
+if (classesList) {
+  classesList.onchange = (e) => UI.loadClassIntoEditor(e.target.value);
+}
+
+// Rename Class
+const renameClassBtn = UI.$("#rename-class-btn");
+if (renameClassBtn) {
+  renameClassBtn.onclick = async () => {
+    const classId = UI.$("#classes-list")?.value;
+    if (!classId || !UI.classData[classId]) {
+      UI.toast("Select a class to rename first.", "warning");
+      return;
+    }
+
+    const currentTitle = UI.classData[classId].title || "";
+    const newTitle = prompt("Enter new class name:", currentTitle);
+
+    if (!newTitle || newTitle.trim() === currentTitle) return;
+
+    try {
+      await DB.handleRenameClass({
+        classId,
+        newTitle: newTitle.trim(),
+        participants: UI.classData[classId].participants || []
+      });
+
+      // Update UI cache
+      UI.classData[classId].title = newTitle.trim();
+
+      await DB.loadClasses();
+      UI.loadClassIntoEditor(classId);
+
+      UI.toast("Class renamed successfully.", "success");
+    } catch (err) {
+      console.error("Rename failed:", err);
+      UI.toast("Failed to rename class.", "error");
     }
   };
+}
+
+// Delete Class (ARCHIVE ONLY — SAFE)
+const deleteClassBtn = UI.$("#delete-class-btn");
+if (deleteClassBtn) {
+  deleteClassBtn.onclick = async () => {
+    const classId = UI.$("#classes-list")?.value;
+
+    if (!classId || !UI.classData?.[classId]) {
+      UI.toast("Select a class to delete first.", "warning");
+      return;
+    }
+
+    const classTitle = UI.classData[classId].title || "this class";
+
+    const confirmed = await UI.showConfirm(
+      `Are you sure you want to delete "${classTitle}"?\n\nThis will NOT delete recordings — it will only archive this class.`,
+      "Confirm Delete",
+      "Delete Class"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await DB.archiveClass({
+        db: UI.db,                 // ✅ REQUIRED (fixes “db missing”)
+        appId: UI.getAppId(),
+        uid: UI.currentUser.uid,
+        id: classId
+      });
+
+      // Update local cache
+      UI.classData[classId].archived = true;
+
+      // Reset UI
+      UI.clearClassEditor();
+      await DB.refreshClassesList(); // ✅ correct module; NOT UI.refreshClassesList()
+
+      UI.toast("Class deleted (archived).", "success");
+    } catch (err) {
+      console.error("Delete failed:", err);
+      UI.toast("Failed to delete class.", "error");
+    }
+  };
+}
 
   // ----------------------------------------------------
   // 8. Recording / Metadata (NEW: Group Project Logic)

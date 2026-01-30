@@ -21,6 +21,10 @@ const latestRowScores = new Map();    // rowId → score
 let currentLibraryVideoId = null;     // Editing context
 let previewLock = false;              // Camera toggle lock
 
+// 🔒 TEMP CLASS TRACKER (prevents ghost classes on cancel)
+let pendingNewClassId = null;
+
+
 /* ========================================================================== */
 /* LIBRARY CONTEXT & SAVE HANDLER
 /* ========================================================================== */
@@ -538,13 +542,19 @@ export function handleMetadataClassChange(e) {
   const addClassUI = UI.$("#add-class-container");
   const participantSelect = UI.$("#metadata-student-select");
 
-  // ── 1. Sentinel: Add New Class ─────────────────────────
   if (classId === "__add__") {
-    addClassUI?.classList.remove("hidden");
-    UI.$("#new-class-name")?.focus();
-    classSelect.value = "";
-    return;
-  }
+  const addUI = UI.$("#add-class-container");
+  const input = UI.$("#new-class-name");
+
+  addUI?.classList.remove("hidden");
+  input && (input.value = "");
+  input?.focus();
+
+  // Reset dropdown so no phantom selection exists
+  e.target.value = "";
+  return;
+}
+
 
   // Hide add-class UI otherwise
   addClassUI?.classList.add("hidden");
@@ -581,64 +591,97 @@ export function handleMetadataClassChange(e) {
 }
 
 // ================================
-// ADD NEW CLASS / EVENT
+// ADD NEW CLASS / EVENT (SAFE)
 // ================================
 export async function handleAddNewClass() {
+  console.warn("HANDLE ADD CLASS CALLED");
   const input = UI.$("#new-class-name");
-  const title = input?.value?.trim();
+  const title = input?.value.trim();
 
   if (!title) {
     UI.toast("Enter a class/event name.", "error");
     return;
   }
 
-  // Prevent duplicates (case-insensitive, safe)
-  const existingTitles = Object.values(UI.classData || {})
+  // Prevent duplicates (case-insensitive)
+  const existing = Object.values(UI.classData || {})
     .map(c => typeof c?.title === "string" ? c.title.toLowerCase() : null)
     .filter(Boolean);
 
-  if (existingTitles.includes(title.toLowerCase())) {
+  if (existing.includes(title.toLowerCase())) {
     UI.toast("Class already exists.", "warning");
     return;
   }
 
-  // Create Firestore document
-  const docRef = await addDoc(
-    collection(
-      UI.db,
-      `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`
-    ),
-    {
-      title,                // ✅ SINGLE SOURCE OF TRUTH
-      participants: [],
-      archived: false,
-      createdAt: serverTimestamp()
-    }
-  );
+  try {
+    // ✅ WRITE FIRST — SOURCE OF TRUTH
+    const docRef = await addDoc(
+      collection(
+        UI.db,
+        `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`
+      ),
+      {
+        title,
+        participants: [],
+        archived: false,
+        createdAt: serverTimestamp()
+      }
+    );
 
-  // Update local cache immediately (prevents Untitled / undefined)
-  UI.classData[docRef.id] = {
-    id: docRef.id,
-    title,
-    participants: [],
-    archived: false
+    // 🔒 TRACK THIS CLASS UNTIL USER SAVES OR CANCELS
+    pendingNewClassId = docRef.id;
+
+    // ✅ UPDATE CACHE ONLY AFTER FIRESTORE SUCCESS
+    UI.classData[docRef.id] = {
+     id: docRef.id,
+     title,
+     participants: [],
+     archived: false
   };
 
-  // Refresh all class dropdowns
-  UI.refreshMetadataClassList();
+     console.warn("CLASS WRITTEN TO UI.classData", docRef.id);
 
-  // Auto-select new class in metadata UI
-  const select = UI.$("#meta-class");
-  if (select) {
-    select.value = docRef.id;
-    handleMetadataClassChange({ target: select });
+
+    // Refresh all dropdowns
+    UI.refreshMetadataClassList();
+
+    // Auto-select new class
+    const select = UI.$("#meta-class");
+    if (select) {
+      select.value = docRef.id;
+      handleMetadataClassChange({ target: select });
+    }
+
+    // Reset UI
+    input.value = "";
+    UI.$("#add-class-container")?.classList.add("hidden");
+
+    UI.toast("Class added.", "success");
+
+  } catch (err) {
+    console.error("Add class failed:", err);
+    UI.toast("Failed to add class.", "error");
+  }
+}
+
+// ================================
+// CANCEL ADD CLASS (NO GHOSTS)
+// ================================
+export function cancelAddClass() {
+  // If a temp class was created, remove it
+  if (pendingNewClassId && UI.classData[pendingNewClassId]) {
+    delete UI.classData[pendingNewClassId];
+    pendingNewClassId = null;
+
+    // Refresh all class dropdowns
+    UI.refreshMetadataClassList();
   }
 
-  // Reset UI
-  input.value = "";
-  UI.$("#add-class-container")?.classList.add("hidden");
+  // Clear input + hide UI
+  const input = UI.$("#new-class-name");
+  if (input) input.value = "";
 
-  UI.toast("Class added.", "success");
+  UI.$("#add-class-container")?.classList.add("hidden");
 }
 
 // ================================

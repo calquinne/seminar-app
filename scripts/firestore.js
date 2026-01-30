@@ -111,10 +111,16 @@ export async function refreshClassesList() {
 }
 
 
+// ================================
+// SAVE CLASS (LOW-LEVEL WRITE ONLY)
+// ================================
 export async function saveClass({ id, title, participants }) {
+  if (!UI.db) throw new Error("saveClass: db not ready");
+  if (!UI.currentUser) throw new Error("saveClass: user not authenticated");
+
   const colRef = collection(
-    db,
-    `artifacts/${getAppId()}/users/${currentUser.uid}/classes`
+    UI.db,
+    `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`
   );
 
   if (id) {
@@ -134,6 +140,22 @@ export async function saveClass({ id, title, participants }) {
   }
 }
 
+// ================================
+// HANDLE RENAME CLASS (AUTH SAFE)
+// ================================
+// ================================
+// HANDLE RENAME CLASS (AUTH SAFE)
+// ================================
+export async function handleRenameClass({ classId, newTitle, participants = [] }) {
+  if (!classId) throw new Error("Missing classId");
+  if (!newTitle) throw new Error("Missing title");
+
+  return saveClass({
+    id: classId,
+    title: newTitle,
+    participants
+  });
+}
 
 // firestore.js
 export async function archiveClass({ db, appId, uid, id }) {
