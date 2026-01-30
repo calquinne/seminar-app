@@ -684,6 +684,48 @@ export async function openScoringForVideo(videoId) {
   }
 }
 
+/* ========================================================================== */
+/* NEW: Handle Upgrade Plan Click (Explains Cloud vs Local)
+/* ========================================================================== */
+export function handleUpgradePlan() {
+  // Default to 1GB if undefined
+  const currentLimit = (userDoc && userDoc.planStorageLimit)
+    ? userDoc.planStorageLimit
+    : 1000000000;
+
+  const limitGB = (currentLimit / 1e9).toFixed(1);
+
+  const message = `
+    <div class="text-left space-y-3">
+      <p><strong>Current Status:</strong> Active Subscription (${limitGB} GB Cloud Cap)</p>
+      
+      <div class="p-3 bg-white/5 rounded-lg border border-white/10 text-sm">
+        <p class="mb-2"><strong>Tip:</strong> You can continue recording without changing your plan.</p>
+        <p class="text-gray-300">
+           Simply switch your Storage Provider to <strong>"Local Device / USB"</strong>. 
+           Local recordings are unlimited and included in your current subscription.
+           Cloud storage is limited to keep subscription costs predictable.
+        </p>
+      </div>
+
+      <hr class="border-white/20 my-2">
+      
+      <h4 class="font-bold text-primary-400">Cloud Storage Tiers:</h4>
+      <ul class="list-disc pl-5 text-sm space-y-1 text-gray-300">
+        <li><strong>Base Plan:</strong> 1 GB Cloud included (≈ 30–45 minutes of video).</li>
+        <li><strong>Pro Plan:</strong> Higher Cloud limits available.</li>
+        <li><strong>Local Storage:</strong> Unlimited (included).</li>
+      </ul>
+
+      <p class="mt-4 text-xs text-gray-400">
+        To increase your Cloud capacity, please contact support or your administrator.
+      </p>
+    </div>
+  `;
+
+  showConfirm(message, "Manage Cloud Storage", "Close");
+}
+
 window.__UI__ = {
   get classData() {
     return classData;

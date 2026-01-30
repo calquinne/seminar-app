@@ -36,6 +36,12 @@ function setupEventListeners() {
 
   const signoutBtn = UI.$("#signout-btn");
   if (signoutBtn) signoutBtn.onclick = Auth.handleSignOut;
+  
+  // 1.5 Upgrade Plan Button (New)
+  const upgradeBtn = UI.$("#upgrade-plan-btn");
+  if (upgradeBtn) {
+      upgradeBtn.onclick = () => UI.handleUpgradePlan();
+  }
 
   // 2. Setup Screen: Save Button
   const setupSave = UI.$("#setup-save");

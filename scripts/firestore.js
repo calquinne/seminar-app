@@ -81,7 +81,6 @@ export async function loadClasses() {
   return classes;
 }
 
-
 /* -------------------------------------------------------------------------- */
 /* Class / Event Management
 /* -------------------------------------------------------------------------- */
@@ -110,39 +109,63 @@ export async function refreshClassesList() {
   }
 }
 
+/* ========================================================================== */
+/* CORRECTED: handleSaveClass (Connects UI Inputs to Database)
+/* Replaces "saveClass" to fix the wiring with main.js
+/* ========================================================================== */
+export async function handleSaveClass() {
+  const id = UI.$("#classes-list").value;
+  const title = UI.$("#class-title").value.trim();
+  const rosterStr = UI.$("#class-roster").value.trim();
+  
+  // ✅ NEW: Capture Date Inputs from your UI
+  const archiveDate = UI.$("#class-archive-date").value;
+  const deleteDate = UI.$("#class-delete-date").value;
+  
+  if (!title) {
+    UI.toast("Class title is required.", "error");
+    return;
+  }
 
-// ================================
-// SAVE CLASS (LOW-LEVEL WRITE ONLY)
-// ================================
-export async function saveClass({ id, title, participants }) {
-  if (!UI.db) throw new Error("saveClass: db not ready");
-  if (!UI.currentUser) throw new Error("saveClass: user not authenticated");
+  const participants = rosterStr 
+    ? rosterStr.split("\n").map(s => s.trim()).filter(s => s) 
+    : [];
 
-  const colRef = collection(
-    UI.db,
-    `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`
-  );
-
-  if (id) {
-    await updateDoc(doc(colRef, id), {
+  // Prepare the data object
+  const classData = {
       title,
       participants,
+      archiveDate, // ✅ Saves to Firestore
+      deleteDate,  // ✅ Saves to Firestore
       updatedAt: serverTimestamp()
-    });
-  } else {
-    await addDoc(colRef, {
-      title,
-      participants,
-      archived: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+  };
+
+  try {
+    const colRef = collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`);
+    
+    if (id) {
+      // UPDATE EXISTING CLASS
+      await updateDoc(doc(colRef, id), classData);
+      UI.toast("Class updated!", "success");
+    } else {
+      // CREATE NEW CLASS
+      await addDoc(colRef, {
+        ...classData,
+        archived: false,
+        createdAt: serverTimestamp()
+      });
+      UI.toast("Class created!", "success");
+    }
+    
+    UI.clearClassEditor();
+    refreshClassesList();
+    
+  } catch (e) {
+    console.error("Save class failed:", e);
+    UI.toast("Error saving class.", "error");
   }
 }
 
-// ================================
-// HANDLE RENAME CLASS (AUTH SAFE)
-// ================================
 // ================================
 // HANDLE RENAME CLASS (AUTH SAFE)
 // ================================
@@ -170,13 +193,21 @@ export async function archiveClass({ db, appId, uid, id }) {
   );
 }
 
-
 /* -------------------------------------------------------------------------- */
-/* File Upload & Metadata
+/* File Upload & Metadata (Updated with Limit Enforcer)
 /* -------------------------------------------------------------------------- */
 export async function uploadFile(blob, metadata) {
   if (!UI.db || !UI.currentUser) throw new Error("Not signed in.");
   if (!blob) throw new Error("CRITICAL: uploadFile called without blob.");
+
+  // 🛑 1. ENFORCE STORAGE LIMIT (The "Gatekeeper")
+  const limit = UI.userDoc.planStorageLimit || 1000000000; // Default 1GB
+  const used = UI.userDoc.storageUsedBytes || 0;
+  
+  if ((used + blob.size) > limit) {
+      // Throw a specific error we can catch below
+      throw new Error("STORAGE_LIMIT_EXCEEDED");
+  }
 
   const appId = UI.getAppId();
   const newDocRef = doc(collection(UI.db, `artifacts/${appId}/users/${UI.currentUser.uid}/videos`));
@@ -184,7 +215,6 @@ export async function uploadFile(blob, metadata) {
   const filename = `${videoId}_${Date.now()}.webm`;
   const storagePath = `artifacts/${appId}/users/${UI.currentUser.uid}/videos/${filename}`;
   
-  // Set Content Type
   const contentType = blob.type || "video/webm";
   const uploadMeta = { contentType };
 
@@ -217,9 +247,20 @@ export async function uploadFile(blob, metadata) {
         status: "ready"
     });
 
+    // Mock update usage locally so UI updates immediately
+    UI.mockUpdateStorageUsage(used + blob.size);
+
     return { id: videoId, storagePath: storagePath, downloadURL };
 
   } catch (error) {
+    // 🛑 2. HANDLE THE LIMIT ERROR GRACEFULLY
+    if (error.message === "STORAGE_LIMIT_EXCEEDED") {
+        console.warn("Upload blocked: Storage limit exceeded.");
+        UI.toast("Cloud limit reached! Switch to 'Local Device' to continue within your current subscription.", "error");
+        // Re-throw so the calling function knows it failed
+        throw error; 
+    }
+
     console.error("Upload/Save failed:", error);
     throw error;
   } finally {
