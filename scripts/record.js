@@ -329,7 +329,7 @@ function clearTagList() {
 
 export function handleTagButtonClick() {
   if (!UI.mediaRecorder || UI.mediaRecorder.state !== "recording") {
-      UI.toast("Start recording first.", "warn");
+      UI.toast("Tags mark moments during a recording", "warn");
       return;
   }
   const time = UI.secondsElapsed;

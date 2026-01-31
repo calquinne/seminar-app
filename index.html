@@ -567,7 +567,7 @@ select option[disabled] {
 
       <!-- TAG LIST -->
       <div>
-        <h4 class="text-sm font-semibold text-white mb-1">Tags</h4>
+        <h4 class="text-sm font-semibold text-white mb-1">Markers</h4>
         <ul id="tag-list" class="text-xs text-gray-400 space-y-1"></ul>
       </div>
 
@@ -598,11 +598,13 @@ select option[disabled] {
       Pause
     </button>
 
-    <!-- TAG -->
-    <button id="tag-btn"
-      class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white">
-      Tag
+    <button
+      id="tag-btn"
+      title="Add a timeline marker at the current moment"
+       >
+       Add Marker
     </button>
+
 
     <!-- SWITCH CAMERA -->
     <button id="toggle-camera-btn"
@@ -611,10 +613,14 @@ select option[disabled] {
     </button>
 
     <!-- STOP & SAVE -->
-    <button id="stop-rec-btn"
-      class="hidden col-span-2 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold">
-      Stop & Save
+    <button
+      id="stop-rec-btn"
+       class="hidden col-span-2 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-bold"
+       title="Finalize recording and create scorecard"
+>
+      Stop &amp; Save
     </button>
+
 
     <!-- DISCARD -->
     <button id="discard-rec-btn"
