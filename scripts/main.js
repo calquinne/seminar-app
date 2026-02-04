@@ -344,6 +344,15 @@ if (deleteClassBtn) {
   const stopBtn = UI.$("#stop-rec-btn");
   if (stopBtn) stopBtn.onclick = Record.stopRecording;
   
+    // Storage Provider selector
+  const storageSelect = UI.$("#storage-provider");
+  if (storageSelect) {
+    storageSelect.onchange = (e) => {
+      UI.setStorageChoice(e.target.value);
+      UI.toast(`Storage switched to ${e.target.value}`, "info");
+    };
+  }
+
   const discardBtn = UI.$("#discard-rec-btn");
   if (discardBtn) discardBtn.onclick = Record.discardRecording;
   

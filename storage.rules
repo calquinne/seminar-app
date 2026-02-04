@@ -1,14 +1,18 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    
-    function isAllowedContentType() {
-      return request.resource.contentType.matches('video/.*') 
-          || request.resource.contentType.matches('image/.*') 
-          || request.resource.contentType.matches('application/pdf');
+
+    function hasAllowedContentType() {
+      return (
+        (request.resource != null &&
+         request.resource.contentType != null &&
+         request.resource.contentType.matches('video/.*')) ||
+        (resource != null &&
+         resource.contentType != null &&
+         resource.contentType.matches('video/.*'))
+      );
     }
-    
-    // ✅ REFINEMENT 2: Restored strict Admin check (matches your original rules)
+
     function isAdmin(appId) {
       let userDoc = firestore.get(
         /databases/(default)/documents/artifacts/$(appId)/users/$(request.auth.uid)
@@ -16,20 +20,14 @@ service firebase.storage {
       return userDoc.data != null && userDoc.data.role == 'admin';
     }
 
-    // LEGACY: Allow reading old videos
-    match /users/{userId}/{allPaths=**} {
-      allow get, delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // NEW: Artifacts structure
     match /artifacts/{appId}/users/{userId}/{allPaths=**} {
-       allow create, update: if request.auth != null 
-                             && request.auth.uid == userId 
-                             && isAllowedContentType();
-                             
-       allow get, delete: if request.auth != null && request.auth.uid == userId;
-       
-       allow get: if isAdmin(appId);
+      allow create, update: if request.auth != null
+                            && request.auth.uid == userId
+                            && hasAllowedContentType();
+
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && isAdmin(appId);
     }
   }
 }

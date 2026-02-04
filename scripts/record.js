@@ -3,7 +3,7 @@
 /* ========================================================================== */
 
 import * as UI from "./ui.js";
-import { uploadFile, saveRecording, saveLocalData } from "./firestore.js";
+import { uploadFile, saveRecording, saveLocalData, loadLibrary } from "./firestore.js";
 import {
   doc,
   addDoc,
@@ -72,7 +72,13 @@ document.addEventListener("click", async (e) => {
               rubricId: rubric?.id || null, rubricTitle: rubric?.title || null,
               lastScoredAt: serverTimestamp()
           });
+          
           UI.toast("Scores saved!", "success");
+
+          // ✅ NEW: Close Player & Refresh List (The Fix)
+          if (typeof UI.closeVideoPlayer === "function") UI.closeVideoPlayer();
+          if (typeof loadLibrary === "function") await loadLibrary();
+
       } catch (err) {
           console.error("Score save failed:", err);
           UI.toast("Save failed.", "error");
@@ -805,131 +811,178 @@ async function exportToLocal(metadata) {
 
 /* -------------------------------------------------------------------------- */
 /* ✅ FINAL METADATA SUBMIT (Hardened)
-/* -------------------------------------------------------------------------- */
+/* NOTE:
+ * - This must be the ONLY submit handler bound to the metadata form.
+ * - Do NOT keep older handlers, or duplicate writes will occur.
+ * -------------------------------------------------------------------------- */
 export async function handleMetadataSubmit(e) {
   e.preventDefault();
-  if (!UI.currentRecordingBlob) { UI.toast("No recording.", "error"); return; }
+  if (!UI.currentRecordingBlob) {
+    UI.toast("No recording.", "error");
+    return;
+  }
 
-  // 1. GATHER DATA
+  /* ---------------------------------------------------------------------- */
+  /* 1. GATHER DATA                                                         */
+  /* ---------------------------------------------------------------------- */
   const type = UI.$("#metadata-recording-type").value;
   const groupName = UI.$("#metadata-group-tag").value;
   let participants = [];
 
-  if (type === 'group') {
-      document.querySelectorAll(".group-student-checkbox:checked").forEach(cb => participants.push(cb.value));
-      // Fallback
-      if (participants.length === 0 && UI.$("#metadata-student-select").value) {
-          participants.push(UI.$("#metadata-student-select").value);
-      }
+  if (type === "group") {
+    document
+      .querySelectorAll(".group-student-checkbox:checked")
+      .forEach(cb => participants.push(cb.value));
+
+    // Fallback if checkboxes are not used
+    if (participants.length === 0 && UI.$("#metadata-student-select").value) {
+      participants.push(UI.$("#metadata-student-select").value);
+    }
   } else {
-      if (UI.$("#metadata-student-select").value) participants.push(UI.$("#metadata-student-select").value);
+    if (UI.$("#metadata-student-select").value) {
+      participants.push(UI.$("#metadata-student-select").value);
+    }
   }
 
   // ✅ HARD DEDUPLICATION & CLEANUP
-  participants = [...new Set(participants.map(p => p?.trim()).filter(Boolean))];
+  participants = [
+    ...new Set(participants.map(p => p?.trim()).filter(Boolean))
+  ];
 
-  // ✅ VALIDATION WITH FEEDBACK
-  if (type === 'group') {
-      if (participants.length < 2) {
-          await UI.showConfirm(
-              "A group must have at least 2 participants.\nSwitch to 'Individual' if only 1 student.", 
-              "Invalid Group", "OK"
-          );
-          return;
-      }
-      if (!groupName.trim()) { UI.toast("Enter a group name.", "error"); return; }
+  /* ---------------------------------------------------------------------- */
+  /* 2. VALIDATION (WITH USER FEEDBACK)                                     */
+  /* ---------------------------------------------------------------------- */
+  if (type === "group") {
+    if (participants.length < 2) {
+      await UI.showConfirm(
+        "A group must have at least 2 participants.\nSwitch to 'Individual' if only 1 student.",
+        "Invalid Group",
+        "OK"
+      );
+      return;
+    }
+
+    if (!groupName.trim()) {
+      UI.toast("Enter a group name.", "error");
+      return;
+    }
   } else {
-      if (participants.length === 0) { UI.toast("Select a participant.", "error"); return; }
+    if (participants.length === 0) {
+      UI.toast("Select a participant.", "error");
+      return;
+    }
   }
 
-  // 2. BUILD METADATA
+  /* ---------------------------------------------------------------------- */
+  /* 3. BUILD METADATA                                                      */
+  /* ---------------------------------------------------------------------- */
   const classEl = UI.$("#meta-class");
   const rubric = Rubrics.getActiveRubric();
-  
+
   const finalScores = {};
   let totalScore = 0;
-  latestRowScores.forEach((v, k) => { finalScores[k] = v; totalScore += v; });
-
-  const rowNotes = {};
-  document.querySelectorAll('[data-note-row-id]').forEach(el => {
-      if(el.value.trim()) rowNotes[el.dataset.noteRowId] = el.value.trim();
+  latestRowScores.forEach((v, k) => {
+    finalScores[k] = v;
+    totalScore += v;
   });
 
-  // General Notes (Visible in UI now)
+  const rowNotes = {};
+  document.querySelectorAll("[data-note-row-id]").forEach(el => {
+    if (el.value.trim()) {
+      rowNotes[el.dataset.noteRowId] = el.value.trim();
+    }
+  });
+
   const generalNotes = UI.$("#meta-notes").value.trim() || null;
 
   const metadata = {
-      organization: UI.$("#meta-org").value,
-      instructor: UI.$("#meta-instructor").value,
-      classEventId: classEl.value,
-      classEventTitle: classEl.options[classEl.selectedIndex]?.text || "N/A",
-      
-      participants: participants,
-      participant: participants[0],
-      recordingType: type,
-      isGroup: (type === 'group'),
-      groupName: (type === 'group') ? groupName : null,
-      
-      notes: generalNotes, // ✅ Saved here
-      fileSize: UI.currentRecordingBlob.size,
-      duration: UI.secondsElapsed,
-      recordedAt: new Date().toISOString(),
-      tags: currentTags,
-      
-      hasScore: true,
-      rubricId: rubric?.id || null,
-      rubricTitle: rubric?.title || null,
-      finalScores, totalScore, rowNotes
-  };
+  organization: UI.$("#meta-org").value,
+  instructor: UI.$("#meta-instructor").value,
 
-  // 3. CONFIRM
-  let msg = (type === 'group') 
+  classEventId: classEl.value,
+  classEventTitle: classEl.options[classEl.selectedIndex]?.text || "N/A",
+
+  participants,
+  participant: participants[0],
+
+  recordingType: type,
+  isGroup: type === "group",
+  groupName: type === "group" ? groupName : null,
+
+  notes: generalNotes,
+  tags: currentTags,
+
+  fileSize: UI.currentRecordingBlob.size,
+  duration: UI.secondsElapsed,
+
+  recordedAt: new Date().toISOString(),
+
+  hasScore: true,
+  rubricId: rubric?.id || null,
+  rubricTitle: rubric?.title || null,
+
+  finalScores,
+  totalScore,
+  rowNotes
+};
+
+  /* ---------------------------------------------------------------------- */
+  /* 4. CONFIRM                                                            */
+  /* ---------------------------------------------------------------------- */
+  const msg =
+    type === "group"
       ? `Group: ${groupName}\nStudents: ${participants.join(", ")}`
       : `Student: ${metadata.participant}\nClass: ${metadata.classEventTitle}`;
-  
-  if (!await UI.showConfirm(msg, "Confirm Save", "Save")) return;
 
-  // 4. SAVE (WITH BUTTON LOCK)
+  if (!(await UI.showConfirm(msg, "Confirm Save", "Save"))) return;
+
+  /* ---------------------------------------------------------------------- */
+  /* 5. SAVE (WITH BUTTON LOCK)                                             */
+  /* ---------------------------------------------------------------------- */
   const submitBtn = e.target.querySelector("button[type='submit']");
-  const oldText = submitBtn ? submitBtn.innerHTML : "Save";
+  const oldText = submitBtn?.innerHTML || "Save";
+
   if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Saving...";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving...";
   }
 
   try {
-      UI.toast("Saving...", "info");
-      const storage = UI.getStorageChoice();
+    UI.toast("Saving...", "info");
+    const storage = UI.getStorageChoice();
 
-      if (storage === "local") {
-          await exportToLocal(metadata);
-          UI.toast("Syncing data...", "info");
-          await saveLocalData(metadata);
-      } else if (storage === "gdrive") {
-          await UI.uploadToDrivePlaceholder(UI.currentRecordingBlob, metadata);
-      } else {
-          await saveRecording(metadata, UI.currentRecordingBlob);
-      }
+    if (storage === "local") {
+      await exportToLocal(metadata);
+      UI.toast("Syncing data...", "info");
+      await saveLocalData(metadata);
+    } else if (storage === "gdrive") {
+      await UI.uploadToDrivePlaceholder(
+        UI.currentRecordingBlob,
+        metadata
+      );
+    } else {
+      await saveRecording(metadata, UI.currentRecordingBlob);
+    }
 
-      UI.$("#metadata-screen").close();
-      UI.toast("Saved!", "success");
+    UI.$("#metadata-screen").close();
+    UI.toast("Saved!", "success");
 
-      if (storage !== "local") {
-          stopPreview();
-          if(document.querySelector('[data-tab="tab-manage"]')) document.querySelector('[data-tab="tab-manage"]').click();
-          discardRecording();
-      }
-
+    if (storage !== "local") {
+      stopPreview();
+      document
+        .querySelector('[data-tab="tab-manage"]')
+        ?.click();
+      discardRecording();
+    }
   } catch (err) {
-      if (err.message !== "CANCELLED") {
-          console.error(err);
-          UI.toast("Save failed: " + err.message, "error");
-      }
+    if (err.message !== "CANCELLED") {
+      console.error(err);
+      UI.toast(`Save failed: ${err.message}`, "error");
+    }
   } finally {
-      // ✅ UNLOCK BUTTON
-      if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = oldText;
-      }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = oldText;
+    }
   }
 }

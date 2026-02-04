@@ -78,50 +78,50 @@ self.addEventListener("activate", (event) => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* FETCH – Safe caching with Firebase Auth bypass
-/* -------------------------------------------------------------------------- */
+/* FETCH – HARD BYPASS Firebase & Google APIs (CRITICAL FIX)
+   Firebase Storage resumable uploads CANNOT pass through a SW.
+   Any interception causes 412 / storage-unknown.
+-------------------------------------------------------------------------- */
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
+  const url = event.request.url;
 
-  // ✅ UPDATED: Stricter rules from the new analysis
+  // 🚫 ABSOLUTE BYPASS — do NOT touch, log, cache, or inspect
   if (
-    url.pathname.startsWith("/__/auth/") ||
-    url.pathname.startsWith("/__/firebase/init.js") || // Added this
-    url.hostname.includes("accounts.google.com") ||
-    url.hostname.includes("googleapis.com") ||
-    url.hostname.includes("securetoken.googleapis.com")
+    url.includes("firebasestorage.googleapis.com") ||
+    url.includes("googleapis.com") ||
+    url.includes("gstatic.com") ||
+    url.includes("firebaseinstallations.googleapis.com") ||
+    url.includes("securetoken.googleapis.com") ||
+    url.includes("/__/firebase/")
   ) {
-    console.log("[SW] Skipping auth request (network only):", url.href);
-    return; // Let the browser handle it
+    return; // let browser handle natively
   }
-// 🚨 NEW: Always bypass Firebase Storage uploads
-if (url.hostname.includes("firebasestorage.googleapis.com")) {
-  console.log("[SW] Skipping Firebase Storage request:", url.href);
-  return;   // Let the browser do its normal thing
-}
 
-  // Cache-first strategy
+  // ✅ ONLY cache your own app shell
   event.respondWith(
-    caches.match(event.request).then(async (cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
 
-      try {
-        const networkResponse = await fetch(event.request);
-        if (
-          event.request.method === "GET" && 
-          networkResponse && 
-          networkResponse.status === 200 && 
-          networkResponse.type === 'basic'
-        ) {
-          const cloned = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
-        }
-        return networkResponse;
-      } catch (err) {
-        if (event.request.mode === "navigate") {
-          return caches.match(`./index.html?v=${APP_VERSION}`); // Match versioned index
-        }
-      }
+      return fetch(event.request)
+        .then((response) => {
+          if (
+            event.request.method === "GET" &&
+            response &&
+            response.status === 200 &&
+            response.type === "basic"
+          ) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) =>
+              cache.put(event.request, clone)
+            );
+          }
+          return response;
+        })
+        .catch(() => {
+          if (event.request.mode === "navigate") {
+            return caches.match(`./index.html?v=${APP_VERSION}`);
+          }
+        });
     })
   );
 });
