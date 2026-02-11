@@ -289,44 +289,67 @@ export async function uploadFile(blob, metadata) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Smart Save (Routes Single vs. Group Logic) */
+/* Smart Save (Routes Single vs. Group Logic) — FINAL FIXED                   */
 /* -------------------------------------------------------------------------- */
 export async function saveRecording(meta, blob) {
     if (!blob) throw new Error("NO_BLOB");
 
-    // ✅ FIX: Robust Group Detection (Prevents "1-person group" crash)
-    if (meta.recordingType !== "group" || !Array.isArray(meta.participants) || meta.participants.length <= 1) {
+    // ✅ SINGLE / NON-GROUP CHECK
+    // If it's not a group, or has 0-1 participants, just do the standard upload.
+    if (
+        meta.recordingType !== "group" ||
+        !Array.isArray(meta.participants) ||
+        meta.participants.length <= 1
+    ) {
         return await uploadFile(blob, meta);
     }
 
     // --- GROUP LOGIC (Only runs if 2+ people) ---
-    const participants = Array.isArray(meta.participants)
-       ? [...new Set(meta.participants.map(p => p?.trim()).filter(Boolean))]
-       : [];
+    
+    // 1. Sanitize Participants (Remove duplicates/empties)
+    const participants = [
+        ...new Set(meta.participants.map(p => p?.trim()).filter(Boolean))
+    ];
 
     if (participants.length < 2) throw new Error("GROUP_REQUIRES_2");
 
-    // Identify Primary Student
+    // 2. Identify Primary Student vs. The Rest
     const primaryStudent = participants[0];
+    const remaining = participants.slice(1);
+
+    // 3. Clean Metadata
+    // We remove the raw 'participants' array so we don't duplicate that huge list into every doc.
     const { participants: _, ...safeMeta } = meta;
 
-    // Upload ONCE for the primary student
+    // 4. Upload ONCE for the primary student
+    // NOTE: uploadFile() creates the Primary Document in Firestore.
     const baseMeta = { ...safeMeta, participant: primaryStudent, isGroup: true };
     const uploadResult = await uploadFile(blob, baseMeta);
 
-    // Create "Reference Copies" for everyone else
-    const remaining = participants.slice(1);
-    const colRef = collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`);
+    // 5. Create "Reference Copies" for everyone else
+    const colRef = collection(
+        UI.db, 
+        `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`
+    );
 
     const writes = remaining.map(student => {
+        // 🛑 THE FIX: Destructure 'id' out. 
+        // This creates 'cleanMeta' which has NO id field at all.
+        // Attempting to send { id: undefined } is what crashed Firestore.
+        const { id, ...cleanMeta } = baseMeta;
+
         return addDoc(colRef, {
-            ...baseMeta,
-            id: undefined, 
+            ...cleanMeta, 
             participant: student, 
             
+            // Link to the same physical file
             storagePath: uploadResult.storagePath,
             downloadURL: uploadResult.downloadURL, 
-            isDuplicate: true, 
+            
+            // Mark as sibling/duplicate so analytics handles it correctly
+            isDuplicate: true,        // keeps backend logic intact
+            isGroupDuplicate: true,  // UI differentiation flag
+ 
             originalVideoId: uploadResult.id,
             
             createdAt: serverTimestamp(),
@@ -335,6 +358,8 @@ export async function saveRecording(meta, blob) {
     });
 
     await Promise.all(writes);
+    
+    console.log(`✅ Group Save Complete: 1 Primary + ${writes.length} Copies.`);
     return uploadResult;
 }
 
@@ -531,9 +556,12 @@ export function renderLibraryFiltered() {
           groupBadge = ` <span class="ml-2 text-xs text-primary-400 font-normal bg-primary-500/10 px-1.5 py-0.5 rounded">👥 ${gName}</span>`;
       }
       
-      // Duplicate Badge
-      const dupBadge = v.isDuplicate ? ` <span class="ml-2 text-[10px] text-amber-300 border border-amber-500/30 px-1 rounded uppercase tracking-wide">Copy</span>` : "";
-
+      // Duplicate Badge// Duplicate Badge (Hide for Group Saves)
+      const dupBadge =
+       v.isDuplicate && !v.isGroupDuplicate
+         ? ` <span class="ml-2 text-[10px] text-amber-300 border border-amber-500/30 px-1 rounded uppercase tracking-wide">Copy</span>`
+         : "";
+      
       title.innerHTML = `<span>${v.classEventTitle || "Untitled"} — ${primaryName}${groupBadge}${dupBadge}</span>`;
       
       let dateStr = "Unknown Date";
@@ -552,12 +580,15 @@ export function renderLibraryFiltered() {
       // ✅ FIX: Safe File Size (Prevent NaN)
       const sizeMB = v.fileSize ? (v.fileSize / 1024 / 1024).toFixed(1) : "—";
 
+      const markerCount = Array.isArray(v.tags) ? v.tags.length : 0;
+
       meta.innerHTML = `
         <span class="text-primary-300 bg-primary-500/10 border border-primary-500/20 px-1.5 py-0.5 rounded font-medium">${rubricTitle}</span>
         <span>•</span>
         <span>${dateStr}</span> 
         <span>•</span> 
         <span>${sizeMB} MB</span>
+        ${markerCount > 0 ? `<span>•</span><span>🎯 ${markerCount}</span>` : ""}
       `;
       
       const actions = document.createElement("div");
@@ -578,7 +609,7 @@ export function renderLibraryFiltered() {
       // 3. COPY (New)
       const copyBtn = document.createElement("button");
       copyBtn.className = "ml-auto text-gray-500 hover:text-white transition-colors p-1.5 rounded hover:bg-white/10";
-      copyBtn.title = "Duplicate / Re-Assess\n• Creates a fresh scorecard for this video.\n• Perfect for '2 Birds, 1 Stone'.";
+      copyBtn.title = "Duplicate / Re-Assess\n• Creates a fresh scorecard for this video.\n• One recording, multiple grades.";
       copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5" /></svg>`;
       copyBtn.onclick = () => duplicateVideo(v.id);
 
@@ -655,24 +686,29 @@ export async function duplicateVideo(originalId) {
             duration: original.duration || 0,
             recordedAt: original.recordedAt,
             
-            participant: original.participant, // Don't change the name!
+            participant: original.participant, // Keep name
+
+            // 🛑 SAFETY FIX: Break the group connection
+            groupName: null,       
+            isGroup: false,
+            
+            // ✅ Flags for the System
+            isDuplicate: true,
+            originalVideoId: originalId,
+            
             classEventTitle: original.classEventTitle || "",
             rubricId: original.rubricId || "",
             recordingType: original.recordingType || "individual",
-            isGroup: original.isGroup || false,
-            groupName: original.groupName || null,
-
-            isDuplicate: true,
-            originalVideoId: originalId,
             status: "ready",
             createdAt: serverTimestamp(),
 
+            // Reset Scores
             totalScore: 0,
             finalScores: {},
             rowNotes: {},
             hasScore: false
         };
-
+           
         const newDocRef = await addDoc(colRef, newDocData);
 
         UI.toast("Video duplicated!", "success");
@@ -749,7 +785,7 @@ async function saveVideoEdits() {
 
     try {
         const docRef = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`, id);
-        await updateDoc(docRef, updates);
+        await updateVideo(id, updates);
         
         UI.toast("Video updated.", "success");
         modal.close();
@@ -826,5 +862,77 @@ export async function deleteVideo(videoId) {
     } catch (e) {
         console.error("Delete failed:", e);
         UI.toast("Delete failed.", "error");
+    }
+}
+
+// ✅ GROUP-SAFE SCORING — Compatible with SCA Schema
+export async function updateVideo(videoId, data) {
+    if (!UI.currentUser) return;
+
+    const path = `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`;
+    const docRef = doc(UI.db, path, videoId);
+
+    try {
+        // 1. Update the selected video first
+        await updateDoc(docRef, data);
+
+        // 2. Detect scoring update (using YOUR real fields)
+        const isScoreUpdate =
+            data.finalScores ||
+            data.totalScore !== undefined ||
+            data.hasScore === true;
+
+        if (!isScoreUpdate || data.isEditOverride) return;
+
+        // 3. Get fresh doc (source of truth)
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+
+        const video = snap.data();
+
+        // 4. Validate group linkage (Must have name & NOT be a duplicate)
+        if (!video.groupName || video.isDuplicate) return;
+
+        console.log(`🔄 Syncing group scores → ${video.groupName}`);
+
+        // 5. Query siblings by GROUP NAME + CLASS EVENT TITLE
+        // (This matches your real schema)
+        const q = query(
+            collection(UI.db, path),
+            where("groupName", "==", video.groupName),
+            where("classEventTitle", "==", video.classEventTitle)
+        );
+
+        const groupSnap = await getDocs(q);
+
+        // 6. Fan-out updates
+        const writes = groupSnap.docs
+            .filter(d => {
+                const dData = d.data();
+                // Ensure we don't update self or duplicates
+                return d.id !== videoId && !dData.isDuplicate;
+            })
+            .map(d =>
+                updateDoc(d.ref, {
+                    // Sync the fields your analytics actually read
+                    finalScores: data.finalScores || {},
+                    totalScore: data.totalScore || 0,
+                    hasScore: true,
+                    rubricId: data.rubricId || null,
+                    rubricTitle: data.rubricTitle || null
+                })
+            );
+
+        if (writes.length > 0) {
+            await Promise.all(writes);
+            console.log(`✅ Synced → ${writes.length} members`);
+            UI.toast(`Score synced to ${writes.length} group members`, "info");
+        }
+
+        await loadLibrary();
+
+    } catch (e) {
+        console.error("Update failed:", e);
+        UI.toast("Failed to update record.", "error");
     }
 }

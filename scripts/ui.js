@@ -613,9 +613,11 @@ export async function openScoringForVideo(videoId) {
     // 3. Set Active State
     Rubrics.setActiveRubric(rubric.id, rubric);
 
+    // ✅ PASS TAGS TO THE RENDERER
     const existingScores = {
-      finalScores: video.finalScores || {}, // Use correct key
-      notes: video.rowNotes || {}
+      finalScores: video.finalScores || {},
+      notes: video.rowNotes || {},
+      tags: video.tags || []  // <--- This is the missing link!
     };
 
     // 4. Define Render Logic
