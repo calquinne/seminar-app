@@ -10,7 +10,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { 
   getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, 
-  updateDoc, deleteDoc, query, orderBy, serverTimestamp, enableIndexedDbPersistence 
+  updateDoc, deleteDoc, query, orderBy, serverTimestamp, enableIndexedDbPersistence, arrayUnion 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { 
   getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject 
@@ -935,4 +935,15 @@ export async function updateVideo(videoId, data) {
         console.error("Update failed:", e);
         UI.toast("Failed to update record.", "error");
     }
+}
+
+// ✅ PHASE C: ADD MARKER DURING PLAYBACK
+export async function addPlaybackMarker(videoId, marker) {
+    if (!videoId || !marker) return;
+    
+    const ref = doc(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/videos`, videoId);
+    
+    await updateDoc(ref, {
+        tags: arrayUnion(marker)
+    });
 }

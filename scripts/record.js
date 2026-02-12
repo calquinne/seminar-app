@@ -3,7 +3,7 @@
 /* ========================================================================== */
 
 import * as UI from "./ui.js";
-import { uploadFile, saveRecording, updateVideo, loadLibrary } from "./firestore.js";
+import { uploadFile, saveRecording, saveLocalData, loadLibrary, updateVideo, addPlaybackMarker } from "./firestore.js";
 import {
   doc,
   addDoc,
@@ -189,53 +189,102 @@ export function renderLiveScoringFromRubric(input = {}, context = "live", option
   setTimeout(() => { if (rowsContainer) rowsContainer.scrollTop = 0; }, 150);
 
   rowsContainer.innerHTML = "";
-  // ---------------------------------------------------------
-  // ✅ NEW: RENDER PLAYBACK MARKERS (Phase C)
-  // ---------------------------------------------------------
-  const tags = input.tags || [];
-  
-  // Only show markers if we are in "playback" mode (not recording)
-  if (context === "playback" && tags.length > 0) {
-      
-      const markerContainer = document.createElement("div");
-      markerContainer.className = "mb-6 p-3 bg-indigo-900/20 border border-indigo-500/30 rounded-lg";
-      
-      markerContainer.innerHTML = `
-        <div class="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-            Timeline Markers
-        </div>
-        <div class="flex flex-wrap gap-2" id="playback-marker-list"></div>
-      `;
-      
-      const list = markerContainer.querySelector("#playback-marker-list");
-      
-      // Sort markers by time so they appear in order
-      tags.sort((a,b) => a.time - b.time).forEach(tag => {
-          const btn = document.createElement("button");
-          
-          // Format time: 65s -> "1:05"
-          const mins = Math.floor(tag.time / 60);
-          const secs = Math.floor(tag.time % 60).toString().padStart(2, '0');
-          
-          btn.className = "flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition-colors border border-indigo-400/50";
-          btn.innerHTML = `<span class="font-mono opacity-75 border-r border-white/20 pr-2 mr-[-4px]">${mins}:${secs}</span> ${tag.note || "Marker"}`;
-          
-          // CLICK TO JUMP LOGIC
-          btn.onclick = () => {
-             const video = document.getElementById("main-player");
-             if (video) {
-                 video.currentTime = tag.time;
-                 video.play();
-                 UI.toast(`Jumped to ${mins}:${secs}`, "info");
-             }
-          };
-          
-          list.appendChild(btn);
-      });
+ // ---------------------------------------------------------
+// ✅ NEW: RENDER PLAYBACK MARKERS (Review Mode)
+// ---------------------------------------------------------
+// 1. Safe Array Copy (Prevents mutation bugs)
+const tags = Array.isArray(input.tags) ? [...input.tags] : [];
 
-      rowsContainer.appendChild(markerContainer);
-  }
+// Show in playback mode
+if (context === "playback") {
+
+    const markerContainer = document.createElement("div");
+    markerContainer.className = "mb-6 p-3 bg-indigo-900/20 border border-indigo-500/30 rounded-lg";
+
+    // --- HEADER ROW (Title + Add Button) ---
+    markerContainer.innerHTML = `
+      <div class="flex justify-between items-center mb-3">
+          <div class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+              Timeline Markers
+          </div>
+          <button id="add-marker-btn" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded shadow flex items-center gap-1 transition-all">
+              <span>➕ Add Marker</span>
+          </button>
+      </div>
+      <div class="flex flex-wrap gap-2" id="playback-marker-list"></div>
+    `;
+
+    const list = markerContainer.querySelector("#playback-marker-list");
+    const addBtn = markerContainer.querySelector("#add-marker-btn");
+
+    // --- 1. RENDER EXISTING MARKERS ---
+    const renderList = () => {
+        list.innerHTML = "";
+        if (tags.length === 0) {
+            list.innerHTML = `<span class="text-xs text-indigo-400/50 italic">No markers yet. Watch the video and click 'Add Marker'.</span>`;
+            return;
+        }
+
+        tags.sort((a,b) => a.time - b.time).forEach(tag => {
+            const btn = document.createElement("button");
+            const mins = Math.floor(tag.time / 60);
+            const secs = Math.floor(tag.time % 60).toString().padStart(2, '0');
+
+            btn.className = "flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded transition-colors border border-indigo-400/50";
+            btn.innerHTML = `<span class="font-mono opacity-75 border-r border-white/20 pr-2 mr-[-4px]">${mins}:${secs}</span> ${tag.note || "Marker"}`;
+
+            btn.onclick = () => {
+               const video = document.getElementById("main-player");
+               if (video) {
+                   video.currentTime = tag.time;
+                   video.play();
+                   UI.toast(`Jumped to ${mins}:${secs}`, "info");
+               }
+            };
+            list.appendChild(btn);
+        });
+    };
+    renderList();
+
+    // --- 2. HANDLE "ADD MARKER" CLICK ---
+    addBtn.onclick = async () => {
+        const video = document.getElementById("main-player");
+        if (!video) return;
+
+        // Pause immediately so they don't lose the spot
+        video.pause();
+        const time = video.currentTime;
+
+        // Simple prompt for now
+        const note = prompt("Label this moment (e.g., 'Great Question'):");
+
+        if (note) {
+            const newMarker = { time, note, type: "review" };
+
+            // Optimistic UI Update (Show it immediately)
+            tags.push(newMarker);
+            renderList(); 
+
+            // Save to Backend
+            try {
+                addBtn.textContent = "Saving...";
+                addBtn.disabled = true;
+                // Ensure we use the global currentLibraryVideoId
+                await addPlaybackMarker(currentLibraryVideoId, newMarker);
+                UI.toast("Marker saved!", "success");
+            } catch (e) {
+                console.error(e);
+                UI.toast("Failed to save marker.", "error");
+            } finally {
+                addBtn.textContent = "➕ Add Marker";
+                addBtn.disabled = false;
+            }
+        }
+    };
+
+    rowsContainer.appendChild(markerContainer);
+}
   const existingScores = input.finalScores || input.scores || input.existingScores?.scores || input || {};
   const existingNotes = input.rowNotes || input.notes || input.existingScores?.notes || {};
   const rubric = input.rubricSnapshot || Rubrics.getActiveRubric();
