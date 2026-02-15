@@ -472,31 +472,68 @@ export async function startPreviewSafely() {
   UI.setCurrentRecordingBlob(null);
   
   try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { width: 1280, facingMode: UI.currentFacingMode }, audio: true 
-      });
-      UI.setMediaStream(stream);
-      vid.srcObject = stream;
-      await vid.play().catch(()=>{});
-      screen.classList.remove("hidden");
-  } catch(e) {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { width: 1280, facingMode: UI.currentFacingMode }, audio: true 
+        });
+        UI.setMediaStream(stream);
+        vid.srcObject = stream;
+        await vid.play().catch(()=>{});
+        screen.classList.remove("hidden");
+
+        // ✅ SURGICAL FIX 4A: Unlock Record Button
+        const recordBtn = UI.$("#start-rec-btn");
+        const previewBtn = UI.$("#manual-preview-btn"); // Also update preview text here
+        
+        if (recordBtn) {
+            recordBtn.disabled = false;
+            recordBtn.classList.remove("opacity-50", "cursor-not-allowed");
+            recordBtn.title = "Start Recording";
+        }
+        if (previewBtn) {
+             previewBtn.textContent = "Stop Preview";
+             previewBtn.classList.add("bg-cyan-600");
+        }
+
+    } catch(e) {
       console.error(e);
       UI.toast("Camera blocked.", "error");
   }
 }
 
 export function stopPreview() {
-  if (UI.mediaStream) {
-      UI.mediaStream.getTracks().forEach(t => t.stop());
-      UI.setMediaStream(null);
-  }
-  UI.$("#preview-player").srcObject = null;
-  UI.$("#preview-screen").classList.add("hidden");
+    if (UI.mediaStream) {
+        UI.mediaStream.getTracks().forEach(t => t.stop());
+        UI.setMediaStream(null);
+    }
+    UI.$("#preview-player").srcObject = null;
+    UI.$("#preview-screen").classList.add("hidden");
+
+    // ✅ SURGICAL FIX 4B: Re-Lock Record Button & Reset Preview Text
+    const recordBtn = UI.$("#start-rec-btn");
+    const previewBtn = UI.$("#manual-preview-btn");
+
+    if (recordBtn) {
+        recordBtn.disabled = true;
+        recordBtn.classList.add("opacity-50", "cursor-not-allowed");
+        recordBtn.title = "Start Preview first";
+    }
+    if (previewBtn) {
+        previewBtn.textContent = "Start Preview";
+        previewBtn.classList.remove("bg-cyan-600");
+    }
 }
 
 export async function startRecording() {
-  if (!UI.mediaStream) { await startPreviewSafely(); if(!UI.mediaStream) return; }
-  
+    if (!UI.mediaStream) { await startPreviewSafely(); if(!UI.mediaStream) return; }
+    
+    // ✅ SURGICAL FIX 3A: Lock Preview Button
+    const previewBtn = UI.$("#manual-preview-btn");
+    if (previewBtn) {
+        previewBtn.disabled = true;
+        previewBtn.classList.add("opacity-50", "cursor-not-allowed");
+        previewBtn.title = "Stop recording first";
+    }
+
   // ✅ Reset Score State
   liveScores = [];
   latestRowScores.clear();
@@ -558,13 +595,30 @@ export function pauseOrResumeRecording() {
 }
 
 export function stopRecording() {
-  if (UI.secondsElapsed < 1) { UI.toast("Too short.", "warn"); return; }
-  if (UI.mediaRecorder) UI.mediaRecorder.stop();
-  if (UI.timerInterval) clearInterval(UI.timerInterval);
-  UI.updateRecordingUI("stopped");
+    if (UI.secondsElapsed < 1) { UI.toast("Too short.", "warn"); return; }
+    if (UI.mediaRecorder) UI.mediaRecorder.stop();
+    if (UI.timerInterval) clearInterval(UI.timerInterval);
+    UI.updateRecordingUI("stopped");
+
+    // ✅ SURGICAL FIX 3B: Unlock Preview Button
+    const previewBtn = UI.$("#manual-preview-btn");
+    if (previewBtn) {
+        previewBtn.disabled = false;
+        previewBtn.classList.remove("opacity-50", "cursor-not-allowed");
+        previewBtn.title = "Stop Preview";
+    }
 }
 
 export async function discardRecording() {
+    // ✅ SURGICAL FIX 1: Nuclear Timer Kill
+    if (UI.timerInterval) {
+        clearInterval(UI.timerInterval);
+        UI.setTimerInterval(null);
+    }
+    UI.setSecondsElapsed(0);
+    const timerDisplay = UI.$("#rec-timer");
+    if (timerDisplay) timerDisplay.textContent = "00:00";
+
   if (UI.mediaRecorder?.state !== "inactive") {
       if (!await UI.showConfirm("Discard?", "Confirm", "Discard")) return;
       UI.mediaRecorder.onstop = null;
