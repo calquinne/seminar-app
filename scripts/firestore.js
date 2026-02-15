@@ -582,14 +582,22 @@ export function renderLibraryFiltered() {
 
       const markerCount = Array.isArray(v.tags) ? v.tags.length : 0;
 
-      meta.innerHTML = `
-        <span class="text-primary-300 bg-primary-500/10 border border-primary-500/20 px-1.5 py-0.5 rounded font-medium">${rubricTitle}</span>
-        <span>•</span>
-        <span>${dateStr}</span> 
-        <span>•</span> 
-        <span>${sizeMB} MB</span>
-        ${markerCount > 0 ? `<span>•</span><span>🎯 ${markerCount}</span>` : ""}
-      `;
+      // ✅ NEW: Format Duration
+const seconds = v.duration || 0;
+const mins = Math.floor(seconds / 60);
+const secs = (seconds % 60).toString().padStart(2, '0');
+const timeStr = seconds > 0 ? `${mins}:${secs}` : "--:--";
+
+// Update the innerHTML to include timeStr
+meta.innerHTML = `
+    <span class="text-primary-300 bg-primary-500/10 border border-primary-500/20 px-1.5 py-0.5 rounded font-medium">${rubricTitle}</span>
+    <span>•</span>
+    <span>${dateStr}</span> 
+    <span>•</span> 
+    <span>${sizeMB} MB</span>
+    <span>•</span> 
+    <span class="text-white font-mono text-sm font-bold bg-white/10 px-1 rounded border border-white/20">${timeStr}</span> ${markerCount > 0 ? `<span class="ml-1 text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">🎯 ${markerCount}</span>` : ""}
+`;
       
       const actions = document.createElement("div");
       actions.className = "flex items-center gap-3 mt-2";
