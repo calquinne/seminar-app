@@ -318,6 +318,9 @@ if (context === "playback") {
                 }
             };
         }
+        // NEW (Add a log)
+        console.log("🔍 FULL INPUT OBJECT:", input);
+        renderTimelinePins(tags, input.duration);
     };
 
     // Initial Render
@@ -391,7 +394,7 @@ if (context === "playback") {
               }
 
               const active = (val === Number(savedScore));
-              const cls = active ? "bg-primary-600 text-white border-primary-400 scale-110 shadow-md" : "bg-white/10 text-gray-300 hover:bg-white/20";
+              const cls = active ? "bg-[#0033A0] text-white border-primary-400 scale-110 shadow-md" : "bg-white/10 text-gray-300 hover:bg-white/20";
               
               // Render Wrapper
               btns += `
@@ -450,7 +453,7 @@ rowEl.querySelectorAll(".score-btn-wrapper").forEach(wrapper => {
               // Visual update
               const parent = btn.closest(".live-score-row");
               parent.querySelectorAll(".live-score-btn").forEach(b => b.className = "live-score-btn w-8 h-8 text-xs rounded border border-transparent bg-white/10 text-gray-300 hover:bg-white/20 transition-all");
-              btn.className = "live-score-btn w-8 h-8 text-xs rounded border border-primary-400 bg-primary-600 text-white scale-110 transition-all shadow-md";
+              btn.className = "live-score-btn w-8 h-8 text-xs rounded border border-primary-400 bg-[#0033A0] text-white scale-110 transition-all shadow-md";
 
               // Logic update
               latestRowScores.set(rowId, val);
@@ -531,7 +534,7 @@ export async function startPreviewSafely() {
         }
         if (previewBtn) {
              previewBtn.textContent = "Stop Preview";
-             previewBtn.classList.add("bg-cyan-600");
+             previewBtn.classList.add("bg-[#0033A0]");
         }
 
     } catch(e) {
@@ -559,7 +562,7 @@ export function stopPreview() {
     }
     if (previewBtn) {
         previewBtn.textContent = "Start Preview";
-        previewBtn.classList.remove("bg-cyan-600");
+        previewBtn.classList.remove("bg-[#0033A0]");
     }
 }
 
@@ -677,7 +680,7 @@ export async function discardRecording() {
         previewBtn.classList.remove("opacity-50", "cursor-not-allowed");
         previewBtn.textContent = "Start Preview";
         previewBtn.title = "Start Preview";
-        previewBtn.classList.remove("bg-cyan-600"); 
+        previewBtn.classList.remove("bg-[#0033A0]"); 
     }
 }
 
@@ -1194,3 +1197,115 @@ export async function handleMetadataSubmit(e) {
     }
   }
 }
+
+// ---------------------------------------------------------
+// 🎯 TIMELINE PIN RENDERER (Clean Flags Style)
+// ---------------------------------------------------------
+function renderTimelinePins(tags, dbDuration) {
+    const video = document.getElementById("main-player");
+    const layer = document.getElementById("timeline-marker-layer");
+
+    // 1. Safety Checks
+    if (!video || !layer) return;
+
+    layer.innerHTML = ""; // Clear existing
+
+    if (!Array.isArray(tags) || tags.length === 0) return;
+
+    // 2. GET DURATION
+    let duration = dbDuration;
+    if (!duration && video.seekable.length > 0) duration = video.seekable.end(0);
+    if (!duration) duration = video.duration;
+
+    // Retry if missing
+    if (!duration || isNaN(duration) || duration === Infinity) {
+        setTimeout(() => renderTimelinePins(tags, dbDuration), 500);
+        return;
+    }
+
+    // 3. RENDER FLAGS
+    tags.forEach(tag => {
+        if (!tag.time || tag.time < 0) return;
+
+        const percent = (tag.time / duration) * 100;
+        if (percent > 100) return; 
+
+        // 🧠 SMART TOOLTIP POSITIONING
+        let tooltipClasses = "left-1/2 -translate-x-1/2";
+        let arrowClasses = "left-1/2 -translate-x-1/2";
+
+        if (percent < 15) {
+            tooltipClasses = "left-0"; 
+            arrowClasses = "left-1.5"; 
+        } else if (percent > 85) {
+            tooltipClasses = "right-0 auto"; 
+            arrowClasses = "right-1.5 auto";   
+        }
+
+        // CONTAINER (Hitbox)
+        const pinContainer = document.createElement("div");
+        pinContainer.className = `
+          absolute top-1/2 -translate-y-1/2 
+          -ml-1.5
+          w-4 h-6 
+          flex items-end justify-center
+          cursor-pointer
+          pointer-events-auto  
+          z-[101]
+          group
+        `;
+        pinContainer.style.left = `${percent}%`;
+
+        // 1. THE FLAG ICON (Visible)
+        // Using an SVG to draw a crisp flag
+        const flagIcon = document.createElement("div");
+        flagIcon.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-[#005288] drop-shadow-sm transition-transform duration-200 group-hover:scale-125 group-hover:text-[#0063a3]">
+              <path fill-rule="evenodd" d="M3 2.25a.75.75 0 01.75.75v.54l1.838-.46a9.75 9.75 0 016.725.738l.108.054a8.25 8.25 0 005.58.652l3.109-.732a.75.75 0 01.917.81 47.784 47.784 0 00.005 10.337.75.75 0 01-.574.812l-3.114.733a9.75 9.75 0 01-6.594-.158l-.108-.054a8.25 8.25 0 00-5.69-.625l-2.202.55V21a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75z" clip-rule="evenodd" />
+            </svg>
+        `;
+        
+        // 2. THE TOOLTIP (Hidden by default)
+        const tooltip = document.createElement("div");
+        const mins = Math.floor(tag.time / 60);
+        const secs = Math.floor(tag.time % 60).toString().padStart(2, '0');
+        
+        tooltip.innerHTML = `
+            ${tag.note || "Marker"} (${mins}:${secs})
+            <div class="absolute top-full ${arrowClasses} border-4 border-transparent border-t-gray-900/90"></div>
+        `;
+        
+        tooltip.className = `
+            absolute bottom-full mb-1 ${tooltipClasses}
+            px-2 py-1
+            bg-gray-900/90 text-white text-[10px] font-medium rounded shadow-lg
+            whitespace-nowrap pointer-events-none
+        `;
+        
+        // Hard Hide logic
+        tooltip.style.display = "none"; 
+
+        // 🖱️ MOUSE EVENTS
+        pinContainer.onmouseenter = () => {
+            tooltip.style.display = "block";
+            pinContainer.style.zIndex = "999";  
+        };
+
+        pinContainer.onmouseleave = () => {
+            tooltip.style.display = "none";
+            pinContainer.style.zIndex = "101";  
+        };
+
+        // Click Logic
+        pinContainer.onclick = (e) => {
+            e.stopPropagation(); 
+            video.currentTime = tag.time;
+        };
+
+        // Assemble
+        pinContainer.appendChild(flagIcon);
+        pinContainer.appendChild(tooltip);
+        layer.appendChild(pinContainer);
+    });
+}
+window.renderTimelinePins = renderTimelinePins;

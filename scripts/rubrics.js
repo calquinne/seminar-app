@@ -482,7 +482,7 @@ export async function loadSavedRubrics() {
 
         <div class="grid grid-cols-4 gap-1">
           <button class="select-rubric-btn py-1.5 text-xs rounded-lg transition-colors
-            ${isActive ? "bg-green-600 text-white cursor-default" : "bg-primary-600 hover:bg-primary-500 text-white"}">
+            ${isActive ? "bg-green-600 text-white cursor-default" : "bg-[#0033A0] hover:bg-[#004db3] text-white"}">
             ${isActive ? "Active" : "Select"}
           </button>
 

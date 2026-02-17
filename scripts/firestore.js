@@ -604,10 +604,10 @@ meta.innerHTML = `
 
       // 1. Play
       const playBtn = document.createElement("button");
-      playBtn.className = "text-cyan-400 hover:text-cyan-300 text-sm font-medium flex items-center gap-1";
+      // ✅ CHANGE: Solid UK Blue Background + White Text (Button Style)
+      playBtn.className = "px-3 py-1 bg-[#0033A0] hover:bg-[#004db3] text-white text-sm font-medium rounded shadow-sm transition-colors flex items-center gap-1";
       playBtn.innerHTML = v.downloadURL ? "▶ Play" : "📂 Open";
       playBtn.onclick = () => UI.openScoringForVideo(v.id);
-
       // 2. Score
       const scoreBtn = document.createElement("button");
       scoreBtn.className = "text-green-400 hover:text-green-300 text-sm font-medium flex items-center gap-1";

@@ -342,11 +342,11 @@ export function showConfirm(message, title = "Are you sure?", confirmText = "OK"
   yesBtn.textContent = confirmText;
 
   if (confirmText.toLowerCase() === 'delete' || confirmText.toLowerCase() === 'discard') {
-    yesBtn.classList.remove('bg-primary-600', 'hover:bg-primary-500');
+    yesBtn.classList.remove('bg-[#0033A0]', 'hover:bg-primary-500');
     yesBtn.classList.add('bg-red-600', 'hover:bg-red-500');
   } else {
     yesBtn.classList.remove('bg-red-600', 'hover:bg-red-500');
-    yesBtn.classList.add('bg-primary-600', 'hover:bg-primary-500');
+    yesBtn.classList.add('bg-[#0033A0]', 'hover:bg-primary-500');
   }
   
   modal.showModal();
@@ -617,7 +617,8 @@ export async function openScoringForVideo(videoId) {
     const existingScores = {
       finalScores: video.finalScores || {},
       notes: video.rowNotes || {},
-      tags: video.tags || []  // <--- This is the missing link!
+      tags: video.tags || [],  
+      duration: video.duration || 0
     };
 
     // 4. Define Render Logic
