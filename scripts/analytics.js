@@ -464,22 +464,56 @@ function renderRubricCharts(relevantVideos) {
 
       const distBadges = Object.entries(scoreGroups)
         .sort((a, b) => Number(b[0]) - Number(a[0]))
-        .map(([score, videos]) => {
-          const sNum = Number(score);
-          const count = videos.length;
-          const pct = (Number(row.maxPoints) || 0) > 0 ? sNum / row.maxPoints : 0;
+       
+        // ✅ FINAL FIXED VERSION (All UP, Left-Aligned First Item)
+.map(([score, videos], index) => { 
+    const sNum = Number(score);
+    const count = videos.length;
+    const pct = (Number(row.maxPoints) || 0) > 0 ? sNum / row.maxPoints : 0;
 
-          let colorClass = "bg-red-500/10 text-red-400 border-red-500/20";
-          if (pct >= 0.8) colorClass = "bg-green-500/10 text-green-400 border-green-500/20";
-          else if (pct >= 0.5) colorClass = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+    // 🕵️ DESCRIPTION LOOKUP
+    let description = "No description available";
+    if (row.scoreDescriptions?.[sNum]) {
+        description = row.scoreDescriptions[sNum];
+    } else if (Array.isArray(row.allowedScores)) {
+        const match = row.allowedScores.find(item => Number(item.value) === sNum);
+        if (match && match.label) description = match.label;
+    }
 
-          return `
-            <div class="score-breakdown-trigger px-2 py-1.5 rounded border ${colorClass} flex flex-col items-center justify-center min-w-[45px] cursor-pointer hover:bg-white/5 transition-colors" data-score="${sNum}">
-              <div class="text-sm font-bold leading-none pointer-events-none">${count}</div>
-              <div class="text--[9px] uppercase opacity-70 leading-none mt-0.5 pointer-events-none">scored ${sNum}</div>
-            </div>
-          `;
-        }).join("");
+    // 🧭 SMART POSITIONING
+    // 1. VERTICAL: Always Point UP (bottom-full)
+    const verticalPos = "bottom-full mb-2"; 
+    const arrowVertical = "top-full border-t-gray-900/95 border-b-transparent";
+
+    // 2. HORIZONTAL: Center usually, but Left-Align the first item
+    let horizontalPos = "left-1/2 -translate-x-1/2"; // Default (Center)
+    let arrowHorizontal = "left-1/2 -translate-x-1/2";   // Default (Center)
+
+    if (index === 0) {
+        horizontalPos = "left-0 translate-x-0";  // Align Left Edge
+        arrowHorizontal = "left-4";              // Move Arrow to center of button
+    }
+
+    // Color Logic
+    let colorClass = "bg-red-500/10 text-red-400 border-red-500/20";
+    if (pct >= 0.8) colorClass = "bg-green-500/10 text-green-400 border-green-500/20";
+    else if (pct >= 0.5) colorClass = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+
+    return `
+      <div class="score-breakdown-trigger group relative px-2 py-1.5 rounded border ${colorClass} flex flex-col items-center justify-center min-w-[45px] cursor-pointer hover:bg-white/5 transition-colors hover:z-50" data-score="${sNum}">
+          
+          <div class="absolute ${verticalPos} ${horizontalPos} w-64 p-2 bg-gray-900/95 text-white text-[11px] leading-tight rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none text-center backdrop-blur-sm">
+              ${description}
+              
+              <div class="absolute ${arrowVertical} ${arrowHorizontal} border-4 border-transparent"></div>
+          </div>
+
+          <div class="text-sm font-bold leading-none pointer-events-none">${count}</div>
+          <div class="text-[9px] uppercase opacity-70 leading-none mt-0.5 pointer-events-none">scored ${sNum}</div>
+      </div>
+    `;
+})
+        .join("");
 
       // Data for PDF
       const maxPoints = Number(row.maxPoints) || 0;
