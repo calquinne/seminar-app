@@ -93,34 +93,98 @@ function initPage() {
 }
 
 function setupTooltips() {
-    const applyTip = (id, text) => {
+    // ---------------------------------------------------------
+    // 1. HELPER: FANCY DARK TOOLTIPS
+    // ---------------------------------------------------------
+    // layoutType: 'inline' (buttons) or 'block' (headers)
+    const addCustomTooltip = (id, text, direction = "top", layoutType = "inline") => {
         const el = document.getElementById(id);
-        if (el) {
-            el.title = text;
-            if (el.parentElement) el.parentElement.title = text; 
-            const card = el.closest(".rounded-xl") || el.closest(".card"); 
-            if (card) card.title = text;
+        if (!el) return;
+
+        // Clean up old attributes
+        el.removeAttribute("title");
+        if (el.parentElement) el.parentElement.removeAttribute("title");
+
+        // Create Wrapper
+        const wrapper = document.createElement("div");
+
+        // 🎨 LAYOUT LOGIC
+        if (layoutType === "block") {
+            wrapper.className = "group relative block w-full"; 
+        } else {
+            wrapper.className = "group relative inline-flex items-center justify-center"; 
+        }
+
+        // Move element inside wrapper
+        el.parentNode.insertBefore(wrapper, el);
+        wrapper.appendChild(el);
+
+        // Tooltip Construction
+        const tooltip = document.createElement("div");
+        let posClass = "";
+        let arrowClass = "";
+
+        // 🧭 POSITION LOGIC
+        if (direction === "left") {
+            // 👈 LEFT MODE
+            posClass = "absolute right-full mr-3 top-1/2 -translate-y-1/2 w-48 p-2 bg-gray-900/95 text-white text-[11px] leading-tight rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 text-center backdrop-blur-sm";
+            arrowClass = "absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-gray-900/95";
+        
+        } else if (direction === "bottom") {
+            // 👇 BOTTOM MODE (New! Fixes the Header issue)
+            // Appears BELOW the text, aligned Left
+            posClass = "absolute top-full mt-2 left-0 w-48 p-2 bg-gray-900/95 text-white text-[11px] leading-tight rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 text-center backdrop-blur-sm";
+            // Arrow points UP
+            arrowClass = "absolute bottom-full left-4 border-4 border-transparent border-b-gray-900/95";
+
+        } else if (layoutType === "block") {
+            // 📏 HEADER (Top) - Fallback
+            posClass = "absolute bottom-full mb-2 left-0 w-48 p-2 bg-gray-900/95 text-white text-[11px] leading-tight rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 text-center backdrop-blur-sm";
+            arrowClass = "absolute top-full left-4 border-4 border-transparent border-t-gray-900/95";
+        
+        } else {
+            // 👆 STANDARD (Top Center)
+            posClass = "absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-gray-900/95 text-white text-[11px] leading-tight rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 text-center backdrop-blur-sm";
+            arrowClass = "absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900/95";
+        }
+
+        tooltip.className = posClass;
+        tooltip.innerHTML = `${text}<div class="${arrowClass}"></div>`;
+
+        wrapper.appendChild(tooltip);
+
+        if (el.tagName !== "BUTTON") {
+            el.classList.add("cursor-help");
         }
     };
 
-    applyTip("stat-total-videos", "Total count of graded recordings matching your current filters.");
-    applyTip("stat-avg-score", "The average student score compared to the average maximum possible score.");
-    applyTip("stat-top-performer", "The student with the single highest score in the current view.");
+    // ✅ 1. APPLY TO STATS
+    addCustomTooltip("stat-total-videos", "Total count of graded recordings matching your current filters.");
+    addCustomTooltip("stat-avg-score", "The average student score compared to the average maximum possible score.");
+    addCustomTooltip("stat-top-performer", "The student with the single highest score in the current view.");
 
-    const exportBtn = document.getElementById("analytics-export-btn");
-    if (exportBtn) exportBtn.title = "Download current data as .csv";
+    // ✅ 2. APPLY TO STANDARD BUTTONS
+    addCustomTooltip("analytics-export-btn", "Download current data as .csv");
+    addCustomTooltip("analytics-refresh-btn", "Reload data from database");
+    addCustomTooltip("rubric-analysis-pdf-btn", "Download PDF Report");
 
-    const refreshBtn = document.getElementById("analytics-refresh-btn");
-    if (refreshBtn) refreshBtn.title = "Reload data from database";
+    // ❌ REMOVED "PART 3" (Leaderboard Button) - This fixes the "Double Tooltip" issue!
 
+    // ✅ 4. FIX LIST HEADERS (Now using "bottom" direction to stay visible!)
     const classList = document.getElementById("analytics-class-list");
     if (classList && classList.previousElementSibling) {
-        classList.previousElementSibling.title = "Compare class average against global average.";
+        const header = classList.previousElementSibling;
+        if (!header.id) header.id = "analytics-class-header"; 
+        // 👇 CHANGED TO "bottom"
+        addCustomTooltip(header.id, "Compare class average against global average.", "bottom", "block");
     }
 
     const recentList = document.getElementById("analytics-recent-list");
     if (recentList && recentList.previousElementSibling) {
-        recentList.previousElementSibling.title = "Most recently recorded assessments.";
+        const header = recentList.previousElementSibling;
+        if (!header.id) header.id = "analytics-recent-header";
+        // 👇 CHANGED TO "bottom"
+        addCustomTooltip(header.id, "Most recently recorded assessments.", "bottom", "block");
     }
 }
 
@@ -399,7 +463,7 @@ function renderRubricCharts(relevantVideos) {
     const summaryEl = document.createElement("div");
     summaryEl.className = "mb-6 p-6 rounded-xl bg-gray-900 border border-white/10 flex flex-wrap md:flex-nowrap items-center justify-between gap-6";
 
-    summaryEl.innerHTML = `
+   summaryEl.innerHTML = `
       <div class="flex items-center gap-4 min-w-[200px]">
         <div class="p-3 bg-white/5 rounded-lg border border-white/10 hidden sm:block"><span class="text-2xl">📊</span></div>
         <div>
@@ -429,11 +493,20 @@ function renderRubricCharts(relevantVideos) {
             <div class="text-xl font-mono font-bold text-primary-400 whitespace-nowrap">${maxScore} pts</div>
           </div>
         </div>
-        <button id="rubric-analysis-pdf-btn" class="ml-4 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-gray-300 hover:text-white transition-colors border border-white/10" title="Download PDF Report">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 9.75V1.5m0 0 9 9m-9-9-9 9" />
-          </svg>
-        </button>
+
+        <div class="group relative ml-4">
+            <button id="rubric-analysis-pdf-btn" class="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-gray-300 hover:text-white transition-colors border border-white/10">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 9.75V1.5m0 0 9 9m-9-9-9 9" />
+              </svg>
+            </button>
+            
+            <div class="absolute bottom-full mb-2 right-0 w-32 p-2 bg-gray-900/95 text-white text-[11px] leading-tight rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 text-center backdrop-blur-sm">
+                Download PDF Report
+                <div class="absolute top-full right-3 border-4 border-transparent border-t-gray-900/95"></div>
+            </div>
+        </div>
+
       </div>
     `;
 
@@ -1066,11 +1139,18 @@ function renderLeaderboard(videos, contextLabel = "") {
                     ${contextLabel ? `<span class="px-2 py-0.5 rounded-full bg-primary-500/20 text-primary-300 text-[10px] border border-primary-500/30">${contextLabel}</span>` : ""}
                 </h3>
                 
-                <button onclick="window.generateDashboardPDF('${contextLabel}')" class="p-1.5 bg-white/10 hover:bg-white/20 rounded text-gray-300 hover:text-white transition-colors" title="Download PDF Report">
-                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 9.75V1.5m0 0 9 9m-9-9-9 9" />
-                   </svg>
-                </button>
+                <div class="group relative inline-block">
+                    <button onclick="window.generateDashboardPDF('${contextLabel}')" class="p-1.5 bg-white/10 hover:bg-white/20 rounded text-gray-300 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 9.75V1.5m0 0 9 9m-9-9-9 9" />
+                        </svg>
+                    </button>
+
+                    <div class="absolute right-full mr-3 top-1/2 -translate-y-1/2 w-32 p-2 bg-gray-900/95 text-white text-[11px] leading-tight rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 text-center backdrop-blur-sm">
+                        Download PDF Report
+                        <div class="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-gray-900/95"></div>
+                    </div>
+                </div>
             </div>
             <div class="max-h-[350px] overflow-y-auto">
                 <table class="w-full text-left border-collapse">
