@@ -527,9 +527,8 @@ export async function startPreviewSafely() {
         const recordBtn = UI.$("#start-rec-btn");
         const previewBtn = UI.$("#manual-preview-btn"); // Also update preview text here
         
-        if (recordBtn) {
-            recordBtn.disabled = false;
-            recordBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      if (recordBtn) {
+            recordBtn.disabled = false; // HTML instantly removes the dark red!
             recordBtn.title = "Start Recording";
         }
         if (previewBtn) {
@@ -556,13 +555,17 @@ export function stopPreview() {
     const previewBtn = UI.$("#manual-preview-btn");
 
     if (recordBtn) {
-        recordBtn.disabled = true;
-        recordBtn.classList.add("opacity-50", "cursor-not-allowed");
+        recordBtn.disabled = true; // HTML instantly applies the dark red!
         recordBtn.title = "Start Preview first";
     }
+    
     if (previewBtn) {
+        // Unlock the Preview button and restore the blue color
+        previewBtn.disabled = false;
+        previewBtn.classList.remove("opacity-50", "cursor-not-allowed", "bg-red-800"); 
         previewBtn.textContent = "Start Preview";
-        previewBtn.classList.remove("bg-[#0033A0]");
+        previewBtn.title = "Start Preview";
+        previewBtn.classList.add("bg-[#0033A0]");
     }
 }
 
@@ -680,7 +683,7 @@ export async function discardRecording() {
         previewBtn.classList.remove("opacity-50", "cursor-not-allowed");
         previewBtn.textContent = "Start Preview";
         previewBtn.title = "Start Preview";
-        previewBtn.classList.remove("bg-[#0033A0]"); 
+        previewBtn.classList.add("bg-[#0033A0]"); 
     }
 }
 

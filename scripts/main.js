@@ -363,30 +363,22 @@ if (deleteClassBtn) {
   if (tagBtn) tagBtn.onclick = Record.handleTagButtonClick;
 
   // Manual Preview Button
-  const manualPreviewBtn = UI.$("#manual-preview-btn");
-  if (manualPreviewBtn) {
-    manualPreviewBtn.onclick = async () => {
-      const previewScreen = UI.$("#preview-screen");
-      const isActive = previewScreen && !previewScreen.classList.contains("hidden");
+    const manualPreviewBtn = UI.$("#manual-preview-btn");
+    
+    if (manualPreviewBtn) {
+        manualPreviewBtn.onclick = async () => {
+            const previewScreen = UI.$("#preview-screen");
+            const isActive = previewScreen && !previewScreen.classList.contains("hidden");
 
-      if (!isActive) {
-        await Record.startPreviewSafely();
-        manualPreviewBtn.textContent = "Stop Preview";
-      } else {
-        const video = UI.$("#preview-player");
-        if (video) {
-            video.srcObject = null;
-            video.src = "";
-        }
-        if (UI.mediaStream) {
-            UI.mediaStream.getTracks().forEach(t => t.stop());
-            UI.setMediaStream(null);
-        }
-        previewScreen.classList.add("hidden");
-        manualPreviewBtn.textContent = "Start Preview";
-      }
-    };
-  }
+            if (!isActive) {
+                // Let record.js handle the startup and button unlocking!
+                await Record.startPreviewSafely();
+            } else {
+                // THE MAGIC FIX: Pass control to our perfectly wired stop function!
+                Record.stopPreview(); 
+            }
+        };
+    }
   
   // Preview Fullscreen Button
   const previewFS = UI.$("#preview-fullscreen-btn");

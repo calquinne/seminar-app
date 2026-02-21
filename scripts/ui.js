@@ -123,6 +123,11 @@ export function updateRecordingUI(state) {
   $("#pause-rec-btn").disabled = !isRecording && !isPaused;
   $("#toggle-camera-btn").disabled = isRecording || isPaused;
   
+  const tagBtn = $("#tag-btn");
+  if (tagBtn) {
+      tagBtn.disabled = !isRecording; 
+  }
+  
   $("#pause-rec-btn").textContent = isPaused ? 'Resume' : 'Pause';
   
   if (isIdle) {

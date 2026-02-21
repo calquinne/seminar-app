@@ -562,7 +562,7 @@ export function renderLibraryFiltered() {
          ? ` <span class="ml-2 text-[10px] text-amber-300 border border-amber-500/30 px-1 rounded uppercase tracking-wide">Copy</span>`
          : "";
       
-      // 🎨 NEW AVATAR LAYOUT (Replaces Line 565)
+      // 🎨 NEW AVATAR LAYOUT 
 title.innerHTML = `
 <div class="flex items-center gap-3 mb-2">
     <div class="w-10 h-10 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center text-primary-400 font-bold text-lg shadow-inner flex-shrink-0">

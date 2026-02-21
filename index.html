@@ -88,7 +88,7 @@ select option[disabled] {
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Seminar Cloud App – PWA</title>
+  <title>ReelRubric – PWA</title>
 
   <!-- PWA Metadata -->
   <meta name="theme-color" content="#0891b2">
@@ -139,14 +139,11 @@ select option[disabled] {
 
 <body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
 <header class="sticky top-0 z-40 backdrop-blur bg-gray-900/70 border-b border-white/10">
-  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-
-    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
-         class="w-6 h-6 text-primary-400">
-      <path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 9V7h-2v7h5v-2h-3z"/>
-    </svg>
-
-    <h1 class="text-lg font-semibold">Seminar Cloud App</h1>
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="ReelRubric Logo" class="w-12 h-12 rounded-xl shadow-md">
+    
+    <h1 class="text-2xl font-bold text-white tracking-wide">ReelRubric</h1>
+</div>
 
     <span id="low-storage-banner"
           class="hidden ml-auto text-sm px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
@@ -581,6 +578,11 @@ select option[disabled] {
       <video id="preview-player"
              class="max-h-full max-w-full rounded-lg"
              autoplay playsinline muted></video>
+          <div class="absolute bottom-4 right-4 z-50 flex items-center gap-2 bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10 shadow-lg transition-all">
+        <span class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+        <span id="rec-status" class="text-sm text-gray-300 font-medium">Idle</span>
+        <span id="rec-timer" class="text-lg font-mono text-white font-bold tracking-wide">00:00</span>
+    </div>   
 
       <!-- FULLSCREEN BUTTON -->
       <button id="preview-fullscreen-btn"
@@ -631,8 +633,8 @@ select option[disabled] {
 
     <!-- START -->
     <button id="start-rec-btn" disabled
-     class="col-span-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold opacity-50 cursor-not-allowed">
-     Start Recording
+        class="col-span-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold disabled:opacity-50 disabled:bg-red-900 disabled:cursor-not-allowed">
+    Start Recording
     </button>
 
     <!-- PAUSE -->
@@ -642,11 +644,10 @@ select option[disabled] {
       Pause
     </button>
 
-    <button
-      id="tag-btn"
-      title="Add a timeline marker at the current moment"
-       >
-       Add Marker
+    <button id="tag-btn" disabled
+        class="px-4 py-2 rounded-lg font-bold transition-all bg-purple-600 text-white hover:bg-purple-500 disabled:bg-transparent disabled:text-gray-400 disabled:font-normal disabled:cursor-not-allowed"
+        title="Add a timeline marker at the current moment">
+    Add Marker
     </button>
 
 
@@ -671,13 +672,7 @@ select option[disabled] {
       class="hidden col-span-2 px-4 py-2 rounded-lg bg-red-800 hover:bg-red-700 text-white">
       Discard
     </button>
-
-    <!-- STATUS + TIMER -->
-    <div class="flex items-center justify-center">
-      <span id="rec-status" class="text-sm text-gray-400 mr-2">Idle</span>
-      <span id="rec-timer" class="text-xl font-mono text-white">00:00</span>
-    </div>
-
+    
   </div>
 
   <!-- ============================== -->
