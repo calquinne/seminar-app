@@ -465,7 +465,14 @@ function renderRubricCharts(relevantVideos) {
 
    summaryEl.innerHTML = `
       <div class="flex items-center gap-4 min-w-[200px]">
-        <div class="p-3 bg-white/5 rounded-lg border border-white/10 hidden sm:block"><span class="text-2xl">📊</span></div>
+        <div class="p-3 bg-white/5 rounded-lg border border-white/10 hidden sm:block">
+    <svg viewBox="0 0 24 24" class="w-8 h-8" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 3v17a1 1 0 001 1h17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"/>
+        <rect x="6" y="14" width="4" height="6" rx="1" class="fill-cyan-400" />
+        <rect x="13" y="9" width="4" height="11" rx="1" class="fill-blue-500" />
+        <rect x="20" y="4" width="4" height="16" rx="1" class="fill-purple-500" />
+    </svg>
+</div>
         <div>
           <div class="text-lg font-bold text-white">Rubric Total</div>
           <div class="text-xs text-gray-400 uppercase tracking-wider">Overall Performance</div>
