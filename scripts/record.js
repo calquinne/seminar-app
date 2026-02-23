@@ -523,18 +523,20 @@ export async function startPreviewSafely() {
         await vid.play().catch(()=>{});
         screen.classList.remove("hidden");
 
-        // ✅ SURGICAL FIX 4A: Unlock Record Button
-        const recordBtn = UI.$("#start-rec-btn");
-        const previewBtn = UI.$("#manual-preview-btn"); // Also update preview text here
+      // ✅ SURGICAL FIX 4A: Unlock Record Button
+    const recordBtn = UI.$("#start-rec-btn");
+    const previewBtn = UI.$("#manual-preview-btn"); 
+    const recTooltip = UI.$("#record-tooltip"); // Grab our new custom tooltip!
         
-      if (recordBtn) {
-            recordBtn.disabled = false; // HTML instantly removes the dark red!
-            recordBtn.title = "Start Recording";
-        }
-        if (previewBtn) {
-             previewBtn.textContent = "Stop Preview";
-             previewBtn.classList.add("bg-[#0033A0]");
-        }
+    if (recordBtn) {
+        recordBtn.disabled = false; 
+        recordBtn.title = ""; // Keep native white tooltip dead
+        if (recTooltip) recTooltip.textContent = "Start Recording"; // Update pretty tooltip
+    }
+    if (previewBtn) {
+         previewBtn.textContent = "Stop Preview";
+         previewBtn.classList.add("bg-[#0033A0]");
+    }
 
     } catch(e) {
       console.error(e);
@@ -553,18 +555,19 @@ export function stopPreview() {
     // ✅ SURGICAL FIX 4B: Re-Lock Record Button & Reset Preview Text
     const recordBtn = UI.$("#start-rec-btn");
     const previewBtn = UI.$("#manual-preview-btn");
+    const recTooltip = UI.$("#record-tooltip"); // Grab our new custom tooltip!
 
     if (recordBtn) {
-        recordBtn.disabled = true; // HTML instantly applies the dark red!
-        recordBtn.title = "Start Preview first";
+        recordBtn.disabled = true; 
+        recordBtn.title = ""; // Keep native white tooltip dead
+        if (recTooltip) recTooltip.textContent = "Start Preview first"; // Update pretty tooltip!
     }
     
     if (previewBtn) {
-        // Unlock the Preview button and restore the blue color
         previewBtn.disabled = false;
         previewBtn.classList.remove("opacity-50", "cursor-not-allowed", "bg-red-800"); 
         previewBtn.textContent = "Start Preview";
-        previewBtn.title = "Start Preview";
+        previewBtn.title = ""; 
         previewBtn.classList.add("bg-[#0033A0]");
     }
 }
@@ -682,8 +685,18 @@ export async function discardRecording() {
         previewBtn.disabled = false;
         previewBtn.classList.remove("opacity-50", "cursor-not-allowed");
         previewBtn.textContent = "Start Preview";
-        previewBtn.title = "Start Preview";
+        previewBtn.title = "";
         previewBtn.classList.add("bg-[#0033A0]"); 
+        
+        // 🔒 FIX: Lock the Record button when Preview is stopped/reset!
+        const recBtn = UI.$("#start-rec-btn");
+        const recTooltip = UI.$("#record-tooltip");
+        
+        if (recBtn) {
+            recBtn.disabled = true; // HTML instantly dims it to dark red
+            recBtn.title = ""; // Keep native white tooltip dead
+            if (recTooltip) recTooltip.textContent = "Start Preview first"; // Reset custom tooltip
+        }
     }
 }
 

@@ -294,8 +294,20 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
     }
 
     if (previewBtn) {
-      previewBtn.classList.remove("hidden");
-      previewBtn.textContent = "Start Preview";
+        previewBtn.classList.remove("hidden");
+        previewBtn.textContent = "Start Preview";
+        previewBtn.title = ""; // Keep native tooltip dead
+        previewBtn.classList.add("bg-[#0033A0]"); // Make sure it stays blue
+        
+        // 🔒 FIX: Lock the Record button when switching tabs!
+        const recBtn = $("#start-rec-btn");
+        const recTooltip = $("#record-tooltip");
+        
+        if (recBtn) {
+            recBtn.disabled = true; // HTML instantly dims it to dark red
+            recBtn.title = ""; // Keep native white tooltip dead
+            if (recTooltip) recTooltip.textContent = "Start Preview first"; // Reset custom tooltip
+        }
     }
   }
 

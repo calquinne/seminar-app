@@ -565,7 +565,7 @@ export function renderLibraryFiltered() {
       // 🎨 NEW AVATAR LAYOUT 
  title.innerHTML = `
  <div class="flex items-center gap-3 mb-2">
-     <div class="w-10 h-10 rounded-full bg-purple-700 flex items-center justify-center text-purple-300 font-extrabold text-lg shadow-sm flex-shrink-0">
+     <div class="w-10 h-10 rounded-full bg-purple-600/30 flex items-center justify-center text-purple-300 font-extrabold text-lg shadow-sm flex-shrink-0">
          ${(primaryName || "S").charAt(0).toUpperCase()}
      </div>
      
@@ -630,25 +630,44 @@ meta.innerHTML = `
       scoreBtn.innerHTML = v.hasScore ? `✓ ${v.totalScore} pts` : "✎ Score";
       scoreBtn.onclick = () => UI.openScoringForVideo(v.id);
 
-      // 3. COPY (New)
+     // 3. COPY (New)
       const copyBtn = document.createElement("button");
-      copyBtn.className = "ml-auto text-gray-500 hover:text-white transition-colors p-1.5 rounded hover:bg-white/10";
-      copyBtn.title = "Duplicate / Re-Assess\n• Creates a fresh scorecard for this video.\n• One recording, multiple grades.";
-      copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5" /></svg>`;
+      // Changed to group/copy
+      copyBtn.className = "group/copy relative ml-auto text-gray-500 hover:text-white transition-colors p-1.5 rounded hover:bg-white/10";
+      copyBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5" /></svg>
+        <div class="absolute bottom-full right-0 mb-2 hidden group-hover/copy:block w-56 p-2.5 bg-gray-800 border border-white/10 text-white text-xs font-medium rounded-lg shadow-xl z-50 text-left pointer-events-none">
+          Duplicate / Re-Assess<br>
+          <span class="text-gray-400 font-normal">• Creates a fresh scorecard for this video.</span><br>
+          <span class="text-gray-400 font-normal">• One recording, multiple grades.</span>
+        </div>
+      `;
       copyBtn.onclick = () => duplicateVideo(v.id);
 
       // 4. EDIT (New)
       const editBtn = document.createElement("button");
-      editBtn.className = "text-gray-500 hover:text-white transition-colors p-1.5 rounded hover:bg-white/10";
-      editBtn.title = "Edit Details\n• Change the Student, Class or Rubric.\n⚠️ Warning: Changing the rubric resets the score.";
-      editBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>`;
+      // Changed to group/edit
+      editBtn.className = "group/edit relative text-gray-500 hover:text-white transition-colors p-1.5 rounded hover:bg-white/10";
+      editBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>
+        <div class="absolute bottom-full right-0 mb-2 hidden group-hover/edit:block w-56 p-2.5 bg-gray-800 border border-white/10 text-white text-xs font-medium rounded-lg shadow-xl z-50 text-left pointer-events-none">
+          Edit Details<br>
+          <span class="text-gray-400 font-normal">• Change the Student, Class or Rubric.</span><br>
+          <span class="text-amber-400 font-normal">⚠️ Warning: Changing the rubric resets the score.</span>
+        </div>
+      `;
       editBtn.onclick = () => openEditVideo(v.id);
 
       // 5. Delete
       const deleteBtn = document.createElement("button");
-      deleteBtn.className = "text-gray-500 hover:text-red-400 transition-colors p-1.5 rounded hover:bg-white/10";
-      deleteBtn.title = "Delete this record";
-      deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>`;
+      // Changed to group/del
+      deleteBtn.className = "group/del relative text-gray-500 hover:text-red-400 transition-colors p-1.5 rounded hover:bg-white/10";
+      deleteBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+        <div class="absolute bottom-full right-0 mb-2 hidden group-hover/del:block w-max p-2 px-3 bg-gray-800 border border-white/10 text-white text-xs font-medium rounded-lg shadow-xl z-50 text-left pointer-events-none whitespace-nowrap">
+          Delete this record
+        </div>
+      `;
       deleteBtn.onclick = () => deleteVideo(v.id);
 
       actions.appendChild(playBtn);

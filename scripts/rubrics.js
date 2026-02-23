@@ -92,8 +92,8 @@ function setBuilderLockUI(locked) {
       removeBtn.classList.toggle("opacity-40", editingRubricLocked);
       removeBtn.classList.toggle("cursor-not-allowed", editingRubricLocked);
       removeBtn.title = editingRubricLocked
-        ? "This rubric is locked. You can’t remove rows."
-        : "Remove row";
+        ? "This rubric is locked. You can't remove rows."
+        : ""; // Blank string! Let our custom HTML tooltip do the talking.
     }
 
     rowDiv.querySelectorAll(".score-cb").forEach((cb) => {
@@ -173,10 +173,14 @@ export function addBuilderRow(existingData = null) {
 
       <button
         type="button"
-        class="text-gray-500 hover:text-red-400 transition-colors p-1"
+        class="group/rm relative text-gray-500 hover:text-red-400 transition-colors p-1"
         data-remove-row="true"
-        title="Remove row"
-      >✕</button>
+      >
+        ✕
+        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/rm:block w-max p-2 px-3 bg-gray-800 border border-white/10 text-white text-xs font-medium rounded-lg shadow-xl z-50 pointer-events-none whitespace-nowrap">
+          Remove row
+        </div>
+      </button>
     </div>
 
     <div class="mb-3">
@@ -491,8 +495,11 @@ export async function loadSavedRubrics() {
             ${isEditing ? "Cancel" : "Edit"}
           </button>
 
-          <button class="dup-rubric-btn py-1.5 text-xs rounded-lg bg-purple-600/30 hover:bg-purple-600/40 text-purple-100 transition-colors" title="Create a copy you can safely change">
+          <button class="group/dup relative dup-rubric-btn py-1.5 text-xs rounded-lg bg-purple-600/30 hover:bg-purple-600/40 text-purple-100 transition-colors">
             Duplicate
+            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dup:block w-max p-2 px-3 bg-gray-800 border border-white/10 text-white text-xs font-normal rounded-lg shadow-xl z-50 pointer-events-none whitespace-nowrap">
+              Create a copy you can safely change
+            </div>
           </button>
 
           <button class="delete-rubric-btn py-1.5 text-xs rounded-lg bg-white/5 text-gray-400 hover:text-red-300 hover:bg-red-900/20 transition-colors">

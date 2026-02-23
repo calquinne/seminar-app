@@ -632,9 +632,11 @@ select option[disabled] {
     </button>
 
     <!-- START -->
-    <button id="start-rec-btn" disabled
-        class="col-span-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold disabled:opacity-50 disabled:bg-red-900 disabled:cursor-not-allowed">
-    Start Recording
+    <button id="start-rec-btn" disabled class="group/rec relative px-6 py-2 rounded-lg font-bold transition-all bg-red-600 text-white hover:bg-red-500 disabled:bg-red-900/40 disabled:text-gray-400 disabled:cursor-not-allowed w-full">
+        Start Recording
+     <div id="record-tooltip" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/rec:block w-max p-2 px-3 bg-gray-800 border border-white/10 text-white text-xs font-medium rounded-lg shadow-xl z-50 pointer-events-none whitespace-nowrap">
+        Start Preview first
+     </div>
     </button>
 
     <!-- PAUSE -->
@@ -645,9 +647,11 @@ select option[disabled] {
     </button>
 
     <button id="tag-btn" disabled
-        class="px-4 py-2 rounded-lg font-bold transition-all bg-purple-600 text-white hover:bg-purple-500 disabled:bg-transparent disabled:text-gray-400 disabled:font-normal disabled:cursor-not-allowed"
-        title="Add a timeline marker at the current moment">
+        class="group/tag relative px-4 py-2 rounded-lg font-bold transition-all bg-purple-600 text-white hover:bg-purple-500 disabled:bg-transparent disabled:text-gray-400 disabled:font-normal disabled:cursor-not-allowed">
     Add Marker
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tag:block w-max p-2 px-3 bg-gray-800 border border-white/10 text-white text-xs font-medium rounded-lg shadow-xl z-50 pointer-events-none whitespace-nowrap">
+        Add a timeline marker at the current moment
+    </div>
     </button>
 
 
@@ -658,14 +662,12 @@ select option[disabled] {
     </button>
 
     <!-- STOP & SAVE -->
-    <button
-      id="stop-rec-btn"
-       class="hidden col-span-2 px-4 py-2 rounded-lg bg-[#0033A0] hover:bg-primary-500 text-white font-bold"
-       title="Finalize recording and create scorecard"
->
-      Stop &amp; Save
+    <button id="stop-rec-btn" class="group/stop relative hidden col-span-2 px-4 py-2 rounded-lg bg-[#0033A0] hover:bg-blue-600 text-white font-bold">
+     Stop & Save
+     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/stop:block w-max p-2 px-3 bg-gray-800 border border-white/10 text-white text-xs font-medium rounded-lg shadow-xl z-50 pointer-events-none whitespace-nowrap">
+        Finalize recording and create scorecard
+     </div>
     </button>
-
 
     <!-- DISCARD -->
     <button id="discard-rec-btn"
