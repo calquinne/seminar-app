@@ -563,22 +563,22 @@ export function renderLibraryFiltered() {
          : "";
       
       // 🎨 NEW AVATAR LAYOUT 
-title.innerHTML = `
-<div class="flex items-center gap-3 mb-2">
-    <div class="w-10 h-10 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center text-primary-400 font-bold text-lg shadow-inner flex-shrink-0">
-        ${(primaryName || "S").charAt(0).toUpperCase()}
-    </div>
-    
-    <div class="flex flex-col min-w-0">
-        <div class="flex items-center gap-2 text-white font-bold text-base leading-tight truncate">
-            ${primaryName || "Unknown Student"}
-            ${groupBadge} ${dupBadge}
-        </div>
-        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-medium mt-0.5 truncate">
-            ${v.classEventTitle || "No Class"}
-        </div>
-    </div>
-</div>`;
+ title.innerHTML = `
+ <div class="flex items-center gap-3 mb-2">
+     <div class="w-10 h-10 rounded-full bg-purple-700 flex items-center justify-center text-purple-300 font-extrabold text-lg shadow-sm flex-shrink-0">
+         ${(primaryName || "S").charAt(0).toUpperCase()}
+     </div>
+     
+     <div class="flex flex-col min-w-0">
+         <div class="flex items-center gap-2 text-white font-bold text-base leading-tight truncate">
+             ${primaryName || "Unknown Student"}
+             ${groupBadge} ${dupBadge}
+         </div>
+         <div class="text-[10px] text-gray-500 uppercase tracking-widest font-medium mt-0.5 truncate">
+             ${v.classEventTitle || "No Class"}
+         </div>
+     </div>
+ </div>`;
       
       let dateStr = "Unknown Date";
       if (v.recordedAt) {

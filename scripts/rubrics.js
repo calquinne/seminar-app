@@ -486,8 +486,9 @@ export async function loadSavedRubrics() {
             ${isActive ? "Active" : "Select"}
           </button>
 
-          <button class="edit-rubric-btn py-1.5 text-xs rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 transition-colors">
-            Edit
+         <button class="edit-rubric-btn py-1.5 text-xs rounded-lg transition-colors
+            ${isEditing ? "bg-red-500/20 hover:bg-red-500/30 text-red-200" : "bg-white/10 hover:bg-white/20 text-gray-200"}">
+            ${isEditing ? "Cancel" : "Edit"}
           </button>
 
           <button class="dup-rubric-btn py-1.5 text-xs rounded-lg bg-purple-600/30 hover:bg-purple-600/40 text-purple-100 transition-colors" title="Create a copy you can safely change">
@@ -508,10 +509,16 @@ export async function loadSavedRubrics() {
         }
       };
 
-      // Edit
+     // Edit / Cancel
       el.querySelector(".edit-rubric-btn").onclick = () => {
-        loadRubricIntoBuilder(docSnap.id, data);
-        loadSavedRubrics();
+        if (isEditing) {
+          // If already editing, cancel the edit and clear the form
+          resetBuilder(); 
+        } else {
+          // Otherwise, load it into the builder to start editing
+          loadRubricIntoBuilder(docSnap.id, data);
+        }
+        loadSavedRubrics(); // Refresh the list to update the button colors
       };
 
       // Duplicate
