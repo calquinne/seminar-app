@@ -226,12 +226,7 @@ select option[disabled] {
           <label class="flex items-center gap-2">
             <input type="radio" name="storageChoice" value="firebase" checked>
             <span>Firebase (App Storage)</span>
-          </label>
-
-          <label class="flex items-center gap-2">
-            <input type="radio" name="storageChoice" value="gdrive">
-            <span>Google Drive (Personal)</span>
-          </label>
+          </label>          
         </div>
       </div>
 
@@ -474,9 +469,18 @@ select option[disabled] {
               <select id="storage-provider"
                       class="rounded bg-black/30 border border-white/10 p-2 text-sm">
                 <option value="firebase">Firebase (App storage)</option>
-                <option value="gdrive">Google Drive (personal)</option>
+                
                 <option value="local" selected>Local Device / USB (this device)</option>
               </select>
+
+    <div class="mt-4">
+      <label class="block text-sm font-medium text-gray-300 mb-1">Recording Quality</label>
+      <select id="video-quality-select" class="w-full bg-gray-900 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#0033A0]">
+        <option value="720">Standard HD (720p) - Best for saving space</option>
+        <option value="1080">Full HD (1080p) - High detail, larger file</option>
+      </select>
+       <p class="text-xs text-gray-500 mt-1">Lower quality prevents phones and USBs from filling up quickly.</p>
+    </div>
 
               <p class="text-xs text-gray-400 mt-1">
                 Switching does not move existing videos. Export your Cloud data before cancelling your plan.

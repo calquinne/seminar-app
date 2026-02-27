@@ -423,11 +423,6 @@ export function mockUpdateStorageUsage(bytes){
   console.log(`Mock storage usage updated to ${(bytes / 1e9).toFixed(2)} GB`);
 }
 
-export function uploadToDrivePlaceholder(file, meta){
-  console.log("Drive upload placeholder", file?.size, meta);
-  toast("Google Drive upload not yet implemented.","info");
-}
-
 /* -------------------------------------------------------------------------- */
 /* PWA Service Worker Registration
 /* -------------------------------------------------------------------------- */
