@@ -515,15 +515,15 @@ export async function startPreviewSafely() {
   UI.setCurrentRecordingBlob(null);
   
   try {
-        // 🎥 SURGICAL FIX: Read quality preference before starting camera
-        const qualitySelect = document.getElementById("video-quality-select");
-        const heightValue = qualitySelect ? parseInt(qualitySelect.value) : 720; // Defaults to 720p just in case
+
+      // 🔄 REVERT: Back to the original, stable camera switcher
+        const videoConstraints = UI.currentFacingMode 
+            ? { facingMode: UI.currentFacingMode } 
+            : true;
 
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
-            video: {
-                height: { ideal: heightValue } // This safely forces the browser to downscale!
-            }
+            video: videoConstraints
         });
         
         UI.setMediaStream(stream);
