@@ -939,6 +939,7 @@ function loadRubricDefinitions(ids) {
   return Promise.all(promises);
 }
 
+window.openScorecard = openScorecard; // 🌍 NEW: Make global so the Leaderboard can click it!
 export function openScorecard(videoId) {
    // Link download button
    const btn = document.getElementById("scorecard-pdf-btn");
@@ -1217,7 +1218,7 @@ function renderLeaderboard(videos, contextLabel = "") {
         const badge = s.group ? `<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary-500/20 text-primary-300 uppercase">👥 ${s.group}</span>` : "";
 
         html += `
-            <tr class="hover:bg-white/5 transition-colors cursor-pointer group" onclick="window.generateScorecardPDF('${s.vidId}')">
+            <tr class="hover:bg-white/5 transition-colors cursor-pointer group" onclick="window.openScorecard('${s.vidId}')">
                 <td class="p-4 text-center text-lg">${rankDisplay}</td>
                 <td class="p-4"><div class="font-bold text-white group-hover:text-primary-400 transition-colors">${s.name} ${badge}</div></td>
                 <td class="p-4 text-sm text-gray-400">${s.className}</td>
@@ -1462,6 +1463,11 @@ window.generateScorecardPDF = async function(videoId) {
 
     doc.setFontSize(11); doc.setTextColor(0);
     
+    // 🧮 Calculate the score first so we can print it on the left!
+    const maxScore = rubric.rows.reduce((acc, r) => acc + r.maxPoints, 0);
+    const pct = ((video.totalScore / maxScore) * 100).toFixed(1);
+
+    // --- LEFT COLUMN (Academic Data) ---
     doc.setFont(undefined, 'bold'); doc.text("Participant:", 14, 35);
     doc.setFont(undefined, 'normal'); doc.text(video.participant || "Unknown", 45, 35);
     
@@ -1471,14 +1477,26 @@ window.generateScorecardPDF = async function(videoId) {
     doc.setFont(undefined, 'bold'); doc.text("Rubric:", 14, 49);
     doc.setFont(undefined, 'normal'); doc.text(rubric.title || "Untitled Rubric", 45, 49);
 
-    doc.setFont(undefined, 'bold'); doc.text("Date:", 140, 35);
-    doc.setFont(undefined, 'normal'); doc.text(new Date(video.recordedAt).toLocaleDateString(), 155, 35);
+    doc.setFont(undefined, 'bold'); doc.text("Score:", 14, 56);
+    doc.setFont(undefined, 'normal'); doc.text(`${video.totalScore} / ${maxScore} (${pct}%)`, 45, 56);
 
-    const maxScore = rubric.rows.reduce((acc, r) => acc + r.maxPoints, 0);
-    const pct = ((video.totalScore / maxScore) * 100).toFixed(1);
-    
-    doc.setFont(undefined, 'bold'); doc.text("Score:", 140, 42);
-    doc.setFont(undefined, 'normal'); doc.text(`${video.totalScore} / ${maxScore} (${pct}%)`, 155, 42);
+    // --- RIGHT COLUMN (Administrative Data) ---
+    // 🛡️ Smart Truncation: Prevents long names from rolling off the page!
+    let rawOrg = video.organization || window.USER_PROFILE?.organization || "N/A";
+    let safeOrg = rawOrg.length > 25 ? rawOrg.substring(0, 23) + "..." : rawOrg;
+
+    let rawInstructor = video.instructor || window.USER_PROFILE?.instructorName || "N/A";
+    let safeInstructor = rawInstructor.length > 25 ? rawInstructor.substring(0, 23) + "..." : rawInstructor;
+
+    // Shifted X coordinates left to give more breathing room
+    doc.setFont(undefined, 'bold'); doc.text("Date:", 125, 35);
+    doc.setFont(undefined, 'normal'); doc.text(new Date(video.recordedAt).toLocaleDateString(), 152, 35);
+
+    doc.setFont(undefined, 'bold'); doc.text("Organization:", 125, 42);
+    doc.setFont(undefined, 'normal'); doc.text(safeOrg, 152, 42);
+
+    doc.setFont(undefined, 'bold'); doc.text("Instructor:", 125, 49);
+    doc.setFont(undefined, 'normal'); doc.text(safeInstructor, 152, 49);
 
     const tableBody = rubric.rows.map(row => {
         const scoreVal = getNormalizedScore(video, row);

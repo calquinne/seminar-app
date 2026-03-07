@@ -7,7 +7,7 @@
 import * as UI from "./ui.js"; 
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { 
   getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, 
   updateDoc, deleteDoc, query, orderBy, serverTimestamp, enableIndexedDbPersistence, arrayUnion 
@@ -1015,5 +1015,99 @@ export async function addPlaybackMarker(videoId, marker) {
     
     await updateDoc(ref, {
         tags: arrayUnion(marker)
+    });
+}
+
+// ==========================================
+// 👤 PROFILE SETTINGS ENGINE
+// ==========================================
+export async function saveUserProfile() {
+    const nameInput = document.getElementById("profile-instructor-name").value.trim();
+    const orgInput = document.getElementById("profile-organization").value.trim();
+
+    // 1. Validate the input
+    if (!nameInput || !orgInput) {
+        UI.toast("Please fill out both Profile fields.", "warning");
+        return;
+    }
+
+    try {
+        // 2. Get the currently logged-in user
+        // Note: Make sure 'auth' matches how you reference Firebase Auth in this file!
+        const user = getAuth().currentUser;
+        if (!user) {
+            UI.toast("You must be logged in to save.", "error");
+            return;
+        }
+
+        // 3. Write to the 'users' collection using their specific UID
+        const userRef = doc(getFirestore(), "users", user.uid);
+        await setDoc(userRef, {
+            instructorName: nameInput,
+            organization: orgInput,
+            updatedAt: new Date()
+        }, { merge: true });
+
+        // 4. Store it globally so the Tagging Window and PDFs can use it instantly
+        window.USER_PROFILE = { instructorName: nameInput, organization: orgInput };
+
+        // 5. Instantly push the new text to all the boxes!
+        await loadUserProfile();
+        
+        UI.toast("Profile saved successfully!", "success");
+    } catch (error) {
+        console.error("Error saving profile:", error);
+        UI.toast("Failed to save profile. Check console.", "error");
+    }
+}
+
+// ==========================================
+// 👤 LOAD PROFILE SETTINGS
+// ==========================================
+export async function loadUserProfile() {
+    try {
+        const user = getAuth().currentUser;
+        if (!user) return;
+
+        // Fetch the custom profile we saved
+        const userRef = doc(getFirestore(), "users", user.uid);
+        const snap = await getDoc(userRef);
+
+        if (snap.exists()) {
+            const data = snap.data();
+            const instructor = data.instructorName || "";
+            const org = data.organization || "";
+
+            // 1. Inject into Profile Settings Card
+            const pName = document.getElementById("profile-instructor-name");
+            const pOrg = document.getElementById("profile-organization");
+            if (pName) pName.value = instructor;
+            if (pOrg) pOrg.value = org;
+
+            // 3. Save to global memory (We will use this for the PDFs next!)
+            window.USER_PROFILE = { instructorName: instructor, organization: org };
+
+            // 2. The "Stubborn" Injector for the Tagging Window
+            // This ensures we win the race against auth.js!
+            const forceUpdateModal = () => {
+                const mName = document.getElementById("meta-instructor");
+                const mOrg = document.getElementById("meta-org");
+                if (mName) mName.value = instructor;
+                if (mOrg) mOrg.value = org;
+            };
+
+            forceUpdateModal(); // Run immediately
+            setTimeout(forceUpdateModal, 500);  // Check again in half a second
+            setTimeout(forceUpdateModal, 1500); // Check again in 1.5 seconds to lock it in
+        }
+    } catch (error) {
+        console.error("Error loading profile:", error);
+    }
+}
+
+// 🕵️ NEW: Wait until Firebase is turned on, then listen for logins!
+export function startProfileListener() {
+    onAuthStateChanged(getAuth(), (user) => {
+        if (user) loadUserProfile();
     });
 }

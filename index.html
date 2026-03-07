@@ -472,9 +472,21 @@ select option[disabled] {
         <!-- Right Pane -->
         <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
 
-          <h3 class="font-semibold text-lg mb-3">Account & Storage</h3>
+          <h3 class="font-semibold text-lg mb-3">Profile & Storage</h3>
 
           <div class="space-y-3 text-sm">
+
+            <div class="pb-4 mb-2 border-b border-white/10">
+            <label class="block text-sm text-gray-300 mb-1">Instructor Name</label>
+            <input id="profile-instructor-name" type="text" class="w-full mb-3 rounded-lg bg-black/30 border border-white/10 p-2 text-sm text-white focus:outline-none focus:border-[#0033A0]" placeholder="e.g., Mrs. Isaacs" />
+
+            <label class="block text-sm text-gray-300 mb-1">Organization / School</label>
+            <input id="profile-organization" type="text" class="w-full mb-3 rounded-lg bg-black/30 border border-white/10 p-2 text-sm text-white focus:outline-none focus:border-[#0033A0]" placeholder="e.g., Mt. Vernon High School" />
+
+            <button id="save-profile-btn" class="w-full py-2 bg-white/10 hover:bg-[#0033A0] text-white text-sm rounded-lg transition-colors border border-white/10">
+                Save Profile
+            </button>
+        </div>
 
             <div>Storage used: <span id="storage-used">0</span> / <span id="storage-limit">—</span></div>
 

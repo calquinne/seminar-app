@@ -763,8 +763,8 @@ if (addClassBtn && !addClassBtn.dataset.bound) {
 }
 
 
-  UI.$("#meta-org").value = UI.userDoc.organizationName || "Default Org";
-  UI.$("#meta-instructor").value = UI.userDoc.instructorName || (UI.currentUser ? UI.currentUser.email : "Instructor");
+  UI.$("#meta-org").value = window.USER_PROFILE?.organization || "Default Organization";
+  UI.$("#meta-instructor").value = window.USER_PROFILE?.instructorName || UI.currentUser?.email || "Instructor";
   
   UI.refreshMetadataClassList();
   

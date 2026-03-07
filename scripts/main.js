@@ -157,6 +157,10 @@ if (newClassBtn) newClassBtn.onclick = UI.clearClassEditor;
 const saveClassBtn = UI.$("#save-class-btn");
 if (saveClassBtn) saveClassBtn.onclick = DB.handleSaveClass;
 
+// 👤 Profile Save Button
+    const saveProfileBtn = UI.$("#save-profile-btn");
+    if (saveProfileBtn) saveProfileBtn.onclick = DB.saveUserProfile;
+
 // 🕵️ NEW: Trigger the list refresh the instant the toggle is clicked
     const showArchToggle = UI.$("#show-archived-classes");
     if (showArchToggle) showArchToggle.onchange = DB.refreshClassesList;
@@ -525,10 +529,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!firebaseReady) {
         throw new Error("Init returned false");
       }
-      // Start Auth Listener
-      console.log("✅ Firebase Ready. Waiting for Auth...");
-      Auth.onAuthReady();
-  } catch (e) {
+
+     // Start Auth Listener
+        console.log("✅ Firebase Ready. Waiting for Auth...");
+        Auth.onAuthReady();
+        DB.startProfileListener(); // 👤 NEW: Load the custom profile!
+    } catch (e) {
+      
     console.error("❌ Boot Failed:", e);
     UI.showScreen("setup-screen");
   }
