@@ -157,6 +157,10 @@ if (newClassBtn) newClassBtn.onclick = UI.clearClassEditor;
 const saveClassBtn = UI.$("#save-class-btn");
 if (saveClassBtn) saveClassBtn.onclick = DB.handleSaveClass;
 
+// 🕵️ NEW: Trigger the list refresh the instant the toggle is clicked
+    const showArchToggle = UI.$("#show-archived-classes");
+    if (showArchToggle) showArchToggle.onchange = DB.refreshClassesList;
+
 // Archive Class (non-destructive)
 const archiveClassBtn = UI.$("#archive-class-btn");
 if (archiveClassBtn) archiveClassBtn.onclick = DB.handleArchiveClass;
@@ -529,3 +533,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     UI.showScreen("setup-screen");
   }
 });
+
+// ==========================================
+// 📅 AUTOMATIC ACADEMIC YEAR GENERATOR
+// ==========================================
+function generateAcademicYears() {
+    const selects = ["class-year", "lib-filter-year", "analytics-year-filter"];
+    
+    // 1. Ask the computer what day it is
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0 = Jan, 7 = Aug
+    
+    // 2. If it is before August, the "current" school year actually started last year
+    const activeStartYear = currentMonth >= 7 ? currentYear : currentYear - 1;
+    const activeYearString = `${activeStartYear}-${activeStartYear + 1}`;
+
+    selects.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        
+        const isFilter = id.includes("filter"); // Check if this is a search filter
+
+        // 3. Loop from 2025 (App creation) to 3 years in the future
+        for (let y = 2025; y <= activeStartYear + 3; y++) {
+            const yearStr = `${y}-${y + 1}`;
+            const opt = document.createElement("option");
+            opt.value = yearStr;
+            opt.textContent = yearStr;
+            el.appendChild(opt);
+        }
+        
+        // 4. Automatically select the CURRENT school year so teachers don't have to!
+        el.value = activeYearString;
+    });
+}
+
+// Run the generator the second the app opens!
+generateAcademicYears();

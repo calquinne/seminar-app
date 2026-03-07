@@ -204,8 +204,10 @@ export function loadClassIntoEditor(classId) {
   $("#class-title").value = cls.title || "";
   $("#class-archive-date").value = cls.archiveDate || "";
   $("#class-delete-date").value = cls.deleteDate || "";
-  $("#class-roster").value = (cls.participants || []).join("\n");
-
+ $("#class-roster").value = (cls.participants || []).join("\n");
+        // 📅 NEW: Load Year and Term (with safe defaults for old classes)
+        $("#class-year").value = cls.academicYear || "2025-2026";
+        $("#class-term").value = cls.term || "Full Year";
   // Show edit/delete controls when a class is selected
   const dangerZone = document.getElementById("class-danger-zone");
   if (dangerZone) dangerZone.classList.remove("hidden");
@@ -224,6 +226,9 @@ export function clearClassEditor() {
   $("#class-archive-date").value = "";
   $("#class-delete-date").value = "";
   $("#class-roster").value = "";
+  // 📅 NEW: Reset Year and Term to defaults for new classes
+  $("#class-year").value = "2025-2026";
+  $("#class-term").value = "Full Year";
 
   // Focus for UX
   $("#class-title").focus();

@@ -385,11 +385,16 @@ select option[disabled] {
 
           <div class="space-y-3">
 
-            <div class="flex items-center gap-2">
-              <label class="text-sm text-gray-300">Existing:</label>
-              <select id="classes-list"
-                     class="w-full mt-1 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
-            </div>
+            <div>
+    <div class="flex justify-between items-end mb-1">
+        <label class="text-sm text-gray-300">Existing:</label>
+        <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer hover:text-white transition-colors">
+            <input type="checkbox" id="show-archived-classes" class="rounded bg-black/30 border border-white/10 text-[#0033A0] focus:ring-[#0033A0]">
+            Show Archived
+        </label>
+    </div>
+    <select id="classes-list" class="w-full mt-1 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"></select>
+</div>
 
             <hr class="border-white/10 my-2"/>
 
@@ -398,6 +403,25 @@ select option[disabled] {
             <div class="grid grid-cols-2 gap-2">
               <input id="class-title" class="col-span-2 rounded-lg bg-black/30 border border-white/10 p-2 text-sm"
                      placeholder="Title (e.g., Public Speaking 101)"/>
+
+                    <div class="col-span-2 grid grid-cols-2 gap-4">
+    <label class="text-sm text-gray-300">
+        Academic Year
+        <select id="class-year" class="w-full mt-1 rounded bg-black/30 border border-white/10 p-2 text-sm text-white focus:outline-none border-transparent focus:border-[#0033A0]">
+           
+        </select>
+    </label>
+    
+    <label class="text-sm text-gray-300">
+        Term
+        <select id="class-term" class="w-full mt-1 rounded bg-black/30 border border-white/10 p-2 text-sm text-white focus:outline-none border-transparent focus:border-[#0033A0]">
+            <option value="Full Year" selected>Full Year</option>
+            <option value="Fall">Fall</option>
+            <option value="Spring">Spring</option>
+            <option value="Summer">Summer</option>
+        </select>
+    </label>
+</div>
 
               <label class="text-xs text-gray-300">
                 Auto-Archive Date
@@ -688,6 +712,25 @@ select option[disabled] {
       
       <div class="flex flex-wrap gap-4 mb-6 items-end animate-slide-up">
   
+<div>
+    <label class="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">Year</label>
+    <select id="lib-filter-year" onchange="window.renderLibraryFiltered()" class="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#0033A0]">
+        <option value="all">All Years</option>
+        
+    </select>
+</div>
+
+<div>
+    <label class="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">Term</label>
+    <select id="lib-filter-term" onchange="window.renderLibraryFiltered()" class="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#0033A0]">
+        <option value="all">All Terms</option>
+        <option value="Full Year">Full Year</option>
+        <option value="Fall">Fall</option>
+        <option value="Spring">Spring</option>
+        <option value="Summer">Summer</option>
+    </select>
+</div>
+
   <div>
     <label class="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">Class / Event</label>
     <select id="lib-filter-class" onchange="window.renderLibraryFiltered()" class="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary-500 transition-colors min-w-[150px]">
@@ -814,13 +857,32 @@ select option[disabled] {
              <p class="text-sm text-gray-400">Analyze performance by specific rubric rows.</p>
           </div>
 
-          <div class="mb-8 p-5 bg-gray-900 border border-white/10 rounded-xl flex flex-wrap items-center gap-4 shadow-lg">
+        <div class="mb-8 p-5 bg-gray-900 border border-white/10 rounded-xl flex flex-wrap items-center gap-4 shadow-lg">
                
                <div class="flex flex-col gap-1 flex-[2] min-w-[220px]">
                     <label class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Rubric</label>
                     <select id="analytics-rubric-select" class="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-2.5 text-sm text-white focus:border-primary-500 outline-none hover:border-primary-500/50 transition-colors cursor-pointer">
                         <option value="">Loading...</option>
                     </select>
+               </div>
+
+               <div class="flex flex-col gap-1 flex-1 min-w-[160px]">
+                   <label class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Year</label>
+                   <select id="analytics-year-filter" class="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-2.5 text-sm text-white focus:border-primary-500 outline-none hover:border-primary-500/50 transition-colors cursor-pointer">
+                       <option value="all">All Years</option>
+                       
+                   </select>
+               </div>
+
+               <div class="flex flex-col gap-1 flex-1 min-w-[160px]">
+                   <label class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Term</label>
+                   <select id="analytics-term-filter" class="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-2.5 text-sm text-white focus:border-primary-500 outline-none hover:border-primary-500/50 transition-colors cursor-pointer">
+                       <option value="all">All Terms</option>
+                       <option value="Full Year">Full Year</option>
+                       <option value="Fall">Fall</option>
+                       <option value="Spring">Spring</option>
+                       <option value="Summer">Summer</option>
+                   </select>
                </div>
 
                <div class="flex flex-col gap-1 flex-1 min-w-[160px]">

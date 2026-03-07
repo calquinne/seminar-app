@@ -202,14 +202,30 @@ function updateGlobalDashboard(className) {
         updateRubricSection();      
     }
 
-    const globalVideos = className === "all" 
-        ? ALL_VIDEOS 
-        : ALL_VIDEOS.filter(v => v.classEventTitle === className);
+   // 📅 NEW: Grab Year and Term filters for the Global Dashboard
+    const yearSelect = document.getElementById("analytics-year-filter");
+    const termSelect = document.getElementById("analytics-term-filter");
+    const filterYear = yearSelect ? yearSelect.value : "all";
+    const filterTerm = termSelect ? termSelect.value : "all";
+
+    // 🛑 NEW: Filter ALL_VIDEOS by Year, Term, AND Class
+    const globalVideos = ALL_VIDEOS.filter(v => {
+        const parentClass = Object.values(UI.classData || {}).find(c => c.title === v.classEventTitle);
+        const vidYear = parentClass ? (parentClass.academicYear || "2025-2026") : "2025-2026";
+        const vidTerm = parentClass ? (parentClass.term || "Full Year") : "Full Year";
+
+        const matchClass = (className === "all") || (v.classEventTitle === className);
+        const matchYear = (filterYear === "all") || (vidYear === filterYear);
+        const matchTerm = (filterTerm === "all") || (vidTerm === filterTerm);
+
+        return matchClass && matchYear && matchTerm;
+    });
 
     const stats = computeStats(globalVideos);
 
     renderHeadlines(stats);
-    renderClassTable(computeStats(ALL_VIDEOS).classBreakdown); 
+    // 🛑 NEW: Feed the filtered videos into the class table instead of ALL_VIDEOS!
+    renderClassTable(computeStats(globalVideos).classBreakdown);
     renderRecentList(globalVideos.slice(0, 5));
 }
 
@@ -221,16 +237,30 @@ export function updateRubricSection() {
     const classSelect = document.getElementById("analytics-class-filter");
     const studentSelect = document.getElementById("analytics-student-filter");
     const rubricSelect = document.getElementById("analytics-rubric-select");
+    // 📅 NEW: Grab Year and Term filters
+    const yearSelect = document.getElementById("analytics-year-filter");
+    const termSelect = document.getElementById("analytics-term-filter");
 
     const filterClass = classSelect ? classSelect.value : "all";
     const filterStudent = studentSelect ? studentSelect.value : "all";
     const filterRubric = rubricSelect ? rubricSelect.value : "all";
-    
-    // 1. Filter Data by Class
-    let relevantVideos = ALL_VIDEOS;
-    if (filterClass !== "all") {
-        relevantVideos = relevantVideos.filter(v => v.classEventTitle === filterClass);
-    }
+    // 📅 NEW: Get filter values
+    const filterYear = yearSelect ? yearSelect.value : "all";
+    const filterTerm = termSelect ? termSelect.value : "all";
+
+    // 1. Filter Data by Class, Year, and Term
+    let relevantVideos = ALL_VIDEOS.filter(v => {
+        // Look up the video's parent class
+        const parentClass = Object.values(UI.classData || {}).find(c => c.title === v.classEventTitle);
+        const vidYear = parentClass ? (parentClass.academicYear || "2025-2026") : "2025-2026";
+        const vidTerm = parentClass ? (parentClass.term || "Full Year") : "Full Year";
+
+        const matchClass = (filterClass === "all") || (v.classEventTitle === filterClass);
+        const matchYear = (filterYear === "all") || (vidYear === filterYear);
+        const matchTerm = (filterTerm === "all") || (vidTerm === filterTerm);
+
+        return matchClass && matchYear && matchTerm;
+    });
 
     // 2. Determine Context Labels
     let classLabel = "All Classes";
@@ -832,6 +862,12 @@ function populateFilterDropdowns() {
   classSelect.onchange = () => { populateStudentDropdown(); updateRubricSection(); };
   rubricSelect.onchange = () => updateRubricSection();
   if (studentSelect) studentSelect.onchange = () => updateRubricSection();
+ 
+  // 📅 UPGRADED: Trigger the GLOBAL dashboard to update when Year/Term changes
+    const yearSelect = document.getElementById("analytics-year-filter");
+    const termSelect = document.getElementById("analytics-term-filter");
+    if (yearSelect) yearSelect.onchange = () => { updateGlobalDashboard(classSelect.value); };
+    if (termSelect) termSelect.onchange = () => { updateGlobalDashboard(classSelect.value); };
 }
 
 function populateStudentDropdown() {

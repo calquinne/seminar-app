@@ -92,16 +92,24 @@ export async function refreshClassesList() {
   list.innerHTML = "<option>Loading...</option>";
 
   try {
-    const classData = UI.classData || {};
+            const classData = UI.classData || {};
+            
+            // 🕵️ NEW: Check the status of the toggle box
+            const showArchivedToggle = UI.$("#show-archived-classes");
+            const showArchived = showArchivedToggle ? showArchivedToggle.checked : false;
 
-    list.innerHTML = '<option value="">-- Select a Class to Edit --</option>';
+            list.innerHTML = '<option value="">-- Select a Class to Edit --</option>';
 
-    Object.values(classData).forEach(cls => {
-      const opt = document.createElement("option");
-      opt.value = cls.id;
-      opt.textContent = `${cls.title}${cls.archived ? " (Archived)" : ""}`;
-      list.appendChild(opt);
-    });
+            Object.values(classData).forEach(cls => {
+                // 🛑 NEW: Show if NOT archived, OR if the toggle is checked
+                if (!cls.archived || showArchived) {
+                    const opt = document.createElement("option");
+                    opt.value = cls.id;
+                    // Put "(Archived)" back in the title ONLY if it is an archived class so you can tell them apart!
+                    opt.textContent = cls.archived ? `${cls.title} (Archived)` : cls.title; 
+                    list.appendChild(opt);
+                }
+            });
 
   } catch (e) {
     console.error("Error rendering classes:", e);
@@ -115,9 +123,13 @@ export async function handleSaveClass() {
   const rosterStr = UI.$("#class-roster").value.trim();
   
   // ✅ Capture Date Inputs from UI
-  const archiveDate = UI.$("#class-archive-date").value;
-  const deleteDate = UI.$("#class-delete-date").value;
-  
+ const archiveDate = UI.$("#class-archive-date").value;
+    const deleteDate = UI.$("#class-delete-date").value;
+    // 📅 NEW: Grab Year and Term
+    const academicYear = UI.$("#class-year").value;
+    const term = UI.$("#class-term").value;
+
+ 
   if (!title) {
     UI.toast("Class title is required.", "error");
     return;
@@ -128,12 +140,14 @@ export async function handleSaveClass() {
     : [];
 
   const classData = {
-      title,
-      participants,
-      archiveDate, 
-      deleteDate,  
-      updatedAt: serverTimestamp()
-  };
+        title,
+        participants,
+        archiveDate,
+        deleteDate,
+        academicYear, // 📅 NEW: Add to database
+        term,         // 📅 NEW: Add to database
+        updatedAt: serverTimestamp()
+    };
 
   try {
     const colRef = collection(UI.db, `artifacts/${UI.getAppId()}/users/${UI.currentUser.uid}/classes`);
@@ -522,17 +536,30 @@ export function renderLibraryFiltered() {
     const listEl = UI.$("#library-list");
     if (!listEl) return;
 
-    // 1. Read Filter Values
+   // 1. Read Filter Values
     const classFilter = document.getElementById("lib-filter-class")?.value || "all";
     const rubricFilter = document.getElementById("lib-filter-rubric")?.value || "all";
+    // 📅 NEW: Grab Year and Term filters
+    const yearFilter = document.getElementById("lib-filter-year")?.value || "all";
+    const termFilter = document.getElementById("lib-filter-term")?.value || "all";
 
     // 2. Filter Data
     if (!Array.isArray(LIBRARY_CACHE)) return;
 
     const filtered = LIBRARY_CACHE.filter(v => {
+        // 🕵️ NEW: Look up the video's parent class to check its year and term
+        const parentClass = Object.values(UI.classData || {}).find(c => c.title === v.classEventTitle);
+        const vidYear = parentClass ? (parentClass.academicYear || "2025-2026") : "2025-2026";
+        const vidTerm = parentClass ? (parentClass.term || "Full Year") : "Full Year";
+
         const matchClass = (classFilter === "all") || (v.classEventTitle === classFilter);
         const matchRubric = (rubricFilter === "all") || (v.rubricId === rubricFilter);
-        return matchClass && matchRubric;
+        // 📅 NEW: Check if the video's year and term match the dropdowns
+        const matchYear = (yearFilter === "all") || (vidYear === yearFilter);
+        const matchTerm = (termFilter === "all") || (vidTerm === termFilter);
+
+        // 🛑 NEW: Require all 4 filters to match before showing the video
+        return matchClass && matchRubric && matchYear && matchTerm;
     });
 
     if (filtered.length === 0) {
