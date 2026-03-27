@@ -97,93 +97,153 @@ function cleanupUserSnapshotListener() {
 /* -------------------------------------------------------------------------- */
 
 async function handleUserFound(user) {
-  console.log("[Auth] handleUserFound: User found", user.uid);
+    console.log("[Auth] handleUserFound: User found", user.uid);
 
-  // ✅ GUARD: Ensure Firestore is actually ready (Hardening)
-  if (!UI.db) {
-    console.warn("[Auth] Firestore instance missing. Aborting profile load.");
-    return;
-  }
-
-  currentUserUid = user.uid;
-  cleanupUserSnapshotListener();
-
-  const appId = typeof UI.getAppId === "function" ? UI.getAppId() : "default-app";
-  const ref = doc(UI.db, `artifacts/${appId}/users/${user.uid}`);
-
-  try {
-    const existing = await getDoc(ref);
-
-    if (!existing.exists()) {
-      console.log("[Auth] No profile doc, creating default profile.");
-      const defaultProfile = buildDefaultProfile(user);
-      await setDoc(ref, defaultProfile, { merge: true });
-    } else {
-      await setDoc(
-        ref,
-        { updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-    }
-  } catch (e) {
-    console.error("[Auth] Failed to ensure profile doc:", e);
-    UI.toast("Failed to load or create your profile.", "error");
-    try {
-      await signOut(UI.auth);
-    } catch (signOutErr) {
-      console.error("[Auth] Error during forced sign-out:", signOutErr);
-    }
-    return;
-  }
-
-  unsubscribeUserSnap = onSnapshot(
-    ref,
-    async (snap) => {
-      if (!currentUserUid || currentUserUid !== user.uid) {
-        console.log("[Auth] Snapshot arrived for stale user; ignoring.");
+    if (!UI.db) {
+        console.warn("[Auth] Firestore instance missing. Aborting profile load.");
         return;
-      }
-
-      let profileData;
-
-      if (snap.exists()) {
-        profileData = snap.data();
-        console.log("[Auth] Profile snapshot loaded:", profileData);
-      } else {
-        console.warn("[Auth] Profile doc missing; recreating default profile.");
-        profileData = buildDefaultProfile(user);
-        try {
-          await setDoc(ref, profileData, { merge: true });
-        } catch (e) {
-          console.error("[Auth] Failed to recreate profile doc:", e);
-          UI.toast("Failed to recreate your profile.", "error");
-        }
-      }
-
-      UI.updateUIAfterAuth(user, profileData);
-      UI.showScreen("main-app");
-
-      const manageTabButton = UI.$(".app-tab[data-tab='tab-manage']");
-      if (manageTabButton) manageTabButton.click();
-
-      try {
-        await flushOfflineQueue();
-      } catch (queueErr) {
-        console.warn("[Auth] Failed to flush offline queue:", queueErr);
-      }
-    },
-    (error) => {
-      console.error("[Auth] Profile snapshot error:", error);
-      UI.toast("Failed to load your profile. You have been signed out.", "error");
-
-      cleanupUserSnapshotListener();
-      currentUserUid = null;
-
-      signOut(UI.auth).catch((signOutErr) => {
-        console.error("[Auth] Error during sign out after snapshot failure:", signOutErr);
-      });
     }
-  );
+
+    currentUserUid = user.uid;
+    cleanupUserSnapshotListener();
+
+    const ref = doc(UI.db, "users", user.uid);
+
+    try {
+        const existing = await getDoc(ref);
+
+        if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+            console.warn("[Auth] Stale profile task detected after getDoc; aborting.");
+            return;
+        }
+
+        if (!existing.exists()) {
+            console.log("[Auth] No profile doc, creating default profile.");
+
+            const defaultProfile = {
+                email: user.email || "",
+                displayName: user.displayName || "",
+                organizationName: "Default Organization",
+                instructorName: user.displayName || user.email || "Instructor",
+                role: "user",
+                isAdmin: false,
+                isPro: false,
+                activeSubscription: false,
+                planTier: "free",
+                storageUsedBytes: 0,
+                planStorageLimit: 10 * 1e9,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            };
+
+            await setDoc(ref, defaultProfile, { merge: true });
+        } else {
+            await setDoc(
+                ref,
+                {
+                    email: user.email || "",
+                    displayName: user.displayName || "",
+                    updatedAt: serverTimestamp()
+                },
+                { merge: true }
+            );
+        }
+
+        if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+            console.warn("[Auth] Stale profile task detected after setDoc; aborting.");
+            return;
+        }
+
+    } catch (e) {
+        console.error("[Auth] Failed to ensure profile doc:", e);
+
+        if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+            console.warn("[Auth] Ignoring profile error for stale user.");
+            return;
+        }
+
+        UI.toast("Failed to load or create your profile.", "error");
+        return; // ✅ No panic sign-out!
+    }
+
+    unsubscribeUserSnap = onSnapshot(
+        ref,
+        async (snap) => {
+            if (!currentUserUid || currentUserUid !== user.uid) {
+                console.log("[Auth] Snapshot arrived for stale user; ignoring.");
+                return;
+            }
+
+            let profileData;
+
+            if (snap.exists()) {
+                profileData = snap.data();
+                console.log("[Auth] Profile snapshot loaded:", profileData);
+            } else {
+                console.warn("[Auth] Profile doc missing; recreating default profile.");
+
+                profileData = {
+                    email: user.email || "",
+                    displayName: user.displayName || "",
+                    organizationName: "Default Organization",
+                    instructorName: user.displayName || user.email || "Instructor",
+                    role: "user",
+                    isAdmin: false,
+                    isPro: false,
+                    activeSubscription: false,
+                    planTier: "free",
+                    storageUsedBytes: 0,
+                    planStorageLimit: 10 * 1e9,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                };
+
+                try {
+                    await setDoc(ref, profileData, { merge: true });
+                } catch (e) {
+                    console.error("[Auth] Failed to recreate profile doc:", e);
+
+                    if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+                        console.warn("[Auth] Ignoring recreate error for stale user.");
+                        return;
+                    }
+
+                    UI.toast("Failed to recreate your profile.", "error");
+                    return;
+                }
+            }
+
+            if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+                console.warn("[Auth] Stale snapshot task detected before UI update; aborting.");
+                return;
+            }
+
+            UI.updateUIAfterAuth(user, profileData);
+            UI.showScreen("main-app");
+
+            const manageTabButton = UI.$(".app-tab[data-tab='tab-manage']");
+            if (manageTabButton) manageTabButton.click();
+
+            try {
+                await flushOfflineQueue();
+            } catch (queueErr) {
+                console.warn("[Auth] Failed to flush offline queue:", queueErr);
+            }
+        },
+        (error) => {
+            console.error("[Auth] Profile snapshot error:", error);
+
+            if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+                console.warn("[Auth] Ignoring snapshot error for stale user.");
+                return;
+            }
+
+            cleanupUserSnapshotListener();
+            currentUserUid = null;
+            UI.toast("Failed to load your profile.", "error");
+            // ✅ No panic sign-out!
+        }
+    );
 }
 
 export async function onAuthReady() {
@@ -230,39 +290,52 @@ export async function onAuthReady() {
   }
   authListenerAttached = true;
 
-  onAuthStateChanged(UI.auth, async (user) => {
-  if (user) {
-    // Existing auth success handling
-    await handleUserFound(user);
-    UI.setCurrentUser(user);
+onAuthStateChanged(UI.auth, async (user) => {
+    if (user) {
+        await handleUserFound(user);
 
-    // ✅ LOAD CLASSES AFTER AUTH IS CONFIRMED
-    try {
-      const classes = await DB.loadClasses();
-      UI.setClassData(classes);
-      DB.refreshClassesList?.();   // ✅ ADD THIS
-      UI.refreshMetadataClassList?.();
-    } catch (e) {
-      console.error("Failed to load classes after auth:", e);
-      UI.toast("Failed to load classes.", "error");
+        if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+            console.warn("[Auth] Ignoring class load for stale ghost user.");
+            return;
+        }
+
+        UI.setCurrentUser(user);
+
+        try {
+            const classes = await DB.loadClasses();
+
+            if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+                console.warn("[Auth] Ignoring stale class result.");
+                return;
+            }
+
+            UI.setClassData(classes);
+            DB.refreshClassesList?.();
+            UI.refreshMetadataClassList?.();
+        } catch (e) {
+            if (!UI.auth.currentUser || UI.auth.currentUser.uid !== user.uid) {
+                console.warn("[Auth] Ignoring stale class error.");
+                return;
+            }
+
+            console.error("Failed to load classes after auth:", e);
+            UI.toast("Failed to load classes.", "error");
+        }
+    } else {
+        cleanupUserSnapshotListener();
+        currentUserUid = null;
+
+        UI.updateUIAfterAuth(null, {
+            role: "user",
+            activeSubscription: false,
+            storageUsedBytes: 0,
+            planStorageLimit: 0,
+            planTier: "free",
+            isAdmin: false
+        });
+
+        UI.showScreen("auth-screen");
     }
-
-  } else {
-    // ✅ SAFETY: Ensure everything is clean when logged out
-    cleanupUserSnapshotListener();
-    currentUserUid = null;
-
-    UI.updateUIAfterAuth(null, {
-      role: "user",
-      activeSubscription: false,
-      storageUsedBytes: 0,
-      planStorageLimit: 0,
-      planTier: "free",
-      isAdmin: false
-    });
-
-    UI.showScreen("auth-screen");
-  }
 });
 
 }
@@ -272,41 +345,68 @@ export async function onAuthReady() {
 /* -------------------------------------------------------------------------- */
 
 export async function handleAuthFormSubmit(e) {
-  e.preventDefault();
+    e.preventDefault();
+    
+    // 1. Detect which form triggered this submit!
+    const isSignUp = e.target.id === "signup-form";
+    
+    // 2. Grab the inputs
+    const emailInput = document.getElementById(isSignUp ? "signup-email" : "auth-email");
+    const passwordInput = document.getElementById(isSignUp ? "signup-password" : "auth-password");
+    const confirmInput = isSignUp ? document.getElementById("signup-confirm") : null;
+    const promoInput = isSignUp ? document.getElementById("signup-promo") : null; // NEW!
 
-  const isSignUp = e.submitter?.id === "auth-signup-btn";
-  const emailInput = UI.$("#auth-email");
-  const passwordInput = UI.$("#auth-password");
+    const email = emailInput?.value?.trim() || "";
+    const password = passwordInput?.value || "";
+    const promoCode = promoInput?.value?.trim().toUpperCase() || ""; // Standardize to uppercase
 
-  const email = emailInput?.value?.trim() || "";
-  const password = passwordInput?.value || "";
-
-  if (!email || !password) {
-    UI.toast("Please enter both email and password.", "error");
-    return;
-  }
-
-  try {
-    if (isSignUp) {
-      await createUserWithEmailAndPassword(UI.auth, email, password);
-      UI.toast("Account created! Signing in...", "success");
-    } else {
-      await signInWithEmailAndPassword(UI.auth, email, password);
-      UI.toast("Signed in!", "success");
+    // 3. Validation
+    if (!email || !password) {
+        UI.toast("Please enter both email and password.", "error");
+        return;
     }
-  } catch (e) {
-    console.error("[Auth] Auth error:", e);
-    const msg =
-      e.code === "auth/user-not-found"
-        ? "No account found with that email."
-        : e.code === "auth/wrong-password"
-        ? "Incorrect password."
-        : e.code === "auth/email-already-in-use"
-        ? "An account with that email already exists."
-        : e.message;
 
-    UI.toast(msg, "error");
-  }
+    if (isSignUp && confirmInput && password !== confirmInput.value) {
+        UI.toast("Passwords do not match. Please try again.", "error");
+        return;
+    }
+
+    // 4. Send to Firebase
+    try {
+        if (isSignUp) {
+            // A. Mint the new user in Firebase Authentication
+            const userCredential = await createUserWithEmailAndPassword(UI.auth, email, password);
+            const user = userCredential.user;
+
+            // B. Check for Founder or VIP Status
+            const isFounder = email.toLowerCase() === "calquinne@gmail.com";
+            const isPromoVIP = promoCode === "REELVIP2026"; // Feel free to change this code!
+            
+            // C. If they are special, permanently tag their database profile!
+            // We use { merge: true } so it safely combines with your default profile builder
+            if (isFounder || isPromoVIP) {
+                await setDoc(doc(UI.db, "users", user.uid), {
+                    role: isFounder ? "admin" : "user",
+                    isPro: true,
+                    activeSubscription: true,
+                    promoUsed: isPromoVIP ? promoCode : "Founder"
+                }, { merge: true });
+            }
+
+            UI.toast("Account created! Signing in...", "success");
+        } else {
+            await signInWithEmailAndPassword(UI.auth, email, password);
+            UI.toast("Signed in!", "success");
+        }
+    } catch (error) {
+        console.error("[Auth] error:", error);
+        const msg = 
+            error.code === "auth/user-not-found" ? "No account found with that email." :
+            error.code === "auth/wrong-password" ? "Incorrect password." :
+            error.code === "auth/email-already-in-use" ? "An account with that email already exists." : 
+            error.message;
+        UI.toast(msg, "error");
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -465,4 +565,8 @@ export function initAuthUI() {
       }
     });
   }
+  const authForm = document.getElementById("auth-form");
+    const signupForm = document.getElementById("signup-form");
+    if (authForm) authForm.addEventListener("submit", handleAuthFormSubmit);
+    if (signupForm) signupForm.addEventListener("submit", handleAuthFormSubmit);
 }

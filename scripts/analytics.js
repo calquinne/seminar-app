@@ -366,7 +366,7 @@ function renderClassTable(classes) {
 
   const allRow = document.createElement("div");
   allRow.className = `p-3 border-b mb-1 border-white/10 transition-colors cursor-pointer ${isAll ? "bg-white/10 border-primary-500/50" : "border-white/5 hover:bg-white/5"}`;
-  allRow.innerHTML = `<div class="flex justify-between items-center mb-1"><span class="text-sm font-bold text-white uppercase tracking-wider">All Classes</span><span class="text-xs text-primary-300 font-mono font-bold">${globalStats.avg.toFixed(1)} avg</span></div><div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden"><div class="h-full bg-cyan-400 rounded-full" style="width: ${globalWidth}%"></div></div>`;
+allRow.innerHTML = `<div class="flex justify-between items-center mb-1 relative"><span class="text-sm font-bold text-white uppercase tracking-wider flex items-center">All Classes <span class="text-xs text-gray-400 cursor-help ml-1.5 normal-case" onmouseenter="this.nextElementSibling.style.display='block'" onmouseleave="this.nextElementSibling.style.display='none'">ⓘ</span><div class="absolute top-full left-0 mt-1.5 w-56 p-2.5 bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded-lg shadow-2xl normal-case pointer-events-none" style="display: none; z-index: 9999;">Compare class average against global historical average (all classes, years, and terms).</div></span><span class="text-xs text-primary-300 font-mono font-bold">${globalStats.avg.toFixed(1)} avg</span></div><div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden"><div class="h-full bg-cyan-400 rounded-full" style="width: ${globalWidth}%"></div></div>`;
   allRow.onclick = () => updateGlobalDashboard("all");
   container.appendChild(allRow);
 

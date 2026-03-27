@@ -86,18 +86,27 @@ export function toast(msg, type = "info") {
 }
 
 export function showScreen(id) {
-  const known = ["loading-screen","setup-screen","auth-screen","main-app"];
-  if (known.includes(id)) {
-    known.forEach(s => {
-      const el = $(`#${s}`);
-      if (el) el.classList.toggle("hidden", s !== id);
-    });
-  }
-  
-  if (id === 'metadata-screen') {
-    $("#metadata-screen").showModal();
+  // We added the missing "signup-screen" to the VIP list!
+  const known = [
+    "loading-screen",
+    "setup-screen",
+    "auth-screen",
+    "signup-screen", 
+    "main-app"
+  ];
+
+  known.forEach(s => {
+    // Using standard document.getElementById is much safer here
+    const el = document.getElementById(s);
+    if (el) {
+      el.classList.toggle("hidden", s !== id);
+    }
+  });
+
+  const meta = document.getElementById("metadata-screen");
+  if (id === "metadata-screen") {
+    if (meta && typeof meta.showModal === 'function') meta.showModal();
   } else {
-    const meta = $("#metadata-screen");
     if (meta && meta.open) meta.close();
   }
 }
@@ -105,7 +114,7 @@ export function showScreen(id) {
 /* -------------------------------------------------------------------------- */
 /* Config Getters/Setters
 /* -------------------------------------------------------------------------- */
-export function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud"; }
+export function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud-1c100"; }
 
 /* -------------------------------------------------------------------------- */
 /* UI Updaters
@@ -235,28 +244,39 @@ export function clearClassEditor() {
 }
 
 export function refreshMetadataClassList() {
-  const metaClassSelect = $("#meta-class");
-  if (!metaClassSelect) return;
+    const metaClassSelect = $("#meta-class");
+    if (!metaClassSelect) return;
 
-  // Reset dropdown
-  metaClassSelect.innerHTML =
-    '<option value="">-- Select a Class / Event --</option>';
+    // Reset dropdown
+    metaClassSelect.innerHTML = '<option value="">-- Select a Class / Event --</option>';
 
-  // ✅ USE LOCAL MODULE STATE (NOT UI.)
-  Object.values(classData || {}).forEach(classDoc => {
-    if (!classDoc.archived) {
-      const opt = document.createElement("option");
-      opt.value = classDoc.id;
-      opt.textContent = classDoc.title || "Untitled";
-      metaClassSelect.appendChild(opt);
-    }
-  });
+    // 🕵️ Get the active Year and Term from the main settings to use as strict filters!
+    const activeYear = $("#class-year") ? $("#class-year").value : null;
+    const activeTerm = $("#class-term") ? $("#class-term").value : null;
 
-  // Sentinel option
-  const addOpt = document.createElement("option");
-  addOpt.value = "__add__";
-  addOpt.textContent = "➕ Add new class / event…";
-  metaClassSelect.appendChild(addOpt);
+    // ✅ USE LOCAL MODULE STATE (NOT UI.)
+    Object.values(classData || {}).forEach(classDoc => {
+        // 🛑 FILTER A: Ignore archived classes completely
+        if (classDoc.archived) return;
+
+        // 🛑 FILTER B: Strict Year Match
+        if (activeYear && classDoc.academicYear !== activeYear) return;
+
+        // 🛑 FILTER C: Strict Term Match
+        if (activeTerm && classDoc.term !== activeTerm) return;
+
+        // If it survives all three filters, draw it!
+        const opt = document.createElement("option");
+        opt.value = classDoc.id;
+        opt.textContent = classDoc.title || "Untitled";
+        metaClassSelect.appendChild(opt);
+    });
+
+    // Sentinel option
+    const addOpt = document.createElement("option");
+    addOpt.value = "__add__";
+    addOpt.textContent = "➕ Add new class / event...";
+    metaClassSelect.appendChild(addOpt);
 }
 
 /* -------------------------------------------------------------------------- */

@@ -254,10 +254,17 @@ select option[disabled] {
       </div>
 
       <div>
-        <label for="auth-password" class="block text-sm text-gray-300 mb-1">Password</label>
-        <input id="auth-password" type="password" autocomplete="current-password" required
-               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-      </div>
+        <label class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+        <div class="relative">
+            <input id="auth-password" type="password" required autocomplete="current-password"
+                   class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm pr-10">
+            <button type="button" tabindex="-1"
+                    onclick="const p=document.getElementById('auth-password'); p.type=p.type==='password'?'text':'password';" 
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            </button>
+        </div>
+    </div>
 
       <div class="text-right">
         <a id="forgot-password-link"
@@ -313,31 +320,50 @@ select option[disabled] {
 
     <h2 class="text-2xl font-bold text-center mb-4">Create Account</h2>
 
-    <form id="signup-form" class="space-y-4">
-
-      <div>
-        <label class="text-sm font-medium text-gray-300 mb-1">Email</label>
+   <form id="signup-form" class="space-y-4">
+    <div>
+        <label class="block text-sm font-medium text-gray-300 mb-1">Email</label>
         <input id="signup-email" type="email" required autocomplete="username"
                class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-      </div>
+    </div>
 
-      <div>
-        <label class="text-sm font-medium text-gray-300 mb-1">Password (Min. 6 characters)</label>
-        <input id="signup-password" type="password" required autocomplete="new-password"
-               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-      </div>
+    <div class="relative">
+        <label class="block text-sm font-medium text-gray-300 mb-1">Password (Min. 6 characters)</label>
+        <div class="relative">
+            <input id="signup-password" type="password" required autocomplete="new-password"
+                   class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm pr-10">
+            <button type="button" tabindex="-1"
+                    onclick="const p=document.getElementById('signup-password'); p.type=p.type==='password'?'text':'password';" 
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            </button>
+        </div>
+    </div>
 
-      <div>
-        <label class="text-sm font-medium text-gray-300 mb-1">Confirm Password</label>
-        <input id="signup-confirm" type="password" required autocomplete="new-password"
-               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm">
-      </div>
+    <div class="relative">
+        <label class="block text-sm font-medium text-gray-300 mb-1">Confirm Password</label>
+        <div class="relative">
+            <input id="signup-confirm" type="password" required autocomplete="new-password"
+                   class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm pr-10">
+            <button type="button" tabindex="-1"
+                    onclick="const p=document.getElementById('signup-confirm'); p.type=p.type==='password'?'text':'password';" 
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            </button>
+        </div>
+    </div>
 
-      <button id="signup-submit-btn" type="submit"
-              class="w-full px-4 py-2 text-sm rounded-lg bg-[#0033A0] hover:bg-primary-500">
+    <div>
+        <label class="block text-sm font-medium text-gray-300 mb-1">Promo Code <span class="text-gray-500">(Optional)</span></label>
+        <input id="signup-promo" type="text" 
+               class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm uppercase">
+    </div>
+
+    <button id="signup-submit-btn" type="submit"
+            class="w-full px-4 py-2 mt-2 text-sm rounded-lg bg-[#0033A0] hover:bg-primary-500 transition-colors font-medium">
         Create Account
-      </button>
-    </form>
+    </button>
+</form>
 
     <div class="text-center mt-4">
       <a id="back-to-login-link" class="text-xs text-primary-400 hover:text-primary-300 cursor-pointer">

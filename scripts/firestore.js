@@ -27,10 +27,17 @@ let RUBRIC_CACHE = {};  // Stores rubric titles
 /* -------------------------------------------------------------------------- */
 export async function initFirebase() {
   try {
-    const configStr = localStorage.getItem(UI.LS.CFG);
-    if (!configStr) return false;
-
-    const config = JSON.parse(configStr);
+   // 🚀 NEW: Hardwired SaaS Configuration!
+        const config = {
+            apiKey: "AIzaSyDw06kFt7C4Wyiveh0A6vBmO5azb7bRi1U",
+            authDomain: "seminar-cloud-1c100.firebaseapp.com",
+            projectId: "seminar-cloud-1c100",
+            storageBucket: "seminar-cloud-1c100.firebasestorage.app",
+            messagingSenderId: "121874296023",
+            appId: "1:121874296023:web:d29beddbfc20c5708e5492",
+            measurementId: "G-2VKGZ7CRRB"
+        };
+        
     const app = initializeApp(config);
     const db = getFirestore(app);
     const storage = getStorage(app);
@@ -86,35 +93,48 @@ export async function loadClasses() {
 /* Class / Event Management */
 /* -------------------------------------------------------------------------- */
 export async function refreshClassesList() {
-  const list = UI.$("#classes-list");
-  if (!list) return;
+    const list = UI.$("#classes-list");
+    if (!list) return;
 
-  list.innerHTML = "<option>Loading...</option>";
+    try {
+        const classData = UI.classData || {};
 
-  try {
-            const classData = UI.classData || {};
+        // 🕵️ 1. Get Archive Status
+        const showArchToggle = UI.$("#show-archived-classes");
+        const showArchived = showArchToggle ? showArchToggle.checked : false;
+
+        // 🕵️ 2. Get the currently selected Academic Year
+        const yearSelect = UI.$("#class-year");
+        const selectedYear = yearSelect ? yearSelect.value : null;
+
+        // 🕵️ 3. NEW: Get the currently selected Term
+        const termSelect = UI.$("#class-term");
+        const selectedTerm = termSelect ? termSelect.value : null;
+
+        list.innerHTML = '<option value="">-- Select a Class to Edit --</option>';
+
+        Object.values(classData).forEach(cls => {
+            // 🛑 FILTER A: Does it pass the archive check?
+            const isArchiveMatch = !cls.archived || showArchived;
             
-            // 🕵️ NEW: Check the status of the toggle box
-            const showArchivedToggle = UI.$("#show-archived-classes");
-            const showArchived = showArchivedToggle ? showArchivedToggle.checked : false;
+            // 🛑 FILTER B: Does it match the selected year? (STRICT)
+            const isYearMatch = !selectedYear || cls.academicYear === selectedYear;
 
-            list.innerHTML = '<option value="">-- Select a Class to Edit --</option>';
+            // 🛑 FILTER C: NEW: Does it match the selected term? (STRICT)
+            const isTermMatch = !selectedTerm || cls.term === selectedTerm;
 
-            Object.values(classData).forEach(cls => {
-                // 🛑 NEW: Show if NOT archived, OR if the toggle is checked
-                if (!cls.archived || showArchived) {
-                    const opt = document.createElement("option");
-                    opt.value = cls.id;
-                    // Put "(Archived)" back in the title ONLY if it is an archived class so you can tell them apart!
-                    opt.textContent = cls.archived ? `${cls.title} (Archived)` : cls.title; 
-                    list.appendChild(opt);
-                }
-            });
-
-  } catch (e) {
-    console.error("Error rendering classes:", e);
-    UI.toast("Failed to load classes.", "error");
-  }
+            // If it passes ALL THREE filters, draw it on the screen!
+            if (isArchiveMatch && isYearMatch && isTermMatch) {
+                const opt = document.createElement("option");
+                opt.value = cls.id;
+                opt.textContent = cls.archived ? `${cls.title} (Archived)` : cls.title;
+                list.appendChild(opt);
+            }
+        });
+    } catch (e) {
+        console.error("Error rendering classes:", e);
+        UI.toast("Failed to load classes.", "error");
+    }
 }
 
 export async function handleSaveClass() {
@@ -1106,8 +1126,3 @@ export async function loadUserProfile() {
 }
 
 // 🕵️ NEW: Wait until Firebase is turned on, then listen for logins!
-export function startProfileListener() {
-    onAuthStateChanged(getAuth(), (user) => {
-        if (user) loadUserProfile();
-    });
-}

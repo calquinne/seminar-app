@@ -165,6 +165,24 @@ if (saveClassBtn) saveClassBtn.onclick = DB.handleSaveClass;
     const showArchToggle = UI.$("#show-archived-classes");
     if (showArchToggle) showArchToggle.onchange = DB.refreshClassesList;
 
+   // 🔄 NEW: Trigger a list refresh and clear the selection when the Academic Year changes!
+    const yearSelect = UI.$("#class-year");
+    if (yearSelect) {
+        yearSelect.addEventListener("change", () => {
+            UI.$("#classes-list").value = ""; // Force them off the current class to prevent accidental overwrites
+            DB.refreshClassesList();          // Rebuild the list for the new year
+        });
+    }
+    
+    // 🔄 NEW: Trigger a list refresh and clear the selection when the Term changes!
+    const termSelect = UI.$("#class-term");
+    if (termSelect) {
+        termSelect.addEventListener("change", () => {
+            UI.$("#classes-list").value = ""; // Force them off the current class to prevent accidental overwrites
+            DB.refreshClassesList();          // Rebuild the list for the new term
+        });
+    }
+
 // Archive Class (non-destructive)
 const archiveClassBtn = UI.$("#archive-class-btn");
 if (archiveClassBtn) archiveClassBtn.onclick = DB.handleArchiveClass;
@@ -512,33 +530,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     return; // ⛔ STOP HERE. Do not Init Firebase.
   }
 
-  // 3. Normal Boot
-  UI.showScreen("loading-screen");
+ // 3. Normal Boot
+        UI.showScreen("loading-screen");
 
-  // Check LocalStorage for config
-  const config = localStorage.getItem(UI.LS.CFG);
-  if (!config) {
-    console.log("ℹ️ No config found. Redirecting to Setup.");
-    UI.showScreen("setup-screen");
-    return;
-  }
+        // Initialize Firebase
+        try {
+            const firebaseReady = await DB.initFirebase();
+            if (!firebaseReady) {
+                throw new Error("Init returned false");
+            }
 
-  // Initialize Firebase
-  try {
-      const firebaseReady = await DB.initFirebase();
-      if (!firebaseReady) {
-        throw new Error("Init returned false");
-      }
-
-     // Start Auth Listener
-        console.log("✅ Firebase Ready. Waiting for Auth...");
-        Auth.onAuthReady();
-        DB.startProfileListener(); // 👤 NEW: Load the custom profile!
-    } catch (e) {
-      
-    console.error("❌ Boot Failed:", e);
-    UI.showScreen("setup-screen");
-  }
+            // Start Auth Listener
+            console.log("✅ Firebase Ready. Waiting for Auth...");
+            Auth.onAuthReady();
+        
+        } catch (e) {
+            
+            console.error("❌ Boot Failed:", e);
+            UI.showScreen("auth-screen");
+        }
 });
 
 // ==========================================
