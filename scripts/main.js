@@ -36,6 +36,16 @@ function setupEventListeners() {
 
   const signoutBtn = UI.$("#signout-btn");
   if (signoutBtn) signoutBtn.onclick = Auth.handleSignOut;
+
+ // ==========================================
+  // NEW: Subscribe Button (Paywall Banner)
+  // ==========================================
+  const subscribeBtn = document.getElementById("subscribe-btn");
+  if (subscribeBtn) {
+      subscribeBtn.addEventListener("click", () => {
+          UI.toast("Subscription portal coming soon!", "info");
+      });
+  }
   
   // 1.5 Upgrade Plan Button (New)
   const upgradeBtn = UI.$("#upgrade-plan-btn");

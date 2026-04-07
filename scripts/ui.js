@@ -114,7 +114,7 @@ export function showScreen(id) {
 /* -------------------------------------------------------------------------- */
 /* Config Getters/Setters
 /* -------------------------------------------------------------------------- */
-export function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud-1c100"; }
+export function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud"; }
 
 /* -------------------------------------------------------------------------- */
 /* UI Updaters
