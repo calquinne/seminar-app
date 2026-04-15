@@ -116,6 +116,15 @@ export function showScreen(id) {
 /* -------------------------------------------------------------------------- */
 export function getAppId() { return localStorage.getItem(LS.APP) || "seminar-cloud"; }
 
+export function formatDuration(seconds) {
+    if (seconds == null || isNaN(seconds)) return "--:--";
+
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
 /* -------------------------------------------------------------------------- */
 /* UI Updaters
 /* -------------------------------------------------------------------------- */

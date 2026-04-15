@@ -590,6 +590,8 @@ export function renderLibraryFiltered() {
     listEl.innerHTML = "";
     
     filtered.forEach((v) => {
+  console.log("[Library] title:", v.participant, "| duration:", v.duration, "| file:", v.originalFilename || v.id);
+
       const card = document.createElement("div");
       card.className = "bg-black/30 border border-white/10 rounded-lg p-4 mb-4 flex flex-col gap-2 animate-fade-in group"; 
       
@@ -646,10 +648,8 @@ export function renderLibraryFiltered() {
       const markerCount = Array.isArray(v.tags) ? v.tags.length : 0;
 
       // ✅ NEW: Format Duration
-const seconds = v.duration || 0;
-const mins = Math.floor(seconds / 60);
-const secs = (seconds % 60).toString().padStart(2, '0');
-const timeStr = seconds > 0 ? `${mins}:${secs}` : "--:--";
+const timeStr = UI.formatDuration(v.duration);
+console.log("[Render card]", v.participant, "| raw duration:", v.duration, "| formatted:", timeStr);
 
 // Update the innerHTML to include timeStr
 meta.innerHTML = `

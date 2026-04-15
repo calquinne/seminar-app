@@ -794,20 +794,51 @@ function getVideoDurationFromFile(file) {
         const video = document.createElement("video");
         const url = URL.createObjectURL(file);
 
+        let settled = false;
+
+        const cleanup = () => {
+            URL.revokeObjectURL(url);
+            video.removeAttribute("src");
+            video.load();
+        };
+
+        const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve(value);
+        };
+
+        const fail = (err) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(err);
+        };
+
         video.preload = "metadata";
+        video.muted = true;
+        video.playsInline = true;
 
         video.onloadedmetadata = () => {
-            const duration = Number.isFinite(video.duration)
-                ? Math.round(video.duration)
-                : 0;
+            if (Number.isFinite(video.duration) && video.duration > 0) {
+                finish(Math.round(video.duration));
+                return;
+            }
 
-            URL.revokeObjectURL(url);
-            resolve(duration);
+            // Fallback for files where duration is not ready yet
+            video.currentTime = 1e101;
+        };
+
+        video.ontimeupdate = () => {
+            if (Number.isFinite(video.duration) && video.duration > 0) {
+                video.ontimeupdate = null;
+                finish(Math.round(video.duration));
+            }
         };
 
         video.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject(new Error("Could not read video metadata."));
+            fail(new Error("Could not read video metadata."));
         };
 
         video.src = url;
@@ -1244,7 +1275,13 @@ export async function handleMetadataSubmit(e) {
   tags: currentTags,
 
   fileSize: UI.currentRecordingBlob.size,
-  duration: importedVideoDuration || UI.secondsElapsed || 0,
+  duration: (
+  metadata?.duration ||
+  importedVideoDuration ||
+  UI.importedVideoDuration ||
+  UI.secondsElapsed ||
+  0
+),
 
   recordedAt: new Date().toISOString(),
 
@@ -1301,6 +1338,7 @@ UI.toast("Saved!", "success");
 
 // ✅ Reset imported duration so next video is clean
 importedVideoDuration = 0;
+UI.importedVideoDuration = 0;
 
     if (storage !== "local") {
       stopPreview();
