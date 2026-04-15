@@ -13,7 +13,7 @@ import * as Analytics from "./analytics.js";
 // DEV MODE flag from URL: ?dev=1
 window.__DEV_ANALYTICS__ = new URLSearchParams(window.location.search).get("dev") === "1";
 
-console.log("DEV FLAG =", window.__DEV_ANALYTICS__, window.location.href);
+
 
 /** Global app version (used for cache-busting and SW sync) */
 export const APP_VERSION = "v14";
@@ -22,7 +22,7 @@ export const APP_VERSION = "v14";
 /* Event Listeners Setup
 /* -------------------------------------------------------------------------- */
 function setupEventListeners() {
-  console.log("Setting up event listeners...");
+  
 
   // 1. Header Navigation
   const helpBtn = UI.$("#nav-help");
@@ -547,7 +547,7 @@ if (uploadLocalBtn && videoUploadInput) {
 /* APPLICATION BOOTSTRAP — SINGLE ENTRY POINT
 /* -------------------------------------------------------------------------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  console.log("🚀 DOM Loaded. Starting App...");
+  
 
   // 1. Wire UI (Synchronous)
   setupEventListeners();

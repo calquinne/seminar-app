@@ -1453,7 +1453,7 @@ window.generateScorecardPDF = async function(videoId) {
     if (!rubric) return alert("Error: Rubric data missing.");
 
     // Remove Debug Log in production
-    // console.log("DEBUG RUBRIC DATA:", JSON.stringify(rubric, null, 2)); 
+    
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();

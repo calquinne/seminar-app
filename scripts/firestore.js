@@ -590,7 +590,7 @@ export function renderLibraryFiltered() {
     listEl.innerHTML = "";
     
     filtered.forEach((v) => {
-  console.log("[Library] title:", v.participant, "| duration:", v.duration, "| file:", v.originalFilename || v.id);
+ 
 
       const card = document.createElement("div");
       card.className = "bg-black/30 border border-white/10 rounded-lg p-4 mb-4 flex flex-col gap-2 animate-fade-in group"; 
@@ -649,7 +649,7 @@ export function renderLibraryFiltered() {
 
       // ✅ NEW: Format Duration
 const timeStr = UI.formatDuration(v.duration);
-console.log("[Render card]", v.participant, "| raw duration:", v.duration, "| formatted:", timeStr);
+
 
 // Update the innerHTML to include timeStr
 meta.innerHTML = `
@@ -940,7 +940,7 @@ export async function deleteVideo(videoId) {
             try {
                 const fileRef = ref(UI.storage, video.storagePath);
                 await deleteObject(fileRef);
-                console.log("File deleted from cloud.");
+                
             } catch (err) {
                 console.warn("File delete error (might already be gone):", err);
             }
@@ -1015,7 +1015,7 @@ export async function updateVideo(videoId, data) {
 
         if (writes.length > 0) {
             await Promise.all(writes);
-            console.log(`✅ Synced → ${writes.length} members`);
+            
             UI.toast(`Score synced to ${writes.length} group members`, "info");
         }
 

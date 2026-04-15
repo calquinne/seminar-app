@@ -1275,13 +1275,7 @@ export async function handleMetadataSubmit(e) {
   tags: currentTags,
 
   fileSize: UI.currentRecordingBlob.size,
-  duration: (
-  metadata?.duration ||
-  importedVideoDuration ||
-  UI.importedVideoDuration ||
-  UI.secondsElapsed ||
-  0
-),
+  duration: importedVideoDuration || UI.secondsElapsed || 0,
 
   recordedAt: new Date().toISOString(),
 
@@ -1338,7 +1332,7 @@ UI.toast("Saved!", "success");
 
 // ✅ Reset imported duration so next video is clean
 importedVideoDuration = 0;
-UI.importedVideoDuration = 0;
+
 
     if (storage !== "local") {
       stopPreview();
