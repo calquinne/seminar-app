@@ -696,6 +696,15 @@ select option[disabled] {
      </div>
     </button>
 
+    <!-- Hidden file picker -->
+<input type="file" id="video-upload-input" accept="video/*" class="hidden">
+
+<!-- Visible button -->
+<button id="upload-local-video-btn"
+        class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">
+    Upload Video (USB / File)
+</button>
+
     <!-- PAUSE -->
     <button id="pause-rec-btn"
       class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white disabled:opacity-50"
@@ -710,8 +719,7 @@ select option[disabled] {
         Add a timeline marker at the current moment
     </div>
     </button>
-
-
+    
     <!-- SWITCH CAMERA -->
     <button id="toggle-camera-btn"
       class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white">

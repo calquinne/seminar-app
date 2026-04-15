@@ -391,6 +391,43 @@ if (deleteClassBtn) {
 
   const discardBtn = UI.$("#discard-rec-btn");
   if (discardBtn) discardBtn.onclick = Record.discardRecording;
+
+ // ==========================================
+// Local Video Upload Logic
+// ==========================================
+const uploadLocalBtn = document.getElementById("upload-local-video-btn");
+const videoUploadInput = document.getElementById("video-upload-input");
+
+if (uploadLocalBtn && videoUploadInput) {
+
+    // Click button → open file picker
+    uploadLocalBtn.addEventListener("click", () => {
+        videoUploadInput.click();
+    });
+
+    // File selected
+    videoUploadInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const looksLikeVideo =
+            (file.type && file.type.startsWith("video/")) ||
+            /\.(mp4|webm|mov|m4v)$/i.test(file.name || "");
+
+        if (!looksLikeVideo) {
+            UI.toast("Please select a valid video file.", "error");
+            return;
+        }
+
+        console.log("[Upload] File selected:", file.name);
+
+        // send to record.js
+        Record.handleLocalUpload(file);
+
+        // reset input
+        videoUploadInput.value = "";
+    });
+}
   
   const toggleCamBtn = UI.$("#toggle-camera-btn");
   if (toggleCamBtn) toggleCamBtn.onclick = Record.toggleCamera;

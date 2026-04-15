@@ -16,6 +16,7 @@ import * as Rubrics from "./rubrics.js";
 
 // ✅ LOCAL STATE
 let currentTags = [];
+let importedVideoDuration = 0;
 let liveScores = [];                  // Timeline scoring
 const latestRowScores = new Map();    // rowId → score
 let currentLibraryVideoId = null;     // Editing context
@@ -676,34 +677,39 @@ export async function discardRecording() {
     const timerDisplay = UI.$("#rec-timer");
     if (timerDisplay) timerDisplay.textContent = "00:00";
 
-  if (UI.mediaRecorder?.state !== "inactive") {
-      if (!await UI.showConfirm("Discard?", "Confirm", "Discard")) return;
-      UI.mediaRecorder.onstop = null;
-      UI.mediaRecorder.stop();
-  }
-  stopPreview();
-  UI.setRecordedChunks([]);
-  UI.setCurrentRecordingBlob(null);
-  UI.updateRecordingUI("idle");
-  UI.$("#rec-timer").textContent = "00:00";
+    if (UI.mediaRecorder && UI.mediaRecorder.state !== "inactive") {
+        if (!await UI.showConfirm("Discard?", "Confirm", "Discard")) return;
+        UI.mediaRecorder.onstop = null;
+        UI.mediaRecorder.stop();
+    }
 
-  // ✅ SURGICAL FIX: Unlock the CORRECT button ID
-    const previewBtn = UI.$("#manual-preview-btn"); 
+    stopPreview();
+    UI.setRecordedChunks([]);
+   UI.setCurrentRecordingBlob(null);
+
+// ✅ Reset imported duration on discard
+importedVideoDuration = 0;
+
+UI.updateRecordingUI("idle");
+    UI.$("#rec-timer").textContent = "00:00";
+
+    // ✅ SURGICAL FIX: Unlock the CORRECT button ID
+    const previewBtn = UI.$("#manual-preview-btn");
     if (previewBtn) {
         previewBtn.disabled = false;
         previewBtn.classList.remove("opacity-50", "cursor-not-allowed");
         previewBtn.textContent = "Start Preview";
         previewBtn.title = "";
-        previewBtn.classList.add("bg-[#0033A0]"); 
-        
+        previewBtn.classList.add("bg-[#0033A0]");
+
         // 🔒 FIX: Lock the Record button when Preview is stopped/reset!
         const recBtn = UI.$("#start-rec-btn");
         const recTooltip = UI.$("#record-tooltip");
-        
+
         if (recBtn) {
-            recBtn.disabled = true; // HTML instantly dims it to dark red
-            recBtn.title = ""; // Keep native white tooltip dead
-            if (recTooltip) recTooltip.textContent = "Start Preview first"; // Reset custom tooltip
+            recBtn.disabled = true;
+            recBtn.title = "";
+            if (recTooltip) recTooltip.textContent = "Start Preview first";
         }
     }
 }
@@ -711,6 +717,17 @@ export async function discardRecording() {
 export async function toggleCamera() {
   UI.setCurrentFacingMode(UI.currentFacingMode === "user" ? "environment" : "user");
   await startPreviewSafely();
+}
+
+function resetScoringStateForNewVideo() {
+    liveScores = [];
+    latestRowScores.clear();
+
+    document.querySelectorAll('[data-note-row-id]').forEach(el => {
+        el.value = "";
+    });
+
+    renderLiveScoringFromRubric({}, "live");
 }
 
 // ✅ RESET STATE HELPER (Fixes "Ghost Checkboxes" and Stale Data)
@@ -770,6 +787,86 @@ if (addClassBtn && !addClassBtn.dataset.bound) {
   
   UI.$("#meta-file-size").textContent = `${(UI.currentRecordingBlob.size / 1024 / 1024).toFixed(2)} MB`;
   UI.$("#metadata-screen").showModal();
+}
+
+function getVideoDurationFromFile(file) {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement("video");
+        const url = URL.createObjectURL(file);
+
+        video.preload = "metadata";
+
+        video.onloadedmetadata = () => {
+            const duration = Number.isFinite(video.duration)
+                ? Math.round(video.duration)
+                : 0;
+
+            URL.revokeObjectURL(url);
+            resolve(duration);
+        };
+
+        video.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error("Could not read video metadata."));
+        };
+
+        video.src = url;
+    });
+}
+
+// ==========================================
+// LOCAL VIDEO UPLOAD HANDLER
+// ==========================================
+export async function handleLocalUpload(file) {
+    if (!file) return;
+
+    const looksLikeVideo =
+        (file.type && file.type.startsWith("video/")) ||
+        /\.(mp4|webm|mov|m4v)$/i.test(file.name || "");
+
+    if (!looksLikeVideo) {
+        UI.toast("Please select a valid video file.", "error");
+        return;
+    }
+
+    console.log("[Record] Handling local upload:", file.name);
+
+resetScoringStateForNewVideo();
+
+let importedDuration = 0;
+
+try {
+    importedDuration = await getVideoDurationFromFile(file);
+    console.log("[Import] Duration detected:", importedDuration, "seconds");
+} catch (err) {
+    console.warn("[Import] Could not detect duration:", err);
+}
+
+importedVideoDuration = importedDuration;
+
+    
+    // ✅ THIS is the key line (matches your app)
+    UI.setCurrentRecordingBlob(file);
+
+    // Optional preview
+    const previewPlayer = UI.$("#preview-player");
+    const previewScreen = UI.$("#preview-screen");
+
+    try {
+        if (previewPlayer) {
+            previewPlayer.src = URL.createObjectURL(file);
+            previewPlayer.load();
+        }
+
+        if (previewScreen) {
+            previewScreen.classList.remove("hidden");
+        }
+    } catch (err) {
+        console.warn("[Import] Preview failed:", err);
+    }
+
+    // ✅ Reuse your existing flow
+    openMetadataScreen();
 }
 
 // ================================
@@ -1147,7 +1244,7 @@ export async function handleMetadataSubmit(e) {
   tags: currentTags,
 
   fileSize: UI.currentRecordingBlob.size,
-  duration: UI.secondsElapsed,
+  duration: importedVideoDuration || UI.secondsElapsed || 0,
 
   recordedAt: new Date().toISOString(),
 
@@ -1199,8 +1296,11 @@ export async function handleMetadataSubmit(e) {
       await saveRecording(metadata, UI.currentRecordingBlob);
     }
 
-    UI.$("#metadata-screen").close();
-    UI.toast("Saved!", "success");
+   UI.$("#metadata-screen").close();
+UI.toast("Saved!", "success");
+
+// ✅ Reset imported duration so next video is clean
+importedVideoDuration = 0;
 
     if (storage !== "local") {
       stopPreview();
