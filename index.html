@@ -1211,6 +1211,20 @@ select option[disabled] {
                     placeholder="Optional notes..."></textarea>
         </div>
 
+        <div>
+  <label for="metadata-storage-choice" class="block text-sm text-gray-300 mb-1">
+    Save Video To
+  </label>
+  <select id="metadata-storage-choice"
+          class="w-full rounded-lg bg-black/30 border border-white/10 p-2 text-sm text-gray-200 focus:border-primary-500 outline-none">
+    <option value="firebase">Firebase App Storage</option>
+    <option value="local">Local Device / USB</option>
+  </select>
+  <p class="text-xs text-gray-500 mt-1">
+    Choose where this video will be stored.
+  </p>
+</div>
+
       </div>
 
       <div class="p-5 border-t border-white/10 flex justify-between items-center bg-black/20">

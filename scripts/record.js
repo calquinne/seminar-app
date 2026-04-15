@@ -786,6 +786,12 @@ if (addClassBtn && !addClassBtn.dataset.bound) {
   UI.refreshMetadataClassList();
   
   UI.$("#meta-file-size").textContent = `${(UI.currentRecordingBlob.size / 1024 / 1024).toFixed(2)} MB`;
+
+  const storageChoiceEl = UI.$("#metadata-storage-choice");
+if (storageChoiceEl) {
+  storageChoiceEl.value = UI.getStorageChoice() || "firebase";
+}
+
   UI.$("#metadata-screen").showModal();
 }
 
@@ -1311,7 +1317,12 @@ export async function handleMetadataSubmit(e) {
 
   try {
     UI.toast("Saving...", "info");
-    const storage = UI.getStorageChoice();
+    const storage =
+  UI.$("#metadata-storage-choice")?.value ||
+  UI.getStorageChoice() ||
+  "firebase";
+
+UI.setStorageChoice(storage);
 
     if (storage === "local") {
       await exportToLocal(metadata);
