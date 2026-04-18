@@ -22,6 +22,24 @@ const latestRowScores = new Map();    // rowId → score
 let currentLibraryVideoId = null;     // Editing context
 let previewLock = false;              // Camera toggle lock
 
+function setImportButtonEnabled(enabled) {
+    const btn = UI.$("#upload-local-video-btn");
+    const tooltip = UI.$("#import-tooltip");
+    if (!btn) return;
+
+    btn.disabled = !enabled;
+    btn.classList.toggle("opacity-50", !enabled);
+    btn.classList.toggle("cursor-not-allowed", !enabled);
+
+    if (tooltip) {
+        tooltip.textContent = enabled
+            ? "Choose a video file to import"
+            : "Stop preview or recording to import a video";
+    }
+
+    btn.title = "";
+}
+
 // 🔒 TEMP CLASS TRACKER (prevents ghost classes on cancel)
 let pendingNewClassId = null;
 
@@ -540,12 +558,18 @@ export async function startPreviewSafely() {
     if (recordBtn) {
         recordBtn.disabled = false; 
         recordBtn.title = ""; // Keep native white tooltip dead
-        if (recTooltip) recTooltip.textContent = "Start Recording"; // Update pretty tooltip
+        
+    if (recTooltip) {
+    recTooltip.textContent = "";
+    recTooltip.style.display = "none";
+}
     }
     if (previewBtn) {
          previewBtn.textContent = "Stop Preview";
          previewBtn.classList.add("bg-[#0033A0]");
     }
+
+    setImportButtonEnabled(false);
 
     } catch(e) {
       console.error(e);
@@ -569,7 +593,10 @@ export function stopPreview() {
     if (recordBtn) {
         recordBtn.disabled = true; 
         recordBtn.title = ""; // Keep native white tooltip dead
-        if (recTooltip) recTooltip.textContent = "Start Preview first"; // Update pretty tooltip!
+       if (recTooltip) {
+    recTooltip.textContent = "Start Preview first";
+    recTooltip.style.display = "";
+}
     }
     
     if (previewBtn) {
@@ -579,6 +606,7 @@ export function stopPreview() {
         previewBtn.title = ""; 
         previewBtn.classList.add("bg-[#0033A0]");
     }
+    setImportButtonEnabled(true);
 }
 
 export async function startRecording() {
@@ -591,6 +619,8 @@ export async function startRecording() {
         previewBtn.classList.add("opacity-50", "cursor-not-allowed");
         previewBtn.title = "Stop recording first";
     }
+
+    setImportButtonEnabled(false);
 
   // ✅ Reset Score State
   liveScores = [];
@@ -709,7 +739,7 @@ UI.updateRecordingUI("idle");
         if (recBtn) {
             recBtn.disabled = true;
             recBtn.title = "";
-            if (recTooltip) recTooltip.textContent = "Start Preview first";
+            
         }
     }
 }
@@ -766,8 +796,7 @@ function resetMetadataForm() {
       groupNameInput.required = false;
   }
 }
-
-function openMetadataScreen() {
+async function openMetadataScreen() {
   if (!UI.currentRecordingBlob) return;
   
   resetMetadataForm(); // ✅ Calls the rigorous reset above
@@ -790,6 +819,39 @@ if (addClassBtn && !addClassBtn.dataset.bound) {
   const storageChoiceEl = UI.$("#metadata-storage-choice");
 if (storageChoiceEl) {
   storageChoiceEl.value = UI.getStorageChoice() || "firebase";
+}
+
+await Rubrics.loadSavedRubrics();
+
+const rubricSelect = UI.$("#metadata-rubric-select");
+if (rubricSelect) {
+  const activeRubric = Rubrics.getActiveRubric();
+  const allRubrics = Rubrics.getAllRubrics?.() || [];
+
+ 
+  rubricSelect.innerHTML = "";
+
+  const defaultOpt = document.createElement("option");
+  defaultOpt.value = "";
+  defaultOpt.disabled = true;
+defaultOpt.selected = true;
+
+  if (activeRubric) {
+    defaultOpt.textContent = `Active: ${activeRubric.title}`;
+  } else {
+    defaultOpt.textContent = "⚠ Select a rubric for this video";
+  }
+
+  rubricSelect.appendChild(defaultOpt);
+
+  allRubrics.forEach(rubric => {
+    const opt = document.createElement("option");
+    opt.value = rubric.id;
+    opt.textContent = rubric.title;
+    rubricSelect.appendChild(opt);
+  });
+
+  rubricSelect.value = "";
 }
 
   UI.$("#metadata-screen").showModal();
@@ -1244,7 +1306,17 @@ export async function handleMetadataSubmit(e) {
   /* 3. BUILD METADATA                                                      */
   /* ---------------------------------------------------------------------- */
   const classEl = UI.$("#meta-class");
-  const rubric = Rubrics.getActiveRubric();
+  const rubricSelect = UI.$("#metadata-rubric-select");
+const selectedRubricId = rubricSelect?.value;
+
+let rubric = null;
+
+if (selectedRubricId) {
+  const allRubrics = Rubrics.getAllRubrics?.() || [];
+  rubric = allRubrics.find(r => r.id === selectedRubricId) || null;
+} else {
+  rubric = Rubrics.getActiveRubric();
+}
 
   const finalScores = {};
   let totalScore = 0;

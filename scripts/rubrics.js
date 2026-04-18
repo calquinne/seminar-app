@@ -29,6 +29,7 @@ let currentRowCount = 0;
 let activeRubric = null;           // { id, ...data }
 let editingRubricId = null;        // existing rubric doc id if editing
 let editingRubricLocked = false;   // structure lock state for the rubric currently in builder
+let savedRubricsCache = [];
 
 /* ========================================================================== */
 /* HELPERS
@@ -450,9 +451,12 @@ export async function loadSavedRubrics() {
     }
 
     list.innerHTML = "";
+    savedRubricsCache = [];
 
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
+      savedRubricsCache.push({ id: docSnap.id, ...data });
+
       const isActive = activeRubric?.id === docSnap.id;
       const isEditing = editingRubricId === docSnap.id;
 
@@ -656,8 +660,12 @@ export function setActiveRubric(id, data) {
     .forEach((el) => (el.textContent = data.title || "Untitled"));
 }
 
-export function getActiveRubric() {
+export function getActiveRubric() {  
   return activeRubric;
+}
+
+export function getAllRubrics() {
+  return Array.isArray(savedRubricsCache) ? savedRubricsCache : [];
 }
 
 /* ========================================================================== */

@@ -340,7 +340,7 @@ export function handleTabClick(e, refreshClassesList, refreshMyRubrics, startPre
         if (recBtn) {
             recBtn.disabled = true; // HTML instantly dims it to dark red
             recBtn.title = ""; // Keep native white tooltip dead
-            if (recTooltip) recTooltip.textContent = "Start Preview first"; // Reset custom tooltip
+             // Reset custom tooltip
         }
     }
   }
